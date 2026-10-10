@@ -1,0 +1,23 @@
+# Ambiente virtual e cache do Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Segredos (ROBOFLOW_API_KEY etc.)
+.env
+
+# Pesos de modelos (baixados/treinados à parte, não versionar)
+models/*.pt
+models/*.onnx
+
+# Saídas de treino do Ultralytics
+runs/
+
+# Imagens/vídeos de campo e resultados (podem conter pessoas reais)
+testes_campo/
+
+# Editor / sistema
+.vscode/
+Thumbs.db
