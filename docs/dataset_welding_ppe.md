@@ -24,10 +24,15 @@
 
 | Item | Valor |
 |---|---|
-| Workspace do fork | `__________` |
-| Versão gerada | `v__` |
-| Imagens treino / validação / teste | `____ / ____ / ____` |
+| Workspace do fork | `__________` (copiar do código de download, ver seção 6) |
+| Projeto no fork | Welding-PPE (slug: `__________`) |
+| Versão gerada | `v1` – 10/10/2026 14:27 |
+| Pré-processamento | só Auto-Orient (sem Resize, sem Isolate Objects) |
+| Augmentation | Exposure ±25%, Blur até 2,5 px, 2× (só treino) |
+| Imagens treino / validação / teste | **1122** (561 originais × 2) / **160** / **80** = 70/20/10 das 801 originais |
 | Instâncias por classe | ver `balanceamento_classes.csv` gerado pelo notebook |
+
+> Observação: grande parte das imagens são **fotos de produto** (um único EPI sobre fundo neutro). Isso faz parte do dataset original, não é efeito de recorte, e reforça a necessidade do fine-tuning com fotos reais (RF33).
 
 ## 2. Problema encontrado: todas as versões públicas usam "Isolate Objects"
 
