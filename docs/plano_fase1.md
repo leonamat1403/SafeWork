@@ -201,7 +201,7 @@ Ordem de decisão:
    - caso contrário → NÃO CONFORME.
 
 **Detalhe importante do remapeamento:** no modelo treinado, avental e macacão viram uma única classe `protecao_corpo`. Com isso, `aceitar_macacao=false` **não teria como funcionar**, porque o modelo não saberia distinguir os dois.
-**Decisão:** o notebook mantém **duas classes** no modelo (`avental` e `macacao`), e a lógica as junta em "proteção do corpo" respeitando `aceitar_avental`/`aceitar_macacao`. Assim o modelo fica com 6 classes: `mascara, luvas, avental, macacao, calcado, capacete` (ou 5, se `helmet` virar `mascara`). Isso atende ao RF09 e ao teste do RNF06 ("aceitar_macacao=false + só macacão → NÃO CONFORME").
+**Decisão:** o notebook mantém **duas classes** no modelo (`avental` e `macacao`), e a lógica as junta em "proteção do corpo" respeitando `aceitar_avental`/`aceitar_macacao`. Assim o modelo fica com 5 classes: `mascara, luvas, avental, macacao, calcado`. A Etapa 1.2 confirmou que `helmet` é máscara de solda, então não há classe `capacete` (ver `docs/dataset_welding_ppe.md`). Isso atende ao RF09 e ao teste do RNF06 ("aceitar_macacao=false + só macacão → NÃO CONFORME").
 
 ### 5.4 Calçado de segurança (RF10)
 Mesma lógica das luvas (regra "ambas"), usando tornozelos e `dist_max_tornozelo`:
@@ -330,7 +330,7 @@ mapeamento_classes:            # camada de segurança para modelos com nomes ori
   "Welding Coverall": macacao
   "Safety Shoes": calcado
   "welding-shose": calcado
-  "helmet": capacete           # confirmar na Etapa 1.2
+  "helmet": mascara            # verificado na Etapa 1.2: são máscaras/capacetes de SOLDA
 ```
 
 Diferenças em relação ao exemplo do prompt (todas justificadas acima):
