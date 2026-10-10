@@ -26,13 +26,25 @@
 |---|---|
 | Workspace do fork | `__________` (copiar do código de download, ver seção 6) |
 | Projeto no fork | Welding-PPE (slug: `__________`) |
-| Versão gerada | `v1` – 10/10/2026 14:27 |
-| Pré-processamento | só Auto-Orient (sem Resize, sem Isolate Objects) |
-| Augmentation | Exposure ±25%, Blur até 2,5 px, 2× (só treino) |
-| Imagens treino / validação / teste | **1122** (561 originais × 2) / **160** / **80** = 70/20/10 das 801 originais |
+| Versão v1 (descartada) | 10/10/2026 14:27 – Auto-Orient; Exposure ±25% + Blur 2,5 px, 2×; split 561/160/80. **Descartada pela divisão desbalanceada (item 2b)** |
+| Versão v2 (usada) | `v2` – Auto-Orient apenas, **sem augmentation**, com as imagens clonadas do "Welding Helmet" (item 2c) |
+| Imagens clonadas do "Welding Helmet" | `____` |
+| Divisão final (feita no notebook, seção 6b) | treino `____` / validação `____` / teste `____` imagens originais |
 | Instâncias por classe | ver `balanceamento_classes.csv` gerado pelo notebook |
 
 > Observação: grande parte das imagens são **fotos de produto** (um único EPI sobre fundo neutro). Isso faz parte do dataset original, não é efeito de recorte, e reforça a necessidade do fine-tuning com fotos reais (RF33).
+
+### Instâncias por classe na v1 (só Welding-PPE, após o remapeamento)
+
+As contagens do treino foram divididas por 2 para descontar as cópias da augmentation.
+
+| Classe | Treino | Validação | Teste | Total (originais) | Área média da caixa |
+|---|---|---|---|---|---|
+| luvas | 435 | 37 | 46 | **518** | 25% da imagem |
+| calcado | 171 | 98 | 63 | **332** | 29% |
+| avental | 232 | 55 | 13 | **300** | 24% |
+| mascara | 16 | 25 | 2 | **43** | 17% |
+| macacao | 1 | 29 | 2 | **32** | 50% |
 
 ## 2. Problema encontrado: todas as versões públicas usam "Isolate Objects"
 
@@ -45,6 +57,29 @@ Por isso a v3 tem 2413 imagens geradas a partir das 801 originais. Para o nosso 
 4. **O modelo de referência do Roboflow (`welding-ppe/3`) foi treinado nesses recortes.** Por isso ele não serve como comparação justa, além de só rodar em nuvem. **Decisão:** não usaremos esse modelo como referência e registraremos isso como limitação.
 
 **Solução:** fazer um *fork* (cópia gratuita para a sua conta) e gerar uma versão nova a partir das 801 imagens **originais**. O notebook verifica isso automaticamente e para com um erro se receber uma versão de recortes.
+
+## 2b. Problema encontrado: a divisão do Roboflow ficou desbalanceada por classe
+
+Na v1, o *Rebalance* acertou o total de imagens (70/20/10), mas não por classe:
+- **macacão:** 29 das 32 caixas ficaram na validação e **só 1 no treino**, então o modelo não teria como aprender a classe;
+- **máscara:** só 16 caixas no treino e **2 no teste**. Um mAP calculado com 2 exemplos não tem valor estatístico.
+
+**Solução:** a divisão passou a ser feita **no notebook** (seção 6b), por *estratificação iterativa*. As imagens com as classes mais raras são distribuídas primeiro, para que **cada classe** fique perto de 70/20/10, sempre com a mesma semente. Por isso a versão do Roboflow agora é gerada **sem augmentation**: se ela viesse com cópias aumentadas, uma cópia poderia cair no treino e outra no teste (vazamento). O blur e a exposição passaram a ser aplicados no notebook, só no treino.
+
+## 2c. Problema encontrado: poucas máscaras de solda
+
+Mesmo com a divisão corrigida, **43 caixas de máscara** é muito pouco para a classe mais importante do sistema, que tem mínimo de 0,60 de mAP@0.5. **Solução:** clonar imagens do dataset **"Welding Helmet"** (*UTP*, CC BY 4.0, 1098 imagens, classe única `Helmet` = máscara de solda) para dentro do fork. O notebook já mapeia `Helmet` para `mascara`.
+
+| Item | Valor |
+|---|---|
+| URL | https://universe.roboflow.com/utp-jtbn5/welding-helmet |
+| Licença | CC BY 4.0 |
+| Imagens | 1098 (a versão publicada tem rotações de 90°, por isso clonamos as imagens originais e não baixamos a versão) |
+| Conteúdo | maioria de fotos de produto (máscara sozinha), com algumas fotos de uso real |
+
+Clonamos **~300 imagens** e não as 1098, para a máscara não dominar o dataset com fotos de produto. Uma consequência a registrar no relatório: o mAP de `mascara` no teste vai refletir em boa parte fotos de produto, que são mais fáceis que a cena real. O teste de campo (Etapa 1.5) é que mede o desempenho de verdade.
+
+**Macacão continua pequeno (32 caixas).** No sistema, ele conta junto com o avental como "proteção do corpo", e a meta é avaliada para a combinação dos dois. A opção `aceitar_macacao=false` fica funcional, mas com baixa confiabilidade até o fine-tuning (RF33). Isso fica registrado como **limitação**.
 
 ## 3. Verificação da classe `helmet`
 
@@ -76,16 +111,17 @@ O remapeamento é feito **no notebook**, o que deixa o processo documentado e re
 
 1. Crie uma conta gratuita em https://app.roboflow.com (pode entrar com a conta Google).
 2. Abra https://universe.roboflow.com/welding-ppe/welding-ppe e clique em **Fork Dataset**. Escolha o seu workspace e aguarde a cópia das 801 imagens.
-3. No projeto copiado, abra **Versions → Generate New Version** (ou *Generate*) e configure:
-   - **Train/Test Split:** clique em *Rebalance* e use **70% / 20% / 10%** (treino / validação / teste);
+3. **Clone ~300 imagens de máscaras de solda** (item 2c), já logado no Roboflow:
+   - abra https://universe.roboflow.com/utp-jtbn5/welding-helmet → aba **Images**;
+   - marque a caixa **"Select all"** (seleciona a página inteira) e repita nas próximas páginas até ~300 imagens;
+   - clique em **Clone Images** → escolha o seu workspace e o projeto **Welding-PPE** → confirme. As anotações vêm junto, com a classe `Helmet`.
+4. No projeto copiado, abra **Versions → Create New Version** e configure:
+   - **Train/Test Split:** pode deixar como estiver, porque o notebook refaz a divisão;
    - **Preprocessing:** mantenha só **Auto-Orient**. **Remova "Resize"** e **não** adicione "Isolate Objects";
-   - **Augmentations:** *Add Augmentation Step* →
-     - **Exposure:** −25% a +25%;
-     - **Blur:** até 2,5 px;
-     - *Maximum version size:* **2×**. Isso só afeta o split de treino;
-   - clique em **Generate**.
-4. Anote o **nome do workspace** (aparece na URL `app.roboflow.com/<workspace>/...`) e o **número da versão**.
-5. Copie a chave da API em **Settings → API Keys → Private API Key**. Não envie a chave para mim nem a coloque em arquivos do projeto.
+   - **Augmentations:** **nenhuma**. Se aparecer alguma, remova; o notebook aplica blur e exposição só no treino;
+   - clique em **Create** / **Generate**.
+5. Anote o **nome do workspace** e o do **projeto** (aparecem no código de download, ver seção 6) e o **número da versão** (v2).
+6. Copie a chave da API em **Settings → API Keys → Private API Key**. Não envie a chave para mim nem a coloque em arquivos do projeto.
 
 > Se o plano gratuito pedir para o projeto ser público, tudo bem: é um fork de um dataset que já é público (CC BY 4.0).
 
@@ -107,6 +143,24 @@ O remapeamento é feito **no notebook**, o que deixa o processo documentado e re
 > Este projeto utiliza o dataset "Welding-PPE" (Welding PPE, Roboflow Universe, 2023), disponível em
 > https://universe.roboflow.com/welding-ppe/welding-ppe sob licença CC BY 4.0. As classes foram
 > remapeadas (9 → 5) e uma nova versão foi gerada sem o pré-processamento "Isolate Objects".
+> Foram acrescentadas imagens do dataset "Welding Helmet" (UTP, Roboflow Universe, 2025), disponível em
+> https://universe.roboflow.com/utp-jtbn5/welding-helmet sob licença CC BY 4.0, com a classe `Helmet`
+> mapeada para `mascara`.
+
+```bibtex
+@misc{ welding-helmet_dataset,
+  title = { Welding Helmet Dataset },
+  type = { Open Source Dataset },
+  author = { UTP },
+  howpublished = { \url{ https://universe.roboflow.com/utp-jtbn5/welding-helmet } },
+  url = { https://universe.roboflow.com/utp-jtbn5/welding-helmet },
+  journal = { Roboflow Universe },
+  publisher = { Roboflow },
+  year = { 2025 },
+  month = { apr },
+  note = { visited on 2026-10-10 },
+}
+```
 
 ```bibtex
 @misc{ welding-ppe_dataset,
