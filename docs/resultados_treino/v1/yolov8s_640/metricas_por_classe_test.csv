@@ -1,0 +1,8 @@
+classe,instancias,precisao,recall,mAP50,mAP50_95,situacao
+mascara,2.0,0.797,0.5,0.495,0.446,ABAIXO DO MÍNIMO
+luvas,46.0,0.993,0.978,0.975,0.892,META BOA
+avental,13.0,1.0,0.843,0.905,0.681,
+macacao,2.0,1.0,0.0,0.0,0.0,
+calcado,63.0,0.994,1.0,0.995,0.954,META BOA
+protecao_corpo*,15.0,1.0,0.731,0.784,0.59,META BOA
+TODAS (média),141.0,0.957,0.664,0.674,0.595,

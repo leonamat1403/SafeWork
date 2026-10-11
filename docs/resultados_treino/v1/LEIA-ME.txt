@@ -1,0 +1,4 @@
+Modelo escolhido: yolov8n_960
+Classes: ['mascara', 'luvas', 'avental', 'macacao', 'calcado']
+Split avaliado: test
+Dataset: Welding-PPE (Roboflow Universe, CC BY 4.0), fork leonardo-matte/welding-ppe-9n9br v1

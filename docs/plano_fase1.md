@@ -7,6 +7,25 @@
 
 ---
 
+## 0. Decisão de escopo (11/10/2026) – foco na máscara de solda
+
+Por orientação do orientador do projeto, a Fase 1 passa a validar **um único EPI: a máscara de solda**
+(também chamada de capacete de solda: o protetor facial com visor escuro).
+
+**Motivos:**
+- é o EPI mais crítico da soldagem (protege olhos e rosto da radiação UV/IV do arco, de respingos e do calor);
+- é o mais visível na câmera: um objeto grande na cabeça. Luvas e calçados são pequenos e ficam ocultos pela bancada;
+- existem dados suficientes: Welding-PPE + "Welding Helmet" (UTP, CC BY 4.0, ~1100 imagens), contra apenas 43 caixas de máscara no Welding-PPE;
+- o 1º treino (v1, 5 classes) mostrou métricas infladas para luvas/calçado (fotos de produto) e inconclusivas para a máscara (ver `docs/resultados_treino/README.md`).
+
+**O que muda neste plano:**
+- o modelo de EPI é treinado com **uma classe** (`mascara`). As imagens sem máscara entram como negativos;
+- as regras dos itens 5.1 (máscara) e 5.6 (cor da caixa), o filtro do arco (6) e as ocorrências (7) continuam valendo;
+- as regras de luvas (5.2), proteção do corpo (5.3), calçado (5.4) e capacete (5.5) ficam **documentadas como trabalho futuro**. A estrutura do código continua preparada para elas, mas na Fase 1 elas ficam desativadas no `config.yaml` e não serão implementadas nem testadas;
+- as METAS DE VALIDAÇÃO da Fase 1 passam a ser só as da máscara (mAP@0.5 ≥ 0,60; meta boa 0,75) e as métricas práticas de campo.
+
+---
+
 ## 1. Visão geral do fluxo
 
 ```

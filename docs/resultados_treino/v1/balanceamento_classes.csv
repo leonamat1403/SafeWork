@@ -1,0 +1,7 @@
+classe,test,train,val,imagens_com_a_classe,area_media_%_da_imagem,total_instancias
+luvas,46,870,37,481,25.16,953
+avental,13,464,55,451,23.77,532
+calcado,63,342,98,384,28.96,503
+mascara,2,32,25,59,17.37,59
+macacao,2,2,29,33,49.67,33
+(sem objetos),0,0,1,1,,1
