@@ -376,6 +376,7 @@ Diferenças em relação ao exemplo do prompt (todas justificadas acima):
 | D11 | Versões **fixadas** no `requirements.txt` (RNF07): ultralytics, opencv-python, PyYAML, pytest. As versões exatas serão conferidas no PyPI na Etapa 1.3 | Reprodutibilidade |
 | D12 | O `run.py` mede o FPS (média móvel) e imprime um resumo; a opção `--benchmark` roda um vídeo sem janela e reporta o FPS a 640 e a 960 | RNF01 / RF16: medir em vez de estimar |
 | D13 | `--salvar-saida` grava só em `testes_campo/` (fora do git) | Privacidade das gravações de campo |
+| D14 | **YOLO26n** treinado como experimento extra, ao lado do YOLOv8n/s exigido (decisão de 11/10/2026) | Segundo a Ultralytics, é mais rápido em CPU. A escolha final usa o mAP do teste e o FPS medido no notebook do projeto; o mesmo vale para `yolov8n-pose` x `yolo26n-pose` |
 
 ### CLI prevista (`src/run.py`)
 ```

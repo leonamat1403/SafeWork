@@ -85,10 +85,11 @@ Para treinar outros EPIs no futuro, basta acrescentar o nome em `CLASSES_MODELO`
 ### 6.1 Fork do Welding Helmet (Roboflow)
 1. Abra https://universe.roboflow.com/utp-jtbn5/welding-helmet (logado na sua conta) e clique em **Fork Dataset**. Escolha o seu workspace e aguarde a cópia das 1098 imagens.
 2. No projeto copiado, abra **Versions → Create New Version**:
-   - **Train/Test Split:** deixe como estiver, porque o notebook refaz a divisão;
-   - **Preprocessing:** só **Auto-Orient**. Remova *Resize* se aparecer;
-   - **Augmentations:** **nenhuma**;
-   - clique em **Create**.
+   - **Source Images:** confira 1.098 imagens e 1 classe (2 imagens sem anotação viram negativos) → **Continue**;
+   - **Train/Test Split:** deixe como estiver (80/10/10), sem *Rebalance*, porque o notebook refaz a divisão → **Continue**;
+   - **Preprocessing:** clique em **Edit**, mantenha só **Auto-Orient** e remova **Resize** (lixeira/✕) → **Continue**;
+   - **Augmentation:** **nenhuma**. Se houver alguma, remova → **Continue**;
+   - **Create:** clique em **Create**.
 3. Clique em **Download Dataset → YOLOv8 → Show download code** e anote o texto de `project("...")` e o número de `version(...)`. **Não copie a `api_key`.**
 
 ### 6.2 Colab
