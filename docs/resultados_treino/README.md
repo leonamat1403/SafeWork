@@ -6,7 +6,43 @@ Os pesos (`.pt`) não ficam aqui: o modelo escolhido vai para `models/`, que est
 | Pasta | Data | Classes | Dados | Situação |
 |---|---|---|---|---|
 | `v1/` | 10–11/10/2026 | 5 (mascara, luvas, avental, macacao, calcado) | Welding-PPE (fork v1), divisão do Roboflow | **Descartado** como resultado final; serve de comparação "antes" |
-| `v2/` | (a preencher) | 1 (`mascara`) | Welding-PPE + Welding Helmet, divisão estratificada no notebook | Rodada atual |
+| `v2/` | 11–12/10/2026 | 1 (`mascara`) | Welding-PPE + Welding Helmet, divisão estratificada no notebook | **Atual**: modelo escolhido `yolo26n_640` |
+
+## v2 – resultado (máscara de solda)
+
+**Dados:** 1.448 imagens originais (treino 1.013 / validação 290 / teste 145); 1.072 caixas de máscara
+(36 do Welding-PPE e 1.036 do Welding Helmet) e 434 imagens negativas. A caixa da máscara ocupa, em média, 28% da imagem.
+Treino feito no Colab (YOLOv8n/s) e concluído no Kaggle (YOLOv8s_960 retomado + YOLO26n).
+
+**Conjunto de teste (107 máscaras):**
+
+| Experimento | Precisão | Recall | mAP@0.5 | mAP@0.5:0.95 | Épocas |
+|---|---|---|---|---|---|
+| yolov8n_640 | 0,955 | 0,841 | 0,910 | 0,643 | 100 |
+| yolov8n_960 | 0,930 | 0,832 | 0,908 | 0,586 | 100 |
+| yolov8s_640 | 0,953 | 0,832 | **0,936** | 0,670 | 100 |
+| yolov8s_960 | 0,903 | 0,860 | 0,910 | 0,605 | 47 (parada antecipada) |
+| **yolo26n_640** (escolhido) | **0,959** | **0,877** | 0,913 | **0,673** | 100 |
+| yolo26n_960 | 0,926 | 0,825 | 0,913 | 0,595 | 59 (parada antecipada) |
+
+**Meta da Fase 1 (mAP@0.5 ≥ 0,60; meta boa ≥ 0,75):** todos os experimentos atingem a **meta boa**.
+
+**Por que o `yolo26n_640`:** é um dos dois modelos mais leves (próprios para CPU), com o maior recall e o maior
+mAP@0.5:0.95 de todos. O `yolov8s_640` tem mAP@0.5 um pouco maior (0,936), mas custa ~3× mais processamento.
+Velocidade medida em CPU (AMD Ryzen 5 5600, só o modelo de máscara, imagem 1280×720): **~37 FPS em 640** e **~22 FPS em 960**.
+O FPS do sistema completo (máscara + pose) será medido na Etapa 1.3.
+
+**Imgsz 960 não ajudou:** as máscaras são objetos grandes nestas imagens (28% da imagem), e 640 já basta. Em câmera
+distante (máscara pequena) isso pode mudar; ver testes de campo.
+
+**Limitações (para o relatório):**
+- **O teste é quase todo do Welding Helmet** (104 de 107 máscaras), que é formado principalmente por fotos de produto.
+  O Welding-PPE (cenas reais) tem só **3 máscaras no teste**, e o "0,995" dessa fonte não tem valor estatístico.
+- Portanto, **mAP 0,91 é o desempenho em fotos parecidas com as do treino**, não no posto de solda. A validação de
+  verdade são os testes de campo (Etapa 1.5), de preferência com um conjunto próprio de fotos/vídeos (máscara abaixada,
+  levantada e sem máscara).
+- Recall de 0,88: cerca de 1 em cada 8 máscaras do teste não foi detectada. No sistema, isso é amortecido pela
+  persistência (N frames seguidos antes de gerar ocorrência) e pela regra "rosto não visível → INDETERMINADO".
 
 ## v1 – por que foi descartado
 

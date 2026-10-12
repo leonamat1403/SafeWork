@@ -1,0 +1,2 @@
+classe,instancias,precisao,recall,mAP50,mAP50_95,situacao
+mascara,107,0.926,0.825,0.913,0.595,META BOA

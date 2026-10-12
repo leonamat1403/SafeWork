@@ -1,0 +1,7 @@
+Rodada: v2
+Modelo escolhido: yolo26n_640
+Classes: ['mascara']
+Imagens originais por split: {'train': 1013, 'val': 290, 'test': 145}
+Fontes (Roboflow Universe, CC BY 4.0):
+  f0: Welding-PPE (leonardo-matte/welding-ppe-9n9br v1)
+  f1: Welding Helmet (leonardo-matte/welding-helmet-nqk1c v1)

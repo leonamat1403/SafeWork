@@ -28,7 +28,7 @@
 | Classes | 1: `Helmet` (máscara/capacete de solda) |
 | Conteúdo | maioria de fotos de produto (máscara sozinha sobre fundo neutro), com algumas fotos de uso real |
 | Versão publicada | v1: Stretch 640×640 + rotações de 90° e outras augmentations. **Não usada**, porque máscara de lado ou de cabeça para baixo não acontece no posto |
-| Nosso fork | `leonardo-matte/__________`, versão `v__` (Auto-Orient apenas) – **preencher** |
+| Nosso fork | `leonardo-matte/welding-helmet-nqk1c`, versão **v1** (Auto-Orient apenas) |
 
 ## 2. Problemas encontrados e soluções
 
@@ -78,7 +78,7 @@ Para treinar outros EPIs no futuro, basta acrescentar o nome em `CLASSES_MODELO`
 | Rodada | Classes | Dados | Divisão (treino / val / teste) | Resultado |
 |---|---|---|---|---|
 | v1 | 5 | Welding-PPE (fork v1) | 561 / 160 / 80 (Roboflow) | descartada, ver `docs/resultados_treino/README.md` |
-| v2 | 1 (`mascara`) | Welding-PPE (fork v1) + Welding Helmet (fork `v__`) | `____ / ____ / ____` (notebook) | `docs/resultados_treino/v2/` |
+| v2 | 1 (`mascara`) | Welding-PPE (fork v1) + Welding Helmet (fork v1) | 1.013 / 290 / 145 (notebook) | `docs/resultados_treino/v2/` – mAP@0.5 = 0,913 (`yolo26n_640`) |
 
 ## 6. Passo a passo para a rodada v2 (VOCÊ)
 
