@@ -23,6 +23,10 @@ import time
 from pathlib import Path
 
 import cv2
+import numpy as np
+
+FRAMES_PARA_MEDIR_FPS = 30   # a webcam informa um FPS pouco confiável (às vezes -1); medimos o real
+FPS_PADRAO = 15.0
 
 
 def abrir(fonte: str) -> cv2.VideoCapture:
@@ -30,6 +34,61 @@ def abrir(fonte: str) -> cv2.VideoCapture:
         api = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
         return cv2.VideoCapture(int(fonte), api)
     return cv2.VideoCapture(fonte)
+
+
+def fps_valido(valor: float) -> float | None:
+    """O FPS informado só é aceito se for plausível (1 a 120); senão, None."""
+    return float(valor) if 1 <= valor <= 120 else None
+
+
+def estimar_fps(tempos: list[float]) -> float:
+    """FPS real a partir dos instantes (em segundos) em que os frames chegaram, limitado a 1–60."""
+    if len(tempos) < 2 or tempos[-1] <= tempos[0]:
+        return FPS_PADRAO
+    return min(60.0, max(1.0, (len(tempos) - 1) / (tempos[-1] - tempos[0])))
+
+
+class GravadorMp4:
+    """Grava .mp4; ao vivo, guarda os primeiros frames até medir o FPS real e só então cria o arquivo."""
+
+    def __init__(self, caminho: Path, fps_informado: float, ao_vivo: bool) -> None:
+        self.caminho = caminho
+        self.fps = None if ao_vivo else (fps_valido(fps_informado) or FPS_PADRAO)
+        self._pendentes: list[tuple[float, np.ndarray]] = []
+        self._escritor = None
+        self.frames = 0
+
+    def _criar(self, fps: float, frame: np.ndarray) -> None:
+        altura, largura = frame.shape[:2]
+        self.caminho.parent.mkdir(parents=True, exist_ok=True)
+        self._escritor = cv2.VideoWriter(str(self.caminho), cv2.VideoWriter_fourcc(*"mp4v"), fps, (largura, altura))
+        self.fps = fps
+
+    def gravar(self, t: float, frame: np.ndarray) -> None:
+        if self._escritor is None:
+            self._pendentes.append((t, frame))
+            if self.fps is None and len(self._pendentes) < FRAMES_PARA_MEDIR_FPS:
+                return
+            self._descarregar()
+            return
+        self._escritor.write(frame)
+        self.frames += 1
+
+    def _descarregar(self) -> None:
+        if not self._pendentes:
+            return
+        fps = self.fps or estimar_fps([t for t, _ in self._pendentes])
+        self._criar(fps, self._pendentes[0][1])
+        for _, frame in self._pendentes:
+            self._escritor.write(frame)
+            self.frames += 1
+        self._pendentes.clear()
+
+    def fechar(self) -> None:
+        if self._escritor is None:
+            self._descarregar()          # gravação curta: menos frames do que o necessário para medir o FPS
+        if self._escritor is not None:
+            self._escritor.release()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,32 +106,24 @@ def main(argv: list[str] | None = None) -> int:
     if not cap.isOpened():
         print(f"Não foi possível abrir a fonte {args.fonte!r}.")
         return 1
-
-    escritor = None
-    if modo_video:
-        saida.parent.mkdir(parents=True, exist_ok=True)
-    else:
+    if not modo_video:
         saida.mkdir(parents=True, exist_ok=True)
-    fps_fonte = cap.get(cv2.CAP_PROP_FPS) or 15.0
+    gravador = GravadorMp4(saida, cap.get(cv2.CAP_PROP_FPS), ao_vivo) if modo_video else None
 
     inicio = time.monotonic()
     ultimo_frame_salvo = -1e9
-    salvos = lidos = 0
+    salvos = 0
     try:
         while True:
             ok, frame = cap.read()
             if not ok:
                 break
-            lidos += 1
             # Tempo do frame: relógio (webcam) ou posição no vídeo (arquivo)
             t = time.monotonic() - inicio if ao_vivo else cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
             if ao_vivo and t > args.duracao_s:
                 break
-            if modo_video:
-                if escritor is None:
-                    altura, largura = frame.shape[:2]
-                    escritor = cv2.VideoWriter(str(saida), cv2.VideoWriter_fourcc(*"mp4v"), fps_fonte, (largura, altura))
-                escritor.write(frame)
+            if gravador is not None:
+                gravador.gravar(t, frame)
             elif t - ultimo_frame_salvo >= args.intervalo_s:
                 ok_img, buffer = cv2.imencode(".jpg", frame)
                 if ok_img:
@@ -89,12 +140,12 @@ def main(argv: list[str] | None = None) -> int:
                     break
     finally:
         cap.release()
-        if escritor is not None:
-            escritor.release()
+        if gravador is not None:
+            gravador.fechar()
         cv2.destroyAllWindows()
 
-    if modo_video:
-        print(f"Vídeo salvo em {saida} ({lidos} frames).")
+    if gravador is not None:
+        print(f"Vídeo salvo em {saida} ({gravador.frames} frames, {gravador.fps or 0:.1f} FPS).")
     else:
         print(f"{salvos} fotos salvas em {saida}.")
     return 0

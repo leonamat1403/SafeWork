@@ -204,19 +204,57 @@ def espaco_livre_mb(pasta: Path) -> float:
     return shutil.disk_usage(pasta).free / 1e6
 
 
+FRAMES_PARA_MEDIR_FPS = 30
+FPS_PADRAO = 15.0
+
+
+def fps_valido(valor: float) -> float | None:
+    """O FPS informado pela fonte só é aceito se for plausível (1 a 120); webcams às vezes informam -1."""
+    return float(valor) if 1 <= valor <= 120 else None
+
+
+def estimar_fps(tempos: list[float]) -> float:
+    """FPS real a partir dos instantes (em segundos) dos frames, limitado a 1–60."""
+    if len(tempos) < 2 or tempos[-1] <= tempos[0]:
+        return FPS_PADRAO
+    return min(60.0, max(1.0, (len(tempos) - 1) / (tempos[-1] - tempos[0])))
+
+
 class GravadorVideo:
-    """Grava o vídeo anotado em testes_campo/ (opção --salvar-saida), parando se o disco estiver quase cheio."""
+    """Grava o vídeo anotado em testes_campo/ (opção --salvar-saida), parando se o disco estiver quase cheio.
 
-    def __init__(self, caminho: Path, fps: float, tamanho: tuple[int, int]) -> None:
-        caminho.parent.mkdir(parents=True, exist_ok=True)
+    Ao vivo, o FPS informado pela câmera não é confiável e o processamento é mais lento que a câmera. Por isso os
+    primeiros frames ficam guardados até medir o ritmo real, e só então o arquivo é criado (senão o vídeo sai
+    acelerado ou corrompido).
+    """
+
+    def __init__(self, caminho: Path, fps_informado: float, ao_vivo: bool) -> None:
         self.caminho = caminho
-        self.escritor = cv2.VideoWriter(str(caminho), cv2.VideoWriter_fourcc(*"mp4v"), fps or 15.0, tamanho)
-        self.ativo = self.escritor.isOpened()
+        self.fps = None if ao_vivo else (fps_valido(fps_informado) or FPS_PADRAO)
+        self.escritor: cv2.VideoWriter | None = None
+        self.ativo = True
+        self._pendentes: list[tuple[float, np.ndarray]] = []
         self._frames = 0
-        if not self.ativo:
-            log.error("Não foi possível criar o vídeo de saída %s.", caminho)
 
-    def gravar(self, frame: np.ndarray) -> None:
+    def _criar(self, frame: np.ndarray) -> None:
+        self.caminho.parent.mkdir(parents=True, exist_ok=True)
+        altura, largura = frame.shape[:2]
+        self.escritor = cv2.VideoWriter(str(self.caminho), cv2.VideoWriter_fourcc(*"mp4v"), self.fps, (largura, altura))
+        if not self.escritor.isOpened():
+            log.error("Não foi possível criar o vídeo de saída %s.", self.caminho)
+            self.ativo = False
+
+    def _descarregar(self) -> None:
+        if not self._pendentes:
+            return
+        if self.fps is None:
+            self.fps = estimar_fps([t for t, _ in self._pendentes])
+        self._criar(self._pendentes[0][1])
+        pendentes, self._pendentes = self._pendentes, []
+        for _, frame in pendentes:
+            self._escrever(frame)
+
+    def _escrever(self, frame: np.ndarray) -> None:
         if not self.ativo:
             return
         if self._frames % 100 == 0 and espaco_livre_mb(self.caminho.parent) < ESPACO_MINIMO_MB:
@@ -226,11 +264,24 @@ class GravadorVideo:
         self.escritor.write(frame)
         self._frames += 1
 
+    def gravar(self, t: float, frame: np.ndarray) -> None:
+        if not self.ativo:
+            return
+        if self.escritor is None:
+            self._pendentes.append((t, frame))
+            if self.fps is None and len(self._pendentes) < FRAMES_PARA_MEDIR_FPS:
+                return
+            self._descarregar()
+            return
+        self._escrever(frame)
+
     def fechar(self) -> None:
-        if self.ativo:
+        if self.escritor is None:
+            self._descarregar()          # gravação curta: menos frames do que o necessário para medir o FPS
+        if self.escritor is not None and self.ativo:
             self.escritor.release()
             self.ativo = False
-            log.info("Vídeo anotado salvo em %s", self.caminho)
+            log.info("Vídeo anotado salvo em %s (%d frames, %.1f FPS)", self.caminho, self._frames, self.fps or 0)
 
 
 def ler_imagem(caminho: Path) -> np.ndarray | None:
@@ -341,9 +392,8 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
                 anotado = desenhar(frame, resultado, hud, debug=args.debug)
                 if args.salvar_saida:
                     if gravador is None:
-                        altura, largura = anotado.shape[:2]
-                        gravador = GravadorVideo(nome_saida(fonte.fonte, ".mp4"), fonte.fps, (largura, altura))
-                    gravador.gravar(anotado)
+                        gravador = GravadorVideo(nome_saida(fonte.fonte, ".mp4"), fonte.fps, fonte.tipo != "arquivo")
+                    gravador.gravar(tempo, anotado)
                 if tempo - ultimo_status >= 1.0:
                     print(linha_status(tempo, fps, resultado))
                     ultimo_status = tempo
