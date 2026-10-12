@@ -1,0 +1,62 @@
+# Configuração do Verificador de EPIs de Solda – Fase 1
+#
+# Foco da Fase 1 (decisão de 11/10/2026, com o orientador): apenas a MÁSCARA DE SOLDA.
+# Os demais EPIs ficam desativados (trabalho futuro); se forem ativados, o programa avisa e os ignora.
+
+# --- EPIs: valores padrão (cada posto pode sobrescrever em "postos") -------------------------------------
+epis:
+  mascara:        {ativo: true,  conf: 0.45, frames_persistencia: 20, cobertura_min: 0.30}
+  luvas:          {ativo: false, conf: 0.40, frames_persistencia: 30, dist_max_punho: 0.08, regra: "ambas"}
+  protecao_corpo: {ativo: false, conf: 0.50, frames_persistencia: 15, cobertura_min: 0.30,
+                   aceitar_avental: true, aceitar_macacao: true}
+  calcado:        {ativo: false, conf: 0.35, frames_persistencia: 30, dist_max_tornozelo: 0.08}
+  capacete:       {ativo: false, conf: 0.50, frames_persistencia: 15}
+
+# --- Postos de solda (RF13): escolha com  --posto <nome> ; só é preciso escrever o que muda -------------
+postos:
+  padrao:
+    descricao: "Configuração padrão"
+  mig_01:
+    descricao: "Posto de solda MIG/MAG 01"
+  corte_01:
+    descricao: "Área de corte (exemplo: limiar de confiança da máscara mais exigente)"
+    epis:
+      mascara: {conf: 0.55}
+
+# --- Detecção ---------------------------------------------------------------------------------------------
+deteccao:
+  imgsz: 640                 # tamanho de entrada do detector de máscara (640 teve o mesmo mAP que 960, e é ~1,7x mais rápido)
+  imgsz_pose: 640            # tamanho de entrada do modelo de pose
+  conf_pessoa: 0.40          # confiança mínima para considerar uma pessoa
+  conf_keypoint: 0.5         # confiança mínima para um ponto do corpo ser "visível"
+  altura_min_pessoa_px: 200  # (luvas/calçado – trabalho futuro) pessoas menores ficam INDETERMINADO
+  pular_frames: 1            # processa 1 a cada N frames (aumente se o FPS ficar baixo)
+
+# --- Filtro do arco elétrico (RF14) ----------------------------------------------------------------------
+arco:
+  limiar_brilho: 245         # brilho (0–255) a partir do qual um pixel conta como "estourado"
+  fracao_max_saturada: 0.15  # acima de 15% de pixels estourados, o frame é ignorado
+  exigir_mascara_somente_com_arco: false   # RD03 (Fase 2)
+
+# --- Ocorrências (Etapa 1.4) -----------------------------------------------------------------------------
+ocorrencias: {cooldown_s: 60, retencao_dias: 30}           # retencao_dias: Fase 2
+turnos: {"1": "06:00-14:00", "2": "14:00-22:00", "3": "22:00-06:00"}   # Fase 2
+
+# --- Modelos (caminhos relativos a este arquivo) -----------------------------------------------------------
+modelos:
+  epi: "models/epi_solda_best.pt"     # treinado no notebook (rodada v2: yolo26n_640, classe "mascara")
+  pose: "models/yolov8n-pose.pt"      # baixe com:  python -m src.run --baixar-modelos
+
+# --- Nomes de classe dos modelos -> EPI interno ------------------------------------------------------------
+# Camada de segurança para modelos que ainda usem os nomes originais dos datasets.
+mapeamento_classes:
+  "Welding Mask": mascara
+  "helmet": mascara            # verificado na Etapa 1.2: são máscaras/capacetes de SOLDA
+  "Helmet": mascara            # dataset "Welding Helmet" (UTP)
+  "Welding Gloves": luvas
+  "welding-glove": luvas
+  "Welding Apron": avental
+  "apron": avental
+  "Welding Coverall": macacao
+  "Safety Shoes": calcado
+  "welding-shose": calcado

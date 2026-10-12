@@ -376,6 +376,11 @@ Diferenças em relação ao exemplo do prompt (todas justificadas acima):
 | D11 | Versões **fixadas** no `requirements.txt` (RNF07): ultralytics, opencv-python, PyYAML, pytest. As versões exatas serão conferidas no PyPI na Etapa 1.3 | Reprodutibilidade |
 | D12 | O `run.py` mede o FPS (média móvel) e imprime um resumo; a opção `--benchmark` roda um vídeo sem janela e reporta o FPS a 640 e a 960 | RNF01 / RF16: medir em vez de estimar |
 | D13 | `--salvar-saida` grava só em `testes_campo/` (fora do git) | Privacidade das gravações de campo |
+| D15 | **Fallback sem pose** (RF12): máscara no quarto superior da caixa → CONFORME; sem máscara → **INDETERMINADO** (Etapa 1.3) | Sem os pontos do corpo não dá para saber se o rosto está virado para a câmera; o sistema prefere não acusar a acusar errado |
+| D16 | Estruturas de dados em `src/tipos.py` (Pessoa, Keypoint, DeteccaoEPI, Estado), módulo não listado no prompt original | Evita importação circular entre detector, regiões e regras; mantém as regras testáveis sem o Ultralytics |
+| D17 | `imgsz` padrão = **640** (o prompt sugeria 960) | Na rodada v2, 960 não melhorou o mAP da máscara e custa ~40% de FPS (benchmark da Etapa 1.3) |
+| D18 | Pose: **yolov8n-pose** mantido; yolo26n-pose testado | Neste computador o yolo26n-pose foi um pouco mais lento (13,7 x 15,0 FPS no pipeline completo, imgsz 640) e deu o mesmo resultado na imagem de teste |
+| D19 | `lap` fixado no requirements.txt e `YOLO_OFFLINE=true` no run.py | O Ultralytics tentaria instalar o `lap` (ByteTrack) e consultar a internet durante o uso, o que falha em rede com proxy |
 | D14 | **YOLO26n** treinado como experimento extra, ao lado do YOLOv8n/s exigido (decisão de 11/10/2026) | Segundo a Ultralytics, é mais rápido em CPU. A escolha final usa o mAP do teste e o FPS medido no notebook do projeto; o mesmo vale para `yolov8n-pose` x `yolo26n-pose` |
 
 ### CLI prevista (`src/run.py`)
