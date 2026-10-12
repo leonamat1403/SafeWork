@@ -1,6 +1,6 @@
 # Resultados dos treinos
 
-Cada subpasta é uma rodada de treino do notebook `notebooks/treinamento_epi_solda.ipynb`.
+Cada subpasta é uma rodada de treino do notebook de treinamento (`notebooks/colab/` ou `notebooks/kaggle/`).
 Os pesos (`.pt`) não ficam aqui: o modelo escolhido vai para `models/`, que está fora do git.
 
 | Pasta | Data | Classes | Dados | Situação |

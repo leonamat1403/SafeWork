@@ -93,13 +93,17 @@ Para treinar outros EPIs no futuro, basta acrescentar o nome em `CLASSES_MODELO`
 3. Clique em **Download Dataset → YOLOv8 → Show download code** e anote o texto de `project("...")` e o número de `version(...)`. **Não copie a `api_key`.**
 
 ### 6.2 Colab
-1. Baixe o notebook atualizado (`notebooks/treinamento_epi_solda.ipynb`, no GitHub) e envie para o Colab (**File → Upload notebook**).
+1. Baixe o notebook atualizado (`notebooks/colab/treinamento_epi_solda.ipynb`, no GitHub) e envie para o Colab (**File → Upload notebook**).
 2. **Runtime → Change runtime type → T4 GPU → Save**.
 3. 🔑 **Secrets:** confira se `ROBOFLOW_API_KEY` está lá, com **acesso ao notebook** ativado.
 4. Na célula **1. Configuração**, na linha do **Welding Helmet**, troque `PREENCHER` pelo nome do projeto e ajuste `versao`. A linha do Welding-PPE já está preenchida.
 5. **Runtime → Run all** e autorize o Google Drive (só o item "See, edit, create, and delete all of your Google Drive files").
 6. Os treinos ficam em `Meu Drive/epi_solda/v2/treinos/`. Se o Colab desconectar, rode **Run all** de novo e ele continua de onde parou.
 7. No fim, o navegador baixa `resultado_treino_v2.zip`. Copie `epi_solda_best.pt` para `models/` (substituindo o anterior) e o resto para `docs/resultados_treino/v2/`.
+
+### 6.3 Alternativa: Kaggle
+Se a cota de GPU do Colab acabar, o mesmo treino pode continuar no Kaggle a partir do progresso salvo no Drive:
+`notebooks/kaggle/treinamento_epi_solda_kaggle.ipynb`, com o passo a passo em `notebooks/kaggle/LEIA-ME.md`.
 
 ## 7. Atribuição (para o README e o relatório)
 
