@@ -1,4 +1,4 @@
-# Dados de treino – máscara de solda (Etapa 1.2)
+﻿# Dados de treino – máscara de solda (Etapa 1.2)
 
 > **Foco da Fase 1 (11/10/2026, com o orientador):** apenas a **máscara de solda** (= capacete de solda, o protetor
 > facial com visor escuro). Ver `docs/plano_fase1.md`, seção 0.
@@ -133,7 +133,7 @@ Para treinar outros EPIs no futuro, basta acrescentar o nome em `CLASSES_MODELO`
 7. No fim, o navegador baixa `resultado_treino_v2.zip`. Copie `epi_solda_best.pt` para `models/` (substituindo o anterior) e o resto para `docs/resultados_treino/v2/`.
 
 ### 6.3 Rodada v3 (negativos de pessoas sem máscara)
-O notebook já vem configurado para a v3 (`RODADA = "v3"`, COCO ativado, os dois forks preenchidos, 2 experimentos).
+O notebook já vem configurado para a v3 (`RODADA = "v3"`, COCO ativado, os dois forks preenchidos, só o modelo validado na v2: `yolo26n_640`).
 Nada muda no Roboflow. Opcionalmente, antes de rodar:
 1. **Medir o "antes"** com um vídeo de teste sem máscara:
    `python ferramentas/capturar.py --saida testes_campo/teste_sem_mascara.mp4 --duracao-s 60` e depois
