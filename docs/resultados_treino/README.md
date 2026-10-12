@@ -36,6 +36,19 @@ O FPS do sistema completo (máscara + pose) será medido na Etapa 1.3.
 **Imgsz 960 não ajudou:** as máscaras são objetos grandes nestas imagens (28% da imagem), e 640 já basta. Em câmera
 distante (máscara pequena) isso pode mudar; ver testes de campo.
 
+**Teste na webcam (12/10/2026) – falso positivo encontrado:** com a cabeça inclinada para cima ou de perfil, o
+**rosto descoberto** foi detectado como máscara (confiança 0,67 e 0,88).
+
+Medida em vídeo (`testes_campo/teste_sem_mascara.mp4`: 96 s, 1.440 frames, uma pessoa **sem máscara** mexendo a
+cabeça em todas as direções; gravado com `ferramentas/capturar.py` e avaliado com `python -m src.run --fonte ... --sem-janela`):
+
+| Modelo | CONFORME (falso positivo) | NÃO CONFORME | INDETERMINADO |
+|---|---|---|---|
+| v2 (`yolo26n_640`) | **239 (17%)** | 1.163 (81%) | 38 (3%) |
+| v3 | (a medir no mesmo vídeo) | | |
+
+Este vídeo é o **conjunto de teste** do problema: não deve ser usado no treino.
+
 **Limitações (para o relatório):**
 - **O teste é quase todo do Welding Helmet** (104 de 107 máscaras), que é formado principalmente por fotos de produto.
   O Welding-PPE (cenas reais) tem só **3 máscaras no teste**, e o "0,995" dessa fonte não tem valor estatístico.
