@@ -77,6 +77,14 @@ dados: `docs/dataset_welding_ppe.md`. Resultados: `docs/resultados_treino/`.
 As classes foram remapeadas para `mascara` e novas versões foram geradas sem "Isolate Objects", sem "Stretch" e sem
 as augmentations originais. Citações BibTeX em `docs/dataset_welding_ppe.md`, seção 7.
 
+Exemplos negativos (pessoas sem máscara, rodada v3): **COCO 2017** – Lin et al., "Microsoft COCO: Common Objects in
+Context", ECCV 2014 (https://cocodataset.org); anotações CC BY 4.0, imagens com as licenças do Flickr indicadas no COCO.
+
+## Ferramentas
+
+`ferramentas/capturar.py` grava um vídeo de teste ou salva fotos da webcam a cada 0,5 s (exemplos negativos para o
+treino). Ex.: `python ferramentas/capturar.py --saida testes_campo/teste_sem_mascara.mp4 --duracao-s 60`.
+
 ## Licenças de software
 
 O Ultralytics YOLO é distribuído sob **AGPL-3.0**: adequado a este projeto acadêmico; um uso interno contínuo pela

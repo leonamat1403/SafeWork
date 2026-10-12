@@ -55,6 +55,36 @@ As imagens do Welding-PPE **sem máscara** (luvas, botas, aventais) entram como 
 
 **Limitação:** se alguma dessas imagens tiver uma máscara **não anotada** na fonte original, ela vira um negativo errado. O notebook mostra amostras de negativos para conferência visual.
 
+### 2.5 Rosto sem máscara detectado como máscara (encontrado no teste da webcam, 12/10/2026)
+Com o modelo da rodada v2, o **rosto descoberto** foi detectado como máscara quando a cabeça estava **inclinada para
+cima** (confiança 0,67) ou **de perfil** (0,88). Como a confiança é alta, subir o limiar não resolve.
+
+**Causa:** os únicos negativos do treino eram fotos de luvas, botas e aventais. O modelo nunca viu uma cabeça de
+pessoa **sem** máscara.
+
+**Solução (rodada v3):** acrescentar **fotos de pessoas comuns sem máscara** como negativos (imagens sem caixa, que
+não precisam de anotação):
+- **COCO 2017** (validação): fotos do dia a dia com pessoas de frente, de perfil, inclinadas, de costas, de boné e de
+  capacete de moto. O notebook baixa automaticamente e usa até 1.500 fotos em que a pessoa ocupa ≥ 5% da imagem
+  (há 1.866 assim);
+- **fotos próprias** (opcional): frames da webcam capturados com `ferramentas/capturar.py`.
+
+E medir o efeito com uma métrica nova: a **taxa de falso positivo** nas imagens de teste sem máscara (por fonte).
+
+| Item | Valor |
+|---|---|
+| Dataset | COCO 2017 – conjunto de validação (val2017), só imagens com pessoa |
+| URLs | http://images.cocodataset.org/zips/val2017.zip (778 MB) e rótulos YOLO do Ultralytics (46 MB) |
+| Licença | anotações CC BY 4.0; imagens com as licenças do Flickr indicadas pelo COCO |
+| Citação | Lin, T.-Y. et al. *Microsoft COCO: Common Objects in Context.* ECCV 2014 |
+
+### 2.6 Máscara vista de costas
+Uma pessoa reconhece a máscara de solda também de costas (carcaça e cinta na cabeça). O modelo foi treinado quase só
+com máscaras de frente, então ainda **não sabemos** se ele as reconhece de costas. Por isso a regra continua:
+**de costas sem máscara detectada → INDETERMINADO** (RNF06). Se os testes com uma máscara real mostrarem que o modelo
+detecta bem de costas, a regra pode virar uma opção no `config.yaml` (ex.: `acusar_de_costas: true`). Para melhorar
+essa detecção, a próxima coleta de fotos (RF33) deve incluir **máscaras vistas de costas**, anotadas.
+
 ## 3. Verificação da classe `helmet` do Welding-PPE
 
 Conferi as amostras com o filtro `class = helmet` (imagens `img136.jpg` a `img144.jpg` e vizinhas). Em todas aparece uma pessoa usando uma **máscara/capacete de solda metálico com visor escuro** cobrindo o rosto. Não são capacetes de segurança (de obra). **Decisão:** `helmet` → `mascara`.
@@ -79,6 +109,7 @@ Para treinar outros EPIs no futuro, basta acrescentar o nome em `CLASSES_MODELO`
 |---|---|---|---|---|
 | v1 | 5 | Welding-PPE (fork v1) | 561 / 160 / 80 (Roboflow) | descartada, ver `docs/resultados_treino/README.md` |
 | v2 | 1 (`mascara`) | Welding-PPE (fork v1) + Welding Helmet (fork v1) | 1.013 / 290 / 145 (notebook) | `docs/resultados_treino/v2/` – mAP@0.5 = 0,913 (`yolo26n_640`) |
+| v3 | 1 (`mascara`) | v2 + **COCO pessoas** (negativos) + fotos próprias (opcional) | `____ / ____ / ____` (notebook) | `docs/resultados_treino/v3/` – em andamento |
 
 ## 6. Passo a passo para a rodada v2 (VOCÊ)
 
@@ -101,7 +132,18 @@ Para treinar outros EPIs no futuro, basta acrescentar o nome em `CLASSES_MODELO`
 6. Os treinos ficam em `Meu Drive/epi_solda/v2/treinos/`. Se o Colab desconectar, rode **Run all** de novo e ele continua de onde parou.
 7. No fim, o navegador baixa `resultado_treino_v2.zip`. Copie `epi_solda_best.pt` para `models/` (substituindo o anterior) e o resto para `docs/resultados_treino/v2/`.
 
-### 6.3 Alternativa: Kaggle
+### 6.3 Rodada v3 (negativos de pessoas sem máscara)
+O notebook já vem configurado para a v3 (`RODADA = "v3"`, COCO ativado, os dois forks preenchidos, 2 experimentos).
+Nada muda no Roboflow. Opcionalmente, antes de rodar:
+1. **Medir o "antes"** com um vídeo de teste sem máscara:
+   `python ferramentas/capturar.py --saida testes_campo/teste_sem_mascara.mp4 --duracao-s 60` e depois
+   `python -m src.run --fonte testes_campo/teste_sem_mascara.mp4 --sem-janela`. Anote a linha `mascara (...)` do
+   resumo: o % de CONFORME é a taxa de falso positivo.
+2. **Fotos próprias como negativos** (em outra sessão, diferente do vídeo de teste):
+   `python ferramentas/capturar.py --saida testes_campo/negativos_webcam/sessao1`, suba a pasta como Dataset no
+   Kaggle (ou no Google Drive, no Colab) e coloque o caminho em `PASTAS_NEGATIVOS` na célula 1.
+
+### 6.4 Alternativa: Kaggle
 Se a cota de GPU do Colab acabar, o mesmo treino pode continuar no Kaggle a partir do progresso salvo no Drive:
 `notebooks/kaggle/treinamento_epi_solda_kaggle.ipynb`, com o passo a passo em `notebooks/kaggle/LEIA-ME.md`.
 

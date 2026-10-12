@@ -6,7 +6,8 @@ Os pesos (`.pt`) não ficam aqui: o modelo escolhido vai para `models/`, que est
 | Pasta | Data | Classes | Dados | Situação |
 |---|---|---|---|---|
 | `v1/` | 10–11/10/2026 | 5 (mascara, luvas, avental, macacao, calcado) | Welding-PPE (fork v1), divisão do Roboflow | **Descartado** como resultado final; serve de comparação "antes" |
-| `v2/` | 11–12/10/2026 | 1 (`mascara`) | Welding-PPE + Welding Helmet, divisão estratificada no notebook | **Atual**: modelo escolhido `yolo26n_640` |
+| `v2/` | 11–12/10/2026 | 1 (`mascara`) | Welding-PPE + Welding Helmet, divisão estratificada no notebook | Modelo `yolo26n_640`. **Falso positivo** em rosto inclinado/de perfil no teste da webcam |
+| `v3/` | (em andamento) | 1 (`mascara`) | v2 + pessoas do COCO como negativos (+ fotos próprias, opcional) | Corrige o falso positivo da v2 |
 
 ## v2 – resultado (máscara de solda)
 

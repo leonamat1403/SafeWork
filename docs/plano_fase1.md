@@ -381,6 +381,8 @@ Diferenças em relação ao exemplo do prompt (todas justificadas acima):
 | D17 | `imgsz` padrão = **640** (o prompt sugeria 960) | Na rodada v2, 960 não melhorou o mAP da máscara e custa ~40% de FPS (benchmark da Etapa 1.3) |
 | D18 | Pose: **yolov8n-pose** mantido; yolo26n-pose testado | Neste computador o yolo26n-pose foi um pouco mais lento (13,7 x 15,0 FPS no pipeline completo, imgsz 640) e deu o mesmo resultado na imagem de teste |
 | D19 | `lap` fixado no requirements.txt e `YOLO_OFFLINE=true` no run.py | O Ultralytics tentaria instalar o `lap` (ByteTrack) e consultar a internet durante o uso, o que falha em rede com proxy |
+| D20 | **Rodada v3** com fotos de pessoas comuns (COCO 2017) como negativos + métrica de **taxa de falso positivo** (12/10/2026) | No teste da webcam, o modelo v2 detectou o rosto inclinado/de perfil como máscara (conf. 0,67–0,88); faltavam negativos de cabeças sem máscara |
+| D21 | **De costas sem máscara continua INDETERMINADO** (RNF06) até haver evidência | Não há máscara real disponível para testar se o modelo detecta máscaras de costas; o treino tem quase só vistas frontais |
 | D14 | **YOLO26n** treinado como experimento extra, ao lado do YOLOv8n/s exigido (decisão de 11/10/2026) | Segundo a Ultralytics, é mais rápido em CPU. A escolha final usa o mAP do teste e o FPS medido no notebook do projeto; o mesmo vale para `yolov8n-pose` x `yolo26n-pose` |
 
 ### CLI prevista (`src/run.py`)

@@ -1,4 +1,4 @@
-"""Linha de comando da Fase 1: detecção da máscara de solda com janela do OpenCV.
+﻿"""Linha de comando da Fase 1: detecção da máscara de solda com janela do OpenCV.
 
 Exemplos (na pasta do projeto, com o ambiente virtual ativo):
     python -m src.run --baixar-modelos                       # baixa os modelos de pose para models/ (uma vez)
@@ -19,6 +19,7 @@ import re
 import shutil
 import sys
 import time
+from collections import Counter
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
@@ -32,7 +33,7 @@ from src.arc_filter import frame_saturado
 from src.compliance import CORES_BGR, AvaliacaoPessoa, avaliar_frame
 from src.config import Config, ErroConfig, carregar_config
 from src.detector import Detector, ErroModelo
-from src.tipos import DeteccaoEPI
+from src.tipos import DeteccaoEPI, Estado
 
 log = logging.getLogger("epi_solda")
 
@@ -265,6 +266,28 @@ def linha_status(tempo: float, fps: float, resultado: ResultadoFrame) -> str:
     return f"[{formatar_tempo(tempo)}] FPS {fps:4.1f} | {arco}{pessoas}"
 
 
+def contar_estados(contagem: Counter, resultado: ResultadoFrame) -> None:
+    """Soma o estado de cada EPI de cada pessoa (só frames realmente processados, sem arco)."""
+    if resultado.saturado:
+        return
+    for aval in resultado.avaliacoes:
+        for epi, avaliacao in aval.epis.items():
+            contagem[(epi, avaliacao.estado)] += 1
+
+
+def resumo_estados(contagem: Counter) -> list[str]:
+    """Linhas do resumo, ex.: "mascara: CONFORME 120 (40%) | NAO_CONFORME 150 (50%) | INDETERMINADO 30 (10%)".
+
+    Em um vídeo de teste SEM máscara, o percentual de CONFORME é a taxa de falso positivo do sistema.
+    """
+    linhas = []
+    for epi in sorted({e for e, _ in contagem}):
+        total = sum(n for (e, _), n in contagem.items() if e == epi)
+        partes = [f"{estado.value} {contagem[(epi, estado)]} ({contagem[(epi, estado)] / total:.0%})" for estado in Estado]
+        linhas.append(f"{epi} (pessoa x frame, total {total}): " + " | ".join(partes))
+    return linhas
+
+
 def processar_imagem(config: Config, pipeline: Pipeline, caminho: Path, args: argparse.Namespace) -> int:
     frame = ler_imagem(caminho)
     if frame is None:
@@ -290,6 +313,7 @@ def processar_imagem(config: Config, pipeline: Pipeline, caminho: Path, args: ar
 def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args: argparse.Namespace) -> int:
     pular = config.deteccao.pular_frames
     lidos = processados = ignorados = 0
+    contagem: Counter = Counter()
     resultado: ResultadoFrame | None = None
     anotado = None
     gravador: GravadorVideo | None = None
@@ -308,6 +332,7 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
                     resultado = pipeline.processar(frame)
                     processados += 1
                     ignorados += int(resultado.saturado)
+                    contar_estados(contagem, resultado)
                 agora = time.perf_counter()
                 instantaneo = 1.0 / max(agora - t_anterior, 1e-6)
                 fps = instantaneo if fps == 0 else 0.9 * fps + 0.1 * instantaneo   # média móvel
@@ -345,6 +370,8 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
     print(f"Fonte: {ocultar_senha(fonte.fonte)} | posto: {config.posto}")
     print(f"Frames lidos: {lidos} | processados: {processados} | ignorados pelo arco: {ignorados}")
     print(f"Duração: {duracao:.1f} s | FPS médio: {lidos / duracao if duracao > 0 else 0:.1f}")
+    for linha in resumo_estados(contagem):
+        print(linha)
     return 0
 
 

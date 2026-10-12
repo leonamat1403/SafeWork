@@ -44,6 +44,19 @@ def test_desenhar_nao_altera_o_frame_original(config):
     assert not np.array_equal(anotado, original)
 
 
+def test_contagem_de_estados_ignora_frames_saturados(config):
+    from collections import Counter
+
+    from src.run import contar_estados, resumo_estados
+    pipeline = Pipeline(config, DetectorFalso())
+    contagem = Counter()
+    for brilho in (60, 60, 255, 60):                 # 3 frames normais e 1 estourado pelo arco
+        contar_estados(contagem, pipeline.processar(frame(brilho)))
+    assert contagem[("mascara", Estado.NAO_CONFORME)] == 3
+    assert resumo_estados(contagem) == [
+        "mascara (pessoa x frame, total 3): CONFORME 0 (0%) | NAO_CONFORME 3 (100%) | INDETERMINADO 0 (0%)"]
+
+
 def test_senha_do_rtsp_nao_aparece_no_terminal():
     assert ocultar_senha("rtsp://admin:segredo@192.168.0.10/stream") == "rtsp://***@192.168.0.10/stream"
     assert ocultar_senha("video.mp4") == "video.mp4"
