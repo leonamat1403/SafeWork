@@ -351,11 +351,15 @@ def aba_metricas(wb: Workbook) -> None:
         c.font = fonte(True, "FFFFFF")
         c.fill = AZUL_CABECALHO
         c.border = BORDA
-    grupos = [("distancia_m", v, f"distância {v} m") for v in (1, 2, 4, 6)] + \
-             [("angulo", v, f"ângulo: {v}") for v in ANGULOS] + [("arco", v, f"arco {v}") for v in ARCO]
-    for coluna, valor, rotulo in grupos:
+    dist = t("distancia_m")
+    # (rótulo, critérios do COUNTIFS) – distância em faixas, para incluir valores como 1,5 m ou 3 m
+    grupos = [("distância até 2 m", f'{dist},"<=2"'),
+              ("distância de 2 a 4 m", f'{dist},">2",{dist},"<=4"'),
+              ("distância acima de 4 m", f'{dist},">4"')] + \
+             [(f"ângulo: {v}", f'{t("angulo")},"{v}"') for v in ANGULOS] + \
+             [(f"arco {v}", f'{t("arco")},"{v}"') for v in ARCO]
+    for rotulo, crit in grupos:
         linha += 1
-        crit = f'{t(coluna)},{valor if isinstance(valor, int) else chr(34) + valor + chr(34)}'
         ws.cell(linha, 1, rotulo)
         ws.cell(linha, 2, f'=COUNTIFS({crit},{t("ocorrencias")},"<>")')
         ws.cell(linha, 3, f'=IFERROR(COUNTIFS({crit},{t("esperado")},"ocorrência",{t("resultado")},"OK")/'
