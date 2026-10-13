@@ -7,7 +7,21 @@ Os pesos (`.pt`) não ficam aqui: o modelo escolhido vai para `models/`, que est
 |---|---|---|---|---|
 | `v1/` | 10–11/10/2026 | 5 (mascara, luvas, avental, macacao, calcado) | Welding-PPE (fork v1), divisão do Roboflow | **Descartado** como resultado final; serve de comparação "antes" |
 | `v2/` | 11–12/10/2026 | 1 (`mascara`) | Welding-PPE + Welding Helmet, divisão estratificada no notebook | Modelo `yolo26n_640`. **Falso positivo** em rosto inclinado/de perfil no teste da webcam |
-| `v3/` | (em andamento) | 1 (`mascara`) | v2 + pessoas do COCO como negativos (+ fotos próprias, opcional) | Corrige o falso positivo da v2 |
+| `v3/` | (em andamento) | 1 (`mascara`) | v2 + pessoas do COCO como negativos (+ fotos próprias, opcional) | Corrige o falso positivo da v2; modelo `yolov8n_640` |
+
+## v3 – 1ª execução (13/10/2026, sessão interativa do Kaggle: arquivos perdidos)
+
+Os dois candidatos para CPU foram treinados com os negativos do COCO. A sessão interativa reiniciou e os arquivos se
+perderam; ficaram só os números do resumo exibidos na tela:
+
+| Experimento | mAP@0.5 (teste) | Taxa média de falso positivo (imagens de teste sem máscara) |
+|---|---|---|
+| yolo26n_640 | 0,900 | 27,9% |
+| **yolov8n_640** | 0,837 | **7,9%** |
+
+**Decisão:** a rodada v3 passa a usar o **yolov8n_640**. Ele detecta um pouco menos as máscaras (0,837, ainda acima
+da meta boa de 0,75), mas aponta máscara em pessoa sem máscara ~3,5× menos, e esse era o problema a corrigir.
+O treino foi refeito só com ele, no modo *Save & Run All (Commit)*.
 
 ## v2 – resultado (máscara de solda)
 
