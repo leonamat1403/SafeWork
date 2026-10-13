@@ -138,14 +138,22 @@ def gravar_resultado(wb, n: int, id_teste: str, arquivo: str, res: ResultadoTest
 
 
 def substituir_ocorrencias(wb, id_teste: str, novas: list[list]) -> None:
-    """Troca as linhas de um teste na aba Ocorrências, mantendo as dos outros testes (e a revisão manual delas)."""
+    """Troca as linhas de um teste na aba Ocorrências, mantendo as dos outros testes (e a revisão manual delas).
+
+    Se uma ocorrência nova for a mesma de antes (mesmo tempo no vídeo e mesma pessoa), a revisão manual dela é mantida;
+    as diferentes ficam sem revisão, para serem conferidas de novo.
+    """
     ws = wb["Ocorrências"]
-    linhas = []
+    linhas, revisadas = [], {}
     for n in range(2, ULTIMA_LINHA_OCORRENCIAS + 1):
         valores = [ws.cell(n, col).value for col in (1, 2, 3, 4, 5, 8)]
-        if valores[0] not in (None, "") and valores[0] != id_teste:
+        if valores[0] in (None, ""):
+            continue
+        if valores[0] != id_teste:
             linhas.append(valores)
-    linhas += novas
+        elif valores[5] not in (None, ""):
+            revisadas[(valores[2], valores[3])] = valores[5]
+    linhas += [linha[:5] + [revisadas.get((linha[2], linha[3]), linha[5])] for linha in novas]
     if len(linhas) > ULTIMA_LINHA_OCORRENCIAS - 1:
         raise RuntimeError("a aba Ocorrências está cheia; crie uma planilha nova para a próxima rodada de testes")
     for i in range(ULTIMA_LINHA_OCORRENCIAS - 1):

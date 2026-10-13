@@ -87,3 +87,18 @@ def test_gravar_resultado_e_reavaliar_mantendo_a_revisao_dos_outros_testes(tmp_p
     linhas = [[oc.cell(n, c).value for c in (1, 3, 4, 8)] for n in range(2, 10) if oc.cell(n, 1).value]
     assert linhas == [["T01", "00:00:03.8", 1, "FP"], ["T02", "00:00:04.0", 3, None]]
     assert oc["I3"].value.startswith("=IF(")                        # fórmulas da classificação continuam lá
+
+
+def test_reavaliar_mantem_a_revisao_da_mesma_ocorrencia_do_proprio_teste(tmp_path):
+    wb = load_workbook(criar(tmp_path / "planilha.xlsx"))
+    gravar_resultado(wb, 3, "T02", "testes_campo/t02.mp4", resultado_simulado(2))
+    oc = wb["Ocorrências"]
+    oc["H3"], oc["H4"] = "VP", "FP"                                 # revisões das ocorrências de 4 s e 64 s do T02
+
+    # Reavaliação com outro modelo: a ocorrência de 4 s (mesma pessoa e mesmo tempo) continua; a de 64 s sumiu e
+    # apareceu uma de 30 s, que ainda não foi revisada.
+    res = resultado_simulado(1)
+    res.ocorrencias.append(ocorrencia(30.0))
+    gravar_resultado(wb, 3, "T02", "testes_campo/t02.mp4", res)
+    linhas = [[oc.cell(n, c).value for c in (1, 3, 8)] for n in range(2, 10) if oc.cell(n, 1).value]
+    assert linhas == [["T01", "00:00:03.8", None], ["T02", "00:00:04.0", "VP"], ["T02", "00:00:30.0", None]]

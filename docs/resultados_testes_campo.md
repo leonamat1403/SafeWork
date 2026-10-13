@@ -1,5 +1,8 @@
 # Resultados dos testes de campo (13/10/2026)
 
+> **Atualização:** as seções 1 a 5 avaliam o modelo **v3**. A comparação com o modelo **v4** (treinado com fotos de
+> soldadores reais), nos mesmos 28 trechos, está na **seção 6**.
+
 **Etapa 1.5.** Vídeos de banco de imagens (provável Pexels, a confirmar) e da webcam, avaliados com
 `ferramentas/avaliar_testes.py`. A planilha completa fica em `testes_campo/planilha_testes_campo.xlsx` (fora do git,
 porque contém vídeos de pessoas). Sistema avaliado:
@@ -127,3 +130,39 @@ Nos três casos o sistema ficou **amarelo (INDETERMINADO)**: deixou de acusar, m
 2. Gravar ou obter vídeos **sem máscara a 4–6 m** e **de perfil**.
 3. Testar `conf_rosto` 0,7 (limitação 4).
 4. Teste no posto real da Marcopolo, com autorização: câmera fixa, arco aceso, fumos.
+
+## 6. Modelo v4 (soldadores reais) x v3, nos mesmos 28 trechos
+
+O modelo v4 (`docs/resultados_treino/README.md`) foi avaliado com as mesmas regras, vídeos e trechos. A planilha da v3
+foi guardada em `testes_campo/planilha_testes_campo_v3.xlsx`, e o modelo da v3 em `models/epi_solda_best_v3.pt`.
+
+| Métrica | v3 | v4 |
+|---|---|---|
+| Recall da ausência (testes "ocorrência") | 82% (9/11) | 82% (9/11) |
+| Falsos positivos (ocorrências erradas) | 0% | 0% |
+| Testes "sem ocorrência" com alarme falso | 0 de 12 | 0 de 12 |
+| Mistos (revisão manual) | 6 VP, 0 FP | as mesmas 6 ocorrências (VP) |
+| **Máscara abaixada confirmada (verde)**, média dos testes | 14% | **26%** |
+| Máscara levantada com o motivo certo ("MÁSCARA LEVANTADA") | nenhum teste | **T28** |
+| **Verde falso** em testes **sem máscara**, média | 0,8% | **7,2%** |
+| FPS médio nos testes | 11,0 | 11,3 |
+
+**O que melhorou:**
+- verde na máscara abaixada: T05 (de costas) de 0% para **83%**, T06 de 0% para 18%, T15 de 0% para 21% e T27 de 49% para 60%;
+- o soldador com **máscara laranja de fibra** do T04 passou a ficar verde (22% do tempo; antes, 2%);
+- no T28 a ocorrência saiu com o motivo **"máscara levantada"** (antes, "rosto visível sem máscara").
+
+**O que piorou: verde falso em dois testes sem máscara.** Isso não gerou alarme falso nem mudou as ocorrências, mas
+o sistema mostra "conforme" para quem está sem proteção:
+- **T10** (sem máscara, **cabeça baixa no escuro**, esmerilhando): 45% verde. O topo da cabeça escura, visto de cima,
+  foi confundido com uma máscara (confiança 0,52–0,77). Na v3 esse teste ficava amarelo; nos dois modelos ele já era
+  uma falha de recall;
+- **T22** (gorro escuro com **óculos de maçarico**): 16% verde (6% na v3). O conjunto gorro + óculos foi confundido
+  com uma máscara (confiança 0,57–0,87). A ocorrência saiu mesmo assim.
+
+**Subir o limiar de confiança não resolve:** com 0,70, sobram 53% dos verdes verdadeiros e 51% dos falsos (medido
+nos quadros verdes de T05, T06, T07, T15 e T27 x T10 e T22). Corrigir isso exige **exemplos negativos** de cabeça
+baixa, gorro e óculos sem máscara, de preferência gravados no posto real (RF33).
+
+**Máscara abaixada que continua amarela:** T03, T20 e T26 (perfil ou arco aceso) e T02 (de costas, que caiu de 32%
+para 0%). Nesses casos o sistema não confirma, mas também não acusa.

@@ -7,7 +7,30 @@ Os pesos (`.pt`) não ficam aqui: o modelo escolhido vai para `models/`, que est
 |---|---|---|---|---|
 | `v1/` | 10–11/10/2026 | 5 (mascara, luvas, avental, macacao, calcado) | Welding-PPE (fork v1), divisão do Roboflow | **Descartado** como resultado final; serve de comparação "antes" |
 | `v2/` | 11–12/10/2026 | 1 (`mascara`) | Welding-PPE + Welding Helmet, divisão estratificada no notebook | Modelo `yolo26n_640`. **Falso positivo** em rosto inclinado/de perfil no teste da webcam |
-| `v3/` | 13/10/2026 | 1 (`mascara`) | v2 + 1.500 pessoas do COCO como negativos | **Atual**: modelo `yolov8n_640` (mAP@0.5 0,855; falso positivo em pessoas 2,1%) |
+| `v3/` | 13/10/2026 | 1 (`mascara`) | v2 + 1.500 pessoas do COCO como negativos | modelo `yolov8n_640` (mAP@0.5 0,855; falso positivo em pessoas 2,1%). Guardado em `models/epi_solda_best_v3.pt` |
+| `v4/` | 13/10/2026 | 1 (`mascara`) | v3 + *welder* + *safeweld* (soldadores reais, conferidos) | **Atual**: modelo `yolov8n_640` (mAP@0.5 0,946; falso positivo em pessoas 0,6%) |
+
+## v4 – resultado (13/10/2026, `yolov8n_640`, Kaggle em modo Commit, ~2 h)
+
+**Dados:** 5.680 imagens originais (treino 4.316 / validação 909 / teste 455): 3.096 caixas de máscara (36 do
+Welding-PPE, 1.036 do Welding Helmet, **1.239 do welder e 785 do safeweld**) e 2.754 imagens negativas (1.500 do
+COCO). A máscara média ocupa 16% da imagem (28% na v3): mais cenas reais, com a máscara menor. 97 épocas.
+
+**Conjunto de teste:**
+
+| Medida | v3 | v4 |
+|---|---|---|
+| Precisão | 0,872 | 0,931 |
+| Recall | 0,736 | **0,928** |
+| mAP@0.5 | 0,855 | **0,946** (meta boa ≥ 0,75 ✅) |
+| mAP@0.5:0.95 | 0,587 | 0,669 |
+| Falso positivo em pessoas do COCO | 2,1% (3 de 143) | **0,6%** (1 de 155) |
+
+**Por fonte (v4):** mAP@0.5 de 0,933 no Welding Helmet, **0,970 no welder** e **0,959 no safeweld**. Falsos
+positivos nos negativos: 0 de 41 no Welding-PPE, 2 de 44 no welder e 3 de 8 no Welding Helmet (amostra pequena).
+
+**Cuidado na comparação:** os conjuntos de teste da v3 e da v4 são diferentes (o da v4 tem cenas reais e o dobro de
+máscaras). A comparação justa entre os dois modelos são os testes de campo (`docs/resultados_testes_campo.md`).
 
 ## v3 – resultado (13/10/2026, `yolov8n_640`, Kaggle em modo Commit)
 
