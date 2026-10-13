@@ -18,6 +18,9 @@ runs/
 # Imagens/vídeos de campo e resultados (podem conter pessoas reais)
 testes_campo/
 
+# Datasets baixados para conferência local (grandes, com pessoas reais)
+dados/
+
 # Editor / sistema
 .vscode/
 Thumbs.db

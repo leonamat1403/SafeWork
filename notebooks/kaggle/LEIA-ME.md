@@ -11,6 +11,25 @@ divisão e mesmos experimentos. Muda só o ambiente:
 | Cota de GPU | não divulgada | ~30 h por semana (visível no painel) |
 | Continuar de onde parou | automático, pelo Drive | anexando a pasta `treinos` como *Input* (seção 2b do notebook) |
 
+## Rodada v4 (soldadores reais): treino novo, do zero
+
+A v4 não continua nenhum treino anterior. Use um notebook **novo** no Kaggle, sem nada anexado em *Input*.
+Se reaproveitar o notebook da v3, a seção 2b ignora a saída da v3, mas é mais simples começar do zero.
+
+1. Baixe `notebooks/kaggle/treinamento_epi_solda_kaggle.ipynb` do GitHub (versão da v4: a célula 1 mostra
+   `RODADA = "v4"` e as fontes `welder-hqw5c` e `safeweld-cb24e-j7zky`).
+2. https://www.kaggle.com/code → **+ New Notebook** → **File → Import Notebook** → escolha o arquivo.
+3. **Session options:** **Accelerator: GPU T4 x2** e **Internet: On**.
+4. **Add-ons → Secrets:** confira se `ROBOFLOW_API_KEY` está com a caixa **marcada** para este notebook. A chave é a
+   mesma da v3; você não precisa digitá-la de novo, só anexar.
+5. **Não** adicione nada em *Input*.
+6. **Save Version → Save & Run All (Commit) → Save**. Pode fechar o navegador. O treino tem cerca de **o dobro de
+   imagens da v3** (~4.300 originais, ~8.600 com augmentation), então deve levar cerca do dobro do tempo da v3.
+7. Para acompanhar: **Your Work** → o notebook → a versão em execução → **Logs**. Na seção 6 devem aparecer as linhas
+   `imagens excluídas: ...` do *welder* e do *safeweld*.
+8. No fim, aba **Output** da versão → baixe **`resultado_treino_v4.zip`** e coloque o zip em
+   `Z:\Documentos\SafeWork\testes_campo\` (eu descompacto e organizo, preservando o modelo da v3).
+
 ## Passo a passo: continuar no Kaggle o treino que parou no Colab
 
 ### A. Pegar o progresso no Google Drive

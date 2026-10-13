@@ -79,9 +79,16 @@ dados: `docs/dataset_welding_ppe.md`. Resultados: `docs/resultados_treino/`.
 
 - "Welding-PPE" – Welding PPE, Roboflow Universe, 2023. https://universe.roboflow.com/welding-ppe/welding-ppe
 - "Welding Helmet" – UTP, Roboflow Universe, 2025. https://universe.roboflow.com/utp-jtbn5/welding-helmet
+- "welder" – ESports, Roboflow Universe, 2025 (rodada v4). https://universe.roboflow.com/esports/welder
+- "safeweld" – Josephs Workspace, Roboflow Universe, 2026 (rodada v4).
+  https://universe.roboflow.com/josephs-workspace-gaago/safeweld-cb24e
 
 As classes foram remapeadas para `mascara` e novas versões foram geradas sem "Isolate Objects", sem "Stretch" e sem
-as augmentations originais. Citações BibTeX em `docs/dataset_welding_ppe.md`, seção 7.
+as augmentations originais. Na v4, parte das imagens foi excluída após conferência visual. Citações BibTeX em
+`docs/dataset_welding_ppe.md`, seção 7.
+
+Conferência de que nenhuma imagem de treino veio dos vídeos de teste de campo:
+`python ferramentas/conferir_vazamento.py --datasets <pastas dos datasets>` (saída em `testes_campo/vazamento/`).
 
 Exemplos negativos (pessoas sem máscara, rodada v3): **COCO 2017** – Lin et al., "Microsoft COCO: Common Objects in
 Context", ECCV 2014 (https://cocodataset.org); anotações CC BY 4.0, imagens com as licenças do Flickr indicadas no COCO.
