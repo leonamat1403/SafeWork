@@ -1,4 +1,4 @@
-"""Leitura e validação do config.yaml, incluindo EPIs por posto (RF13)."""
+﻿"""Leitura e validação do config.yaml, incluindo EPIs por posto (RF13)."""
 import logging
 
 import pytest
@@ -14,7 +14,7 @@ def escrever(tmp_path, dados: dict):
     return caminho
 
 
-BASICO = {"epis": {"mascara": {"ativo": True, "conf": 0.45, "frames_persistencia": 20}}}
+BASICO = {"epis": {"mascara": {"ativo": True, "conf": 0.45, "persistencia_s": 4}}}
 
 
 def test_config_do_projeto_carrega(config):
@@ -29,7 +29,8 @@ def test_config_do_projeto_carrega(config):
 def test_posto_sobrescreve_so_o_que_muda():
     cfg = carregar_config(RAIZ / "config.yaml", posto="corte_01")
     assert cfg.epis["mascara"].conf == 0.55                           # sobrescrito pelo posto
-    assert cfg.epis["mascara"].frames_persistencia == 20              # mantido do padrão
+    assert cfg.epis["mascara"].persistencia_s == 4                    # mantido do padrão
+    assert cfg.epis["mascara"].fracao_minima == 0.75
     assert cfg.descricao.startswith("Área de corte")
 
 
@@ -77,3 +78,9 @@ def test_mapeamento_para_classe_inexistente(tmp_path):
 def test_arquivo_inexistente(tmp_path):
     with pytest.raises(ErroConfig, match="não encontrado"):
         carregar_config(tmp_path / "nao_existe.yaml")
+
+
+def test_chave_antiga_frames_persistencia_explica_a_mudanca(tmp_path):
+    dados = {"epis": {"mascara": {"ativo": True, "conf": 0.45, "frames_persistencia": 20}}}
+    with pytest.raises(ErroConfig, match="persistencia_s"):
+        carregar_config(escrever(tmp_path, dados))

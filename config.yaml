@@ -4,15 +4,23 @@
 # Os demais EPIs ficam desativados (trabalho futuro); se forem ativados, o programa avisa e os ignora.
 
 # --- EPIs: valores padrão (cada posto pode sobrescrever em "postos") -------------------------------------
+# persistencia_s / fracao_minima (RF18): só registra a ocorrência se, nos últimos persistencia_s segundos, pelo menos
+# fracao_minima dos frames forem NÃO CONFORME (ex.: 4 s e 75%: levantar a máscara por 2 s para olhar o cordão não gera).
 epis:
-  mascara:        {ativo: true,  conf: 0.45, frames_persistencia: 20, cobertura_min: 0.30,
-                   # máscara na altura do rosto + olhos/nariz nítidos (conf >= 0,7) é contraditório -> INDETERMINADO
-                   contradicao_rosto_visivel: true, conf_rosto_contradicao: 0.7}
-  luvas:          {ativo: false, conf: 0.40, frames_persistencia: 30, dist_max_punho: 0.08, regra: "ambas"}
-  protecao_corpo: {ativo: false, conf: 0.50, frames_persistencia: 15, cobertura_min: 0.30,
+  mascara:
+    ativo: true
+    conf: 0.45
+    persistencia_s: 4
+    fracao_minima: 0.75
+    cobertura_min: 0.30
+    levantada_nao_conforme: true      # máscara levantada (acima dos olhos) conta como falta (decisão de 13/10/2026)
+    contradicao_rosto_visivel: true   # "máscara" na altura do rosto + olhos/nariz nítidos -> INDETERMINADO (D23)
+    conf_rosto_contradicao: 0.7
+  luvas:          {ativo: false, conf: 0.40, persistencia_s: 2, dist_max_punho: 0.08, regra: "ambas"}
+  protecao_corpo: {ativo: false, conf: 0.50, persistencia_s: 1, cobertura_min: 0.30,
                    aceitar_avental: true, aceitar_macacao: true}
-  calcado:        {ativo: false, conf: 0.35, frames_persistencia: 30, dist_max_tornozelo: 0.08}
-  capacete:       {ativo: false, conf: 0.50, frames_persistencia: 15}
+  calcado:        {ativo: false, conf: 0.35, persistencia_s: 2, dist_max_tornozelo: 0.08}
+  capacete:       {ativo: false, conf: 0.50, persistencia_s: 1}
 
 # --- Postos de solda (RF13): escolha com  --posto <nome> ; só é preciso escrever o que muda -------------
 postos:

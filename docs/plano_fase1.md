@@ -1,4 +1,4 @@
-# Plano da Fase 1 – Validação da Detecção
+﻿# Plano da Fase 1 – Validação da Detecção
 
 **Projeto:** Verificador de EPIs de Solda com Visão Computacional (FSG + Marcopolo)
 **Etapa:** 1.1 – Plano enxuto da Fase 1
@@ -268,45 +268,58 @@ Quando o frame é ignorado:
 
 ## 7. Ocorrências: persistência, cooldown e agrupamento (RF18–RF20)
 
-Estado mantido por `(track_id, epi)`:
+> Atualizado na Etapa 1.4 (13/10/2026), com as decisões do usuário: persistência medida em **segundos** com
+> **maioria**, e **máscara levantada conta como falta**. Implementação: `src/occurrences.py`.
+
+Para cada pessoa (`track_id`) e cada EPI, o sistema guarda os estados dos **últimos `persistencia_s` segundos**:
 
 ```
- frame válido, EPI = NÃO CONFORME  → contador += 1
- frame válido, EPI = CONFORME      → contador = 0
- frame válido, EPI = INDETERMINADO → contador = 0   ("consecutivos" é levado ao pé da letra; evita falsos positivos)
- frame saturado                    → contador inalterado (pausa)
+ frame válido              → entra na janela (NÃO CONFORME, CONFORME ou INDETERMINADO)
+ frame saturado pelo arco  → não entra na janela e não gera nada (RF14)
+ disparo                   → janela cobre os 4 s E pelo menos 75% dos frames dela são NÃO CONFORME
 ```
 
-Disparo:
-1. Quando o contador de algum EPI atinge `frames_persistencia` daquele EPI **e** esse EPI **não está em cooldown** para o `track_id`, é gerada uma ocorrência.
-2. **Agrupamento (RF20):** a ocorrência lista **todos** os EPIs que estão NÃO CONFORMES naquele frame (mesmo que ainda não tenham atingido o próprio N). Todos os EPIs listados entram em cooldown juntos.
-   *Exemplo:* máscara (N=20) e luvas (N=30) ausentes desde o início → no frame 20 sai **1** ocorrência com `mascara;luvas`. No frame 30 as luvas já estão em cooldown, então não sai uma segunda ocorrência.
-3. **Cooldown (RF19):** `cooldown_s` (60 s) por `(track_id, epi)`, medido pelo **tempo do vídeo** (posição do frame) e não pelo relógio do computador. Assim o teste com arquivo de vídeo é reproduzível.
+1. **Persistência (RF18):** `persistencia_s: 4` e `fracao_minima: 0.75` por EPI. Medir em segundos deixa a regra
+   igual com qualquer FPS. A maioria (75%) tolera frames errados isolados (ex.: um "OK" falso), que numa regra de
+   "N frames seguidos" zerariam a contagem. Pausas curtas, como levantar a máscara por 2 s para olhar o cordão, não geram
+   ocorrência. INDETERMINADO conta contra a falta (nunca gera ocorrência).
+2. **O que é falta (máscara):** sem máscara com o rosto visível **ou máscara levantada** (`levantada_nao_conforme: true`).
+3. **Agrupamento (RF20):** quando um EPI dispara, a ocorrência lista **todos** os EPIs NÃO CONFORMES da pessoa naquele
+   frame, e todos entram em cooldown juntos.
+4. **Cooldown (RF19):** `cooldown_s: 60` por `(track_id, EPI)`, medido no **tempo do vídeo** (arquivo) ou desde o início
+   (ao vivo). Vale mesmo que a pessoa tenha colocado a máscara no meio, para não gerar vários alertas de quem fica
+   levantando e abaixando a máscara.
 
-**Limitação conhecida:** se o ByteTrack trocar o ID da pessoa (oclusão longa, cruzamento), a mesma pessoa pode gerar uma nova ocorrência. Isso será medido na revisão manual.
+Exemplo (pessoa #3): sem máscara de 0 a 70 s → ocorrências em ~4 s e ~64 s. Sem máscara de 0 a 6 s, com máscara de 6 a
+20 s e sem máscara de 20 a 30 s → só a ocorrência de ~4 s (o segundo trecho está dentro dos 60 s).
+
+**Limitações conhecidas:**
+- se o ByteTrack trocar o ID da pessoa (oclusão longa, cruzamento), ela pode gerar uma nova ocorrência antes dos 60 s;
+- o `track_id` **não identifica** a pessoa: é um número temporário (LGPD).
 
 ### Saída
-- **Terminal:** uma linha por ocorrência, ex.: `[00:01:23] posto=mig_01 pessoa#3 FALTANDO: mascara, luvas | indeterminado: calcado`.
-- **CSV** (`--csv caminho.csv`), uma linha por ocorrência:
+- **Terminal:** `*** OCORRÊNCIA [00:00:03] posto mig_01 | pessoa #1 | mascara: rosto visível sem máscara (100%)`.
+- **Tela:** aviso vermelho "OCORRENCIA REGISTRADA: pessoa #1" por 3 s e contador de ocorrências no painel.
+- **CSV** (`--csv` grava em `testes_campo/ocorrencias_<fonte>_<data>.csv`, ou `--csv caminho.csv`), uma linha por
+  ocorrência, pronto para o Excel em português (separador `;`, vírgula decimal, UTF-8 com BOM):
 
 | coluna | exemplo |
 |---|---|
-| `timestamp_video` | `00:01:23.400` |
-| `data_hora` | `2026-10-10 14:32:05` |
-| `fonte` | `video_posto1.mp4` |
-| `posto` | `mig_01` |
-| `frame` | `2085` |
-| `track_id` | `3` |
-| `epis_faltantes` | `mascara;luvas` |
-| `epis_indeterminados` | `calcado` |
-| `confianca_media` | `{"protecao_corpo":0.71}` (média das detecções associadas na janela; EPIs faltantes não têm confiança) |
-| `mascara_levantada` | `0` |
-| `modo_fallback` | `0` |
-| `revisao_manual` | *(vazio – você preenche: VP / FP)* |
+| `data_hora` | `13/10/2026 08:52:51` |
+| `tempo_video` | `00:00:03.8` |
+| `fonte` / `posto` | `teste_sem_mascara.mp4` / `mig_01` |
+| `frame` / `pessoa` | `93` / `1` |
+| `epis_faltantes` | `mascara` |
+| `situacao` | `mascara: rosto visível sem máscara` ou `mascara: máscara levantada` |
+| `fracao_nao_conforme` | `mascara=0,930` (fração de frames em falta na janela de 4 s) |
+| `epis_indeterminados` | *(vazio)* |
+| `confianca_media` | `{"mascara": 0.71}` (só quando havia detecção, ex.: máscara levantada) |
+| `mascara_levantada` | `0` ou `1` |
+| `revisao_manual` | *(vazio – você preenche: VP = verdadeiro positivo, FP = falso positivo)* |
 
-- **Resumo ao final:** frames lidos, processados, ignorados por arco, FPS médio, nº de ocorrências.
-- A coluna `revisao_manual` é o que permite medir a taxa de falsos positivos na Fase 1.
-
+- **Resumo ao final:** frames lidos/processados/ignorados pelo arco, FPS, estados (pessoa × frame), nº de ocorrências e,
+  **por pessoa**, as ocorrências e o tempo em cada estado.
+- A coluna `revisao_manual` é o que permite medir a taxa de falsos positivos nos testes de campo (Etapa 1.5).
 ---
 
 ## 8. Configuração (config.yaml) – EPIs por posto (RF13)
@@ -385,6 +398,9 @@ Diferenças em relação ao exemplo do prompt (todas justificadas acima):
 | D21 | **De costas sem máscara continua INDETERMINADO** (RNF06) até haver evidência | Não há máscara real disponível para testar se o modelo detecta máscaras de costas; o treino tem quase só vistas frontais |
 | D22 | Modelo de máscara da v3: **yolov8n_640** (e não o yolo26n_640 da v2) | Com os negativos do COCO, o yolov8n teve 7,9% de falso positivo contra 27,9% do yolo26n (mAP 0,837 x 0,900, ambos acima da meta boa) |
 | D23 | **Regra de contradição** da máscara: "máscara" na altura do rosto (centro abaixo da linha dos olhos) com ≥ 2 pontos do rosto nítidos (conf ≥ 0,7) → **INDETERMINADO** em vez de CONFORME. Configurável (`epis.mascara.contradicao_rosto_visivel`) | Máscara abaixada cobre os olhos. No vídeo sem máscara, reduziu o falso "OK" de 8% para 2% sem perder detecções de "SEM MÁSCARA". INDETERMINADO não gera ocorrência, então, se a pose "imaginar" olhos através de uma máscara real, não há alarme falso |
+| D24 | Persistência em **segundos com maioria**: ocorrência quando ≥ 75% dos frames dos últimos **4 s** forem NÃO CONFORME (substitui "20 frames consecutivos") | Pedido do usuário (soldador levanta a máscara por poucos segundos para conferir o cordão); a regra independe do FPS e tolera frames errados isolados |
+| D25 | **Máscara levantada = NÃO CONFORME** (`levantada_nao_conforme: true`), gerando ocorrência após 4 s | Decisão do usuário (13/10/2026); antecipa parte do RD03 sem depender da detecção do arco |
+| D26 | CSV com separador `;`, vírgula decimal e UTF-8 com BOM | Abre direto no Excel em português, sem importação manual |
 | D14 | **YOLO26n** treinado como experimento extra, ao lado do YOLOv8n/s exigido (decisão de 11/10/2026) | Segundo a Ultralytics, é mais rápido em CPU. A escolha final usa o mAP do teste e o FPS medido no notebook do projeto; o mesmo vale para `yolov8n-pose` x `yolo26n-pose` |
 
 ### CLI prevista (`src/run.py`)

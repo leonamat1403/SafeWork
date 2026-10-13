@@ -1,11 +1,12 @@
-"""Associação EPI -> pessoa e estado de cada EPI (núcleo do projeto).
+﻿"""Associação EPI -> pessoa e estado de cada EPI (núcleo do projeto).
 
 Fase 1: regra da MÁSCARA DE SOLDA (RF07), a cor da caixa (RF04) e o rótulo. As regras dos outros EPIs
 (luvas, proteção do corpo, calçado, capacete) estão documentadas em docs/plano_fase1.md como trabalho futuro.
 
 Regra da máscara, em ordem:
   1. máscara detectada com pelo menos `cobertura_min` da caixa dentro da região da cabeça -> CONFORME
-     (e "máscara levantada" se o centro dela estiver acima da linha dos olhos com o rosto visível);
+     (e "máscara levantada" se o centro dela estiver acima da linha dos olhos com o rosto visível; com
+     `levantada_nao_conforme: true` no config.yaml, a máscara levantada vira NÃO CONFORME – decisão de 13/10/2026);
      EXCETO se a "máscara" estiver na altura do rosto e o rosto estiver nitidamente visível (olhos/nariz com
      confiança alta): uma máscara abaixada cobre os olhos, então isso é contraditório -> INDETERMINADO.
      (Teste da webcam, 13/10/2026: rosto de perfil com luz lateral confundido com máscara.)
@@ -75,10 +76,11 @@ def cor_da_pessoa(epis: dict[str, AvaliacaoEPI]) -> str:
 def rotulo_da_pessoa(avaliacao: AvaliacaoPessoa) -> str:
     """Texto acima da caixa da pessoa, ex.: "#3 SEM MASCARA" ou "#3 OK | MASCARA LEVANTADA"."""
     ident = f"#{avaliacao.pessoa.track_id}" if avaliacao.pessoa.track_id is not None else "#?"
-    faltando = [f"SEM {NOMES_TELA[n]}" for n, a in avaliacao.epis.items() if a.estado == Estado.NAO_CONFORME]
+    faltando = [("MASCARA LEVANTADA" if n == "mascara" and avaliacao.mascara_levantada else f"SEM {NOMES_TELA[n]}")
+                for n, a in avaliacao.epis.items() if a.estado == Estado.NAO_CONFORME]
     incertos = [f"? {NOMES_TELA[n]}" for n, a in avaliacao.epis.items() if a.estado == Estado.INDETERMINADO]
     partes = faltando or incertos or ["OK"]
-    if avaliacao.mascara_levantada:
+    if avaliacao.mascara_levantada and "MASCARA LEVANTADA" not in partes:
         partes.append("MASCARA LEVANTADA")
     return f"{ident} " + " | ".join(partes)
 
@@ -115,6 +117,7 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
     # Contradição "máscara sobre o rosto + rosto nítido" (configurável em epis.mascara do config.yaml)
     checar_contradicao = bool(cfg.extras.get("contradicao_rosto_visivel", True))
     conf_rosto = float(cfg.extras.get("conf_rosto_contradicao", 0.7))
+    levantada_falta = bool(cfg.extras.get("levantada_nao_conforme", False))
     for i, aval in enumerate(avaliacoes):
         reg = aval.regioes
         det = associacao.get(i)
@@ -127,6 +130,9 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
                 aval.mascara_levantada = False
                 aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, det.conf,
                                                     "máscara na altura do rosto, mas rosto visível", det.caixa)
+                continue
+            if aval.mascara_levantada and levantada_falta:
+                aval.epis["mascara"] = AvaliacaoEPI(Estado.NAO_CONFORME, det.conf, "máscara levantada", det.caixa)
                 continue
             aval.epis["mascara"] = AvaliacaoEPI(Estado.CONFORME, det.conf, "máscara na região da cabeça", det.caixa)
         elif reg.cabeca is None:

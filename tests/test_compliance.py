@@ -1,4 +1,4 @@
-"""Regra da máscara de solda (RF07), cor da caixa (RF04) e rótulo – inclui os casos [FASE 1] do RNF06."""
+﻿"""Regra da máscara de solda (RF07), cor da caixa (RF04) e rótulo – inclui os casos [FASE 1] do RNF06."""
 from dataclasses import replace
 
 from src.compliance import AvaliacaoEPI, avaliar_frame, cor_da_pessoa
@@ -22,11 +22,23 @@ def test_mascara_sobre_o_rosto_com_olhos_nao_visiveis_e_conforme(config):
 
 
 def test_mascara_acima_dos_olhos_com_olhos_visiveis_e_mascara_levantada(config):
-    aval = avaliar_uma(config, ROSTO_DESCOBERTO, [mascara(MASCARA_LEVANTADA)])
-    assert aval.epis["mascara"].estado == Estado.CONFORME     # por padrão conta como conforme (RD03 é Fase 2)
+    """RNF06 original: máscara levantada é sinalizada e, sem a opção levantada_nao_conforme, conta como conforme."""
+    cfg = com_extras_da_mascara(config, levantada_nao_conforme=False)
+    aval = avaliar_uma(cfg, ROSTO_DESCOBERTO, [mascara(MASCARA_LEVANTADA)])
+    assert aval.epis["mascara"].estado == Estado.CONFORME
     assert aval.mascara_levantada
     assert aval.cor == "verde"
     assert aval.rotulo == "#1 OK | MASCARA LEVANTADA"
+
+
+def test_mascara_levantada_e_nao_conforme_no_config_do_projeto(config):
+    """Decisão de 13/10/2026: máscara levantada conta como falta (gera ocorrência depois de 4 s)."""
+    aval = avaliar_uma(config, ROSTO_DESCOBERTO, [mascara(MASCARA_LEVANTADA)])
+    assert aval.epis["mascara"].estado == Estado.NAO_CONFORME
+    assert aval.epis["mascara"].motivo == "máscara levantada"
+    assert aval.mascara_levantada
+    assert aval.cor == "vermelho"
+    assert aval.rotulo == "#1 MASCARA LEVANTADA"
 
 
 def test_pessoa_de_costas_sem_mascara_e_indeterminado(config):
@@ -74,7 +86,8 @@ def test_fallback_sem_pose(config):
 def test_cada_mascara_vai_para_a_pessoa_certa(config):
     pessoas = [criar_pessoa(ROSTO_DESCOBERTO, track_id=1),
                criar_pessoa(deslocar(ROSTO_DESCOBERTO, 400), deslocar_caixa(CAIXA_PADRAO, 400), track_id=2)]
-    avals = avaliar_frame(pessoas, [mascara(MASCARA_LEVANTADA)], config)
+    cfg = com_extras_da_mascara(config, levantada_nao_conforme=False)   # aqui o foco é a associação
+    avals = avaliar_frame(pessoas, [mascara(MASCARA_LEVANTADA)], cfg)
     assert avals[0].epis["mascara"].estado == Estado.CONFORME
     assert avals[1].epis["mascara"].estado == Estado.NAO_CONFORME
 
@@ -83,7 +96,8 @@ def test_uma_mascara_nao_conta_para_duas_pessoas(config):
     """Duas pessoas muito próximas e uma só máscara: só uma delas fica conforme."""
     pessoas = [criar_pessoa(ROSTO_DESCOBERTO, track_id=1),
                criar_pessoa(deslocar(ROSTO_DESCOBERTO, 20), deslocar_caixa(CAIXA_PADRAO, 20), track_id=2)]
-    avals = avaliar_frame(pessoas, [mascara(MASCARA_LEVANTADA)], config)
+    cfg = com_extras_da_mascara(config, levantada_nao_conforme=False)
+    avals = avaliar_frame(pessoas, [mascara(MASCARA_LEVANTADA)], cfg)
     estados = sorted(a.epis["mascara"].estado.value for a in avals)
     assert estados == ["CONFORME", "NAO_CONFORME"]
 

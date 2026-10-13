@@ -1,4 +1,4 @@
-# Verificador de EPIs de Solda com Visão Computacional
+﻿# Verificador de EPIs de Solda com Visão Computacional
 
 Projeto extensionista de Ciência da Computação da **FSG** (Caxias do Sul – RS), em parceria com a **Marcopolo**.
 Uma câmera instalada no posto de solda verifica se o soldador está usando a **máscara de solda** e sinaliza
@@ -42,7 +42,7 @@ Modelos (pasta `models/`, fora do git):
 ```powershell
 python -m src.run                                         # webcam 0
 python -m src.run --fonte 1                               # outra webcam
-python -m src.run --fonte testes_campo\video1.mp4 --posto mig_01
+python -m src.run --fonte testes_campo\video1.mp4 --posto mig_01 --csv   # grava as ocorrências em CSV
 python -m src.run --fonte testes_campo\foto1.jpg --salvar-saida
 python -m src.run --fonte "rtsp://usuario:senha@192.168.0.10/stream"
 python -m src.run --fonte testes_campo\video1.mp4 --debug  # mostra região da cabeça, linha dos olhos e pontos
@@ -53,7 +53,12 @@ Teclas na janela: **q** ou **ESC** sai, **p** pausa.
 `--salvar-saida` grava o resultado anotado em `testes_campo/` (fora do git). **Gravações de pessoas reais exigem
 autorização prévia da empresa e dos trabalhadores filmados.**
 
-Configuração: `config.yaml` (EPIs, limiares, postos de solda, filtro do arco, modelos).
+**Ocorrências:** uma ocorrência é registrada quando a pessoa fica **sem máscara ou com a máscara levantada** em pelo
+menos 75% dos frames de **4 segundos**; a mesma pessoa só gera outra depois de **60 segundos**. Elas aparecem no
+terminal e na tela e, com `--csv`, vão para `testes_campo/ocorrencias_<fonte>_<data>.csv` (abre no Excel; a coluna
+`revisao_manual` é para marcar VP/FP). No fim, o terminal mostra um resumo por pessoa.
+
+Configuração: `config.yaml` (EPIs, limiares, tempos de persistência e cooldown, postos de solda, filtro do arco, modelos).
 
 ## Testes
 

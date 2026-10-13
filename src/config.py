@@ -1,4 +1,4 @@
-"""Leitura e validação do config.yaml.
+﻿"""Leitura e validação do config.yaml.
 
 Os valores de `epis` são o padrão. Cada posto em `postos` sobrescreve só o que muda (RF13), e o posto é
 escolhido na linha de comando com `--posto`. Qualquer erro no arquivo interrompe o programa com uma
@@ -39,7 +39,8 @@ class ConfigEPI:
     nome: str
     ativo: bool
     conf: float                    # confiança mínima da detecção (RF15)
-    frames_persistencia: int       # frames seguidos NÃO CONFORME para gerar ocorrência (RF18)
+    persistencia_s: float = 4.0    # segundos de falta antes de registrar a ocorrência (RF18)
+    fracao_minima: float = 0.75    # fração mínima de frames NÃO CONFORME nesse período (tolera frames errados)
     cobertura_min: float = 0.30    # fração mínima da caixa do EPI dentro da região do corpo
     extras: dict[str, Any] = field(default_factory=dict)   # parâmetros específicos (trabalho futuro)
 
@@ -124,17 +125,21 @@ def _ler_epis(secao: dict) -> dict[str, ConfigEPI]:
         if not isinstance(dados, dict):
             raise ErroConfig(f"epis.{nome} deve ser um bloco de campos (ex.: {{ativo: true, conf: 0.45}}).")
         onde = f"epis.{nome}"
+        if "frames_persistencia" in dados:
+            raise ErroConfig(f"{onde}.frames_persistencia foi substituído por persistencia_s (em segundos) e "
+                             "fracao_minima (ex.: persistencia_s: 4, fracao_minima: 0.75).")
         ativo = bool(dados.get("ativo", False))
         if ativo and nome not in EPIS_IMPLEMENTADOS:
             log.warning("epis.%s está ativo, mas ainda não foi implementado na Fase 1 (foco: máscara). "
                         "Ele será ignorado.", nome)
             ativo = False
-        conhecidos = {"ativo", "conf", "frames_persistencia", "cobertura_min"}
+        conhecidos = {"ativo", "conf", "persistencia_s", "fracao_minima", "cobertura_min"}
         epis[nome] = ConfigEPI(
             nome=nome,
             ativo=ativo,
             conf=_numero(dados, "conf", onde, 0.0, 1.0),
-            frames_persistencia=int(_numero(dados, "frames_persistencia", onde, 1, 10_000, padrao=20)),
+            persistencia_s=_numero(dados, "persistencia_s", onde, 0.1, 600, padrao=4.0),
+            fracao_minima=_numero(dados, "fracao_minima", onde, 0.01, 1.0, padrao=0.75),
             cobertura_min=_numero(dados, "cobertura_min", onde, 0.0, 1.0, padrao=0.30),
             extras={k: v for k, v in dados.items() if k not in conhecidos},
         )

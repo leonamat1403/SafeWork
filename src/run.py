@@ -3,7 +3,7 @@
 Exemplos (na pasta do projeto, com o ambiente virtual ativo):
     python -m src.run --baixar-modelos                       # baixa os modelos de pose para models/ (uma vez)
     python -m src.run                                        # webcam 0
-    python -m src.run --fonte testes_campo/video1.mp4 --posto mig_01
+    python -m src.run --fonte testes_campo/video1.mp4 --posto mig_01 --csv
     python -m src.run --fonte testes_campo/foto1.jpg --salvar-saida
     python -m src.run --fonte "rtsp://usuario:senha@192.168.0.10/stream"
     python -m src.run --fonte testes_campo/video1.mp4 --benchmark
@@ -33,6 +33,7 @@ from src.arc_filter import frame_saturado
 from src.compliance import CORES_BGR, AvaliacaoPessoa, avaliar_frame
 from src.config import Config, ErroConfig, carregar_config
 from src.detector import Detector, ErroModelo
+from src.occurrences import GerenciadorOcorrencias, Ocorrencia, RegistroCSV
 from src.tipos import DeteccaoEPI, Estado
 
 log = logging.getLogger("epi_solda")
@@ -92,7 +93,8 @@ def _texto_com_fundo(img: np.ndarray, texto: str, x: int, y: int, fundo: tuple[i
     cv2.putText(img, texto, (x + 3, y - base - 2), cv2.FONT_HERSHEY_SIMPLEX, escala, cor_texto, 1, cv2.LINE_AA)
 
 
-def desenhar(frame: np.ndarray, resultado: ResultadoFrame, linhas_hud: list[str], debug: bool = False) -> np.ndarray:
+def desenhar(frame: np.ndarray, resultado: ResultadoFrame, linhas_hud: list[str], debug: bool = False,
+             alerta: str | None = None) -> np.ndarray:
     """Desenha caixas das pessoas (cor RF04), rótulos, máscaras detectadas e o painel de informações (RF05)."""
     img = frame.copy()
     for det in resultado.deteccoes:
@@ -125,6 +127,8 @@ def desenhar(frame: np.ndarray, resultado: ResultadoFrame, linhas_hud: list[str]
                          8, y, CORES_BGR["vermelho"], escala=0.65)
     if any(a.regioes.fallback for a in resultado.avaliacoes):
         _texto_com_fundo(img, "MODO SEM POSE (fallback)", 8, y + 28, CORES_BGR["amarelo"])
+    if alerta:
+        _texto_com_fundo(img, alerta, 8, img.shape[0] - 10, CORES_BGR["vermelho"], escala=0.7)
     return img
 
 
@@ -194,10 +198,10 @@ class FonteVideo:
         self.cap.release()
 
 
-def nome_saida(fonte: str, extensao: str) -> Path:
+def nome_saida(fonte: str, extensao: str, prefixo: str = "saida") -> Path:
     """Caminho do arquivo de saída em testes_campo/, com data e hora no nome."""
     base = "webcam" if fonte.isdigit() else ("stream" if "://" in fonte else Path(fonte).stem)
-    return PASTA_SAIDA / f"saida_{base}_{datetime.now():%Y%m%d_%H%M%S}{extensao}"
+    return PASTA_SAIDA / f"{prefixo}_{base}_{datetime.now():%Y%m%d_%H%M%S}{extensao}"
 
 
 def espaco_livre_mb(pasta: Path) -> float:
@@ -351,6 +355,7 @@ def processar_imagem(config: Config, pipeline: Pipeline, caminho: Path, args: ar
         for epi, a in aval.epis.items():
             conf = f" (conf {a.conf:.2f})" if a.conf is not None else ""
             print(f"   {aval.rotulo.split()[0]} {epi}: {a.estado.value}{conf} - {a.motivo}")
+    print("(Ocorrências precisam de vídeo ou câmera: uma foto não tem duração.)")
     if args.salvar_saida:
         salvar_imagem(nome_saida(str(caminho), ".jpg"), anotado)
     if not args.sem_janela:
@@ -368,6 +373,13 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
     resultado: ResultadoFrame | None = None
     anotado = None
     gravador: GravadorVideo | None = None
+    gerenciador = GerenciadorOcorrencias(config)
+    registro = None
+    if args.csv is not None:
+        caminho_csv = nome_saida(fonte.fonte, ".csv", "ocorrencias") if args.csv == "auto" else Path(args.csv)
+        registro = RegistroCSV(caminho_csv, ocultar_senha(fonte.fonte), config.posto)
+    total_ocorrencias = 0
+    ultima: tuple[float, Ocorrencia] | None = None
     fps = 0.0
     ultimo_status = -1.0
     t_anterior = t_inicio = time.perf_counter()
@@ -384,12 +396,21 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
                     processados += 1
                     ignorados += int(resultado.saturado)
                     contar_estados(contagem, resultado)
+                    for oc in gerenciador.atualizar(resultado.avaliacoes, tempo, lidos, resultado.saturado):
+                        total_ocorrencias += 1
+                        ultima = (tempo, oc)
+                        print(f"*** OCORRÊNCIA [{formatar_tempo(tempo)}] posto {config.posto} | {oc.descricao()}")
+                        if registro is not None:
+                            registro.gravar(oc)
                 agora = time.perf_counter()
                 instantaneo = 1.0 / max(agora - t_anterior, 1e-6)
                 fps = instantaneo if fps == 0 else 0.9 * fps + 0.1 * instantaneo   # média móvel
                 t_anterior = agora
-                hud = [f"FPS {fps:.1f} | posto: {config.posto} | {formatar_tempo(tempo)}"]
-                anotado = desenhar(frame, resultado, hud, debug=args.debug)
+                hud = [f"FPS {fps:.1f} | posto: {config.posto} | {formatar_tempo(tempo)} | ocorrencias: {total_ocorrencias}"]
+                alerta = None
+                if ultima is not None and tempo - ultima[0] < 3.0:   # aviso na tela por 3 s
+                    alerta = f"OCORRENCIA REGISTRADA: pessoa #{ultima[1].track_id}"
+                anotado = desenhar(frame, resultado, hud, debug=args.debug, alerta=alerta)
                 if args.salvar_saida:
                     if gravador is None:
                         gravador = GravadorVideo(nome_saida(fonte.fonte, ".mp4"), fonte.fps, fonte.tipo != "arquivo")
@@ -413,6 +434,8 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
         fonte.fechar()
         if gravador is not None:
             gravador.fechar()
+        if registro is not None:
+            registro.fechar()
         cv2.destroyAllWindows()
 
     duracao = time.perf_counter() - t_inicio
@@ -422,6 +445,9 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
     print(f"Duração: {duracao:.1f} s | FPS médio: {lidos / duracao if duracao > 0 else 0:.1f}")
     for linha in resumo_estados(contagem):
         print(linha)
+    print(f"Ocorrências registradas: {total_ocorrencias}" + (f" | CSV: {registro.caminho}" if registro else ""))
+    for linha in gerenciador.resumo_por_pessoa():
+        print("  " + linha)
     return 0
 
 
@@ -518,6 +544,8 @@ def criar_parser() -> argparse.ArgumentParser:
     p.add_argument("--debug", action="store_true", help="desenha a região da cabeça, a linha dos olhos e os pontos")
     p.add_argument("--sem-janela", action="store_true", help="não abre janela (só terminal)")
     p.add_argument("--max-frames", type=int, default=0, help="para depois de N frames (0 = sem limite)")
+    p.add_argument("--csv", nargs="?", const="auto", help="grava as ocorrências em CSV (sem caminho: "
+                   "testes_campo/ocorrencias_<fonte>_<data>.csv)")
     p.add_argument("--benchmark", action="store_true", help="mede o FPS com imgsz 640 e 960 e sai")
     p.add_argument("--baixar-modelos", action="store_true", help="baixa os modelos de pose para models/ e sai")
     return p
