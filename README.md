@@ -85,10 +85,16 @@ as augmentations originais. Citações BibTeX em `docs/dataset_welding_ppe.md`, 
 Exemplos negativos (pessoas sem máscara, rodada v3): **COCO 2017** – Lin et al., "Microsoft COCO: Common Objects in
 Context", ECCV 2014 (https://cocodataset.org); anotações CC BY 4.0, imagens com as licenças do Flickr indicadas no COCO.
 
-## Ferramentas
+## Testes de campo (Etapa 1.5)
 
-`ferramentas/capturar.py` grava um vídeo de teste ou salva fotos da webcam a cada 0,5 s (exemplos negativos para o
-treino). Ex.: `python ferramentas/capturar.py --saida testes_campo/teste_sem_mascara.mp4 --duracao-s 60`.
+Roteiro completo: `docs/roteiro_testes_campo.md` (cenários, gravação, segurança e métricas).
+
+| Ferramenta | Para que serve |
+|---|---|
+| `python ferramentas/capturar.py --saida testes_campo/c01.mp4 --duracao-s 30` | grava um vídeo de teste (ou, com uma pasta em `--saida`, fotos a cada 0,5 s) |
+| `docs/planilha_testes_campo.xlsx` | modelo da planilha: cenários, testes, ocorrências (VP/FP), fontes dos vídeos e métricas x metas |
+| `python ferramentas/avaliar_testes.py` | processa os vídeos listados na planilha (`testes_campo/planilha_testes_campo.xlsx`) e preenche resultados e métricas |
+| `python ferramentas/criar_planilha_testes.py` | recria o modelo da planilha |
 
 ## Licenças de software
 
