@@ -328,12 +328,13 @@ Os valores em `epis:` são o **padrão**. Cada posto em `postos:` **sobrescreve 
 
 ```yaml
 epis:
-  mascara:        {ativo: true,  conf: 0.45, frames_persistencia: 20, cobertura_min: 0.30}
-  luvas:          {ativo: true,  conf: 0.40, frames_persistencia: 30, dist_max_punho: 0.08, regra: "ambas"}
-  protecao_corpo: {ativo: true,  conf: 0.50, frames_persistencia: 15, cobertura_min: 0.30,
+  mascara:        {ativo: true,  conf: 0.45, persistencia_s: 4, fracao_minima: 0.75, cobertura_min: 0.30,
+                   levantada_nao_conforme: true, contradicao_rosto_visivel: true, conf_rosto_contradicao: 0.7}
+  luvas:          {ativo: false, conf: 0.40, persistencia_s: 2, dist_max_punho: 0.08, regra: "ambas"}
+  protecao_corpo: {ativo: false, conf: 0.50, persistencia_s: 1, cobertura_min: 0.30,
                    aceitar_avental: true, aceitar_macacao: true}
-  calcado:        {ativo: false, conf: 0.35, frames_persistencia: 30, dist_max_tornozelo: 0.08}
-  capacete:       {ativo: false, conf: 0.50, frames_persistencia: 15}
+  calcado:        {ativo: false, conf: 0.35, persistencia_s: 2, dist_max_tornozelo: 0.08}
+  capacete:       {ativo: false, conf: 0.50, persistencia_s: 1}
 
 postos:
   padrao: {}                                   # usa "epis" como está
