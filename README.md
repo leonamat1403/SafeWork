@@ -13,13 +13,14 @@ as não conformidades (NR-6).
 frame ─► filtro do arco (frame estourado é ignorado)
       ─► YOLOv8n-pose + ByteTrack (pessoas, pontos do corpo, ID de cada pessoa)
       ─► detector de máscara de solda (YOLO treinado no projeto)
+      ─► detector de rostos descobertos (YuNet)
       ─► regras: a máscara está na região da cabeça?  ─► caixa VERDE / AMARELA / VERMELHA
 ```
 
 | Estado | Quando | Cor |
 |---|---|---|
 | CONFORME | máscara detectada na região da cabeça | verde |
-| NÃO CONFORME | rosto visível (olhos/nariz) e nenhuma máscara | vermelho |
+| NÃO CONFORME | rosto descoberto visível (detector de rostos) e nenhuma máscara, ou máscara levantada | vermelho |
 | INDETERMINADO | cabeça não visível, pessoa de costas, rosto coberto sem máscara detectada | amarelo |
 
 "MASCARA LEVANTADA" é indicada quando a máscara está acima da linha dos olhos com o rosto visível.
@@ -35,7 +36,7 @@ pip install -r requirements.txt
 
 Modelos (pasta `models/`, fora do git):
 - `epi_solda_best.pt`: gerado pelo notebook de treinamento (`notebooks/colab` ou `notebooks/kaggle`);
-- modelos de pose: `python -m src.run --baixar-modelos`. Em rede com proxy, rode em outra rede e copie a pasta `models/`.
+- modelos de pose e o detector de rostos (YuNet): `python -m src.run --baixar-modelos`. Em rede com proxy, rode em outra rede e copie a pasta `models/`.
 
 ## Uso
 

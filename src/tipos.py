@@ -60,6 +60,19 @@ class DeteccaoEPI:
     caixa: Caixa
 
 
+@dataclass(frozen=True)
+class Rosto:
+    """Um rosto DESCOBERTO encontrado pelo detector de rostos (YuNet): caixa, altura (y) dos olhos e confiança.
+
+    Ao contrário dos pontos do rosto do modelo de pose, que "imaginam" olhos e nariz até atrás de uma máscara de solda,
+    o detector de rostos só encontra rostos realmente visíveis (teste de campo de 13/10/2026).
+    """
+
+    caixa: Caixa
+    olhos_y: float
+    conf: float
+
+
 def area(caixa: Caixa) -> float:
     """Área de uma caixa (zero se ela for degenerada)."""
     return max(0.0, caixa[2] - caixa[0]) * max(0.0, caixa[3] - caixa[1])

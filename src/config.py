@@ -53,6 +53,8 @@ class ConfigDeteccao:
     conf_keypoint: float = 0.5
     altura_min_pessoa_px: int = 200
     pular_frames: int = 1
+    conf_rosto: float = 0.6        # confiança mínima do detector de rostos (YuNet)
+    tamanho_recorte_rosto: int = 224   # o recorte da cabeça é ampliado/reduzido para este lado antes de procurar rostos
 
 
 @dataclass(frozen=True)
@@ -71,6 +73,7 @@ class ConfigOcorrencias:
 class ConfigModelos:
     epi: Path
     pose: Path
+    rosto: Path | None = None      # detector de rostos (YuNet); sem ele, "rosto visível" vem da pose
 
 
 @dataclass(frozen=True)
@@ -186,6 +189,8 @@ def carregar_config(caminho: str | Path = "config.yaml", posto: str = "padrao") 
         conf_keypoint=_numero(sec, "conf_keypoint", "deteccao", 0.0, 1.0, padrao=0.5),
         altura_min_pessoa_px=int(_numero(sec, "altura_min_pessoa_px", "deteccao", 0, 10_000, padrao=200)),
         pular_frames=int(_numero(sec, "pular_frames", "deteccao", 1, 100, padrao=1)),
+        conf_rosto=_numero(sec, "conf_rosto", "deteccao", 0.0, 1.0, padrao=0.6),
+        tamanho_recorte_rosto=int(_numero(sec, "tamanho_recorte_rosto", "deteccao", 64, 1024, padrao=224)),
     )
 
     sec = dados.get("arco") or {}
@@ -203,6 +208,7 @@ def carregar_config(caminho: str | Path = "config.yaml", posto: str = "padrao") 
     modelos = ConfigModelos(
         epi=base / sec.get("epi", "models/epi_solda_best.pt"),
         pose=base / sec.get("pose", "models/yolov8n-pose.pt"),
+        rosto=(base / sec["rosto"]) if sec.get("rosto") else None,
     )
 
     mapeamento = {}

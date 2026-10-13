@@ -14,7 +14,7 @@ class DetectorFalso:
 
     def detectar(self, frame):
         self.chamadas += 1
-        return [criar_pessoa(ROSTO_DESCOBERTO)], []
+        return [criar_pessoa(ROSTO_DESCOBERTO)], [], None   # sem detector de rostos: vale a pose
 
 
 def frame(brilho: int) -> np.ndarray:

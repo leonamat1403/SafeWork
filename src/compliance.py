@@ -13,6 +13,8 @@ Regra da máscara, em ordem:
   2. sem máscara e cabeça não visível                     -> INDETERMINADO
   3. sem máscara e sem pose (fallback)                    -> INDETERMINADO (não dá para saber se o rosto aparece)
   4. sem máscara e rosto visível (de frente, descoberto)  -> NÃO CONFORME
+     ("rosto visível" vem do detector de rostos quando ele existe; os pontos do rosto da pose enxergam olhos
+      até atrás da máscara de solda – D27)
   5. sem máscara nos demais casos (costas, rosto coberto) -> INDETERMINADO
 """
 from __future__ import annotations
@@ -21,7 +23,7 @@ from dataclasses import dataclass, field
 
 from src.body_regions import RegioesCorpo, calcular_regioes, pontos_do_rosto_visiveis
 from src.config import Config, ConfigEPI
-from src.tipos import DeteccaoEPI, Estado, Pessoa, centro, fracao_dentro
+from src.tipos import DeteccaoEPI, Estado, Pessoa, Rosto, centro, fracao_dentro
 
 # Cores padronizadas do projeto, no formato BGR do OpenCV
 CORES_BGR = {
@@ -125,8 +127,10 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
             _, cy = centro(det.caixa)
             acima_dos_olhos = reg.linha_olhos_y is not None and cy < reg.linha_olhos_y
             aval.mascara_levantada = bool(reg.rosto_visivel and acima_dos_olhos)
-            if (checar_contradicao and not acima_dos_olhos
-                    and pontos_do_rosto_visiveis(aval.pessoa, conf_rosto) >= 2):
+            # Rosto "nítido": pelo detector de rostos, se houver; senão, >= 2 pontos do rosto da pose com conf alta
+            rosto_nitido = (reg.rosto_visivel if reg.rosto_por_detector
+                            else pontos_do_rosto_visiveis(aval.pessoa, conf_rosto) >= 2)
+            if checar_contradicao and not acima_dos_olhos and rosto_nitido:
                 aval.mascara_levantada = False
                 aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, det.conf,
                                                     "máscara na altura do rosto, mas rosto visível", det.caixa)
@@ -137,7 +141,7 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
             aval.epis["mascara"] = AvaliacaoEPI(Estado.CONFORME, det.conf, "máscara na região da cabeça", det.caixa)
         elif reg.cabeca is None:
             aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, motivo="cabeça não visível")
-        elif reg.fallback:
+        elif reg.fallback and not reg.rosto_por_detector:
             aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, motivo="sem pose: rosto não verificável")
         elif reg.rosto_visivel:
             aval.epis["mascara"] = AvaliacaoEPI(Estado.NAO_CONFORME, motivo="rosto visível sem máscara")
@@ -150,9 +154,13 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
 REGRAS = {"mascara": _avaliar_mascaras}
 
 
-def avaliar_frame(pessoas: list[Pessoa], deteccoes: list[DeteccaoEPI], config: Config) -> list[AvaliacaoPessoa]:
-    """Avalia todos os EPIs ativos de todas as pessoas de um frame."""
-    avaliacoes = [AvaliacaoPessoa(p, calcular_regioes(p, config.deteccao.conf_keypoint)) for p in pessoas]
+def avaliar_frame(pessoas: list[Pessoa], deteccoes: list[DeteccaoEPI], config: Config,
+                  rostos: list[Rosto] | None = None) -> list[AvaliacaoPessoa]:
+    """Avalia todos os EPIs ativos de todas as pessoas de um frame.
+
+    `rostos`: saída do detector de rostos (None se ele não estiver disponível; aí vale a pose).
+    """
+    avaliacoes = [AvaliacaoPessoa(p, calcular_regioes(p, config.deteccao.conf_keypoint, rostos)) for p in pessoas]
     for nome in config.epis_ativos:
         regra = REGRAS.get(nome)
         if regra is not None:

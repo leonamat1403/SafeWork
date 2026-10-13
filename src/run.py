@@ -34,13 +34,17 @@ from src.compliance import CORES_BGR, AvaliacaoPessoa, avaliar_frame
 from src.config import Config, ErroConfig, carregar_config
 from src.detector import Detector, ErroModelo
 from src.occurrences import GerenciadorOcorrencias, Ocorrencia, RegistroCSV
-from src.tipos import DeteccaoEPI, Estado
+from src.tipos import DeteccaoEPI, Estado, Rosto
 
 log = logging.getLogger("epi_solda")
 
 PASTA_SAIDA = Path("testes_campo")             # fora do git: pode conter pessoas reais
 EXTENSOES_IMAGEM = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 MODELOS_POSE = ("yolov8n-pose.pt", "yolo26n-pose.pt")
+# Detector de rostos YuNet (OpenCV Zoo, licença MIT)
+MODELO_ROSTOS = "face_detection_yunet_2023mar.onnx"
+URL_MODELO_ROSTOS = ("https://github.com/opencv/opencv_zoo/raw/refs/heads/main/models/face_detection_yunet/"
+                     + MODELO_ROSTOS)
 TITULO_JANELA = "Verificador de EPIs de Solda (q = sair, p = pausar)"
 ESPACO_MINIMO_MB = 500                         # abaixo disso, para de gravar a saída (RNF03: disco cheio)
 
@@ -58,6 +62,7 @@ class ResultadoFrame:
     deteccoes: list[DeteccaoEPI]
     saturado: bool
     fracao_saturada: float
+    rostos: list[Rosto] | None = None
 
 
 class Pipeline:
@@ -68,16 +73,18 @@ class Pipeline:
         self.detector = detector
         self.ultimas_avaliacoes: list[AvaliacaoPessoa] = []
         self.ultimas_deteccoes: list[DeteccaoEPI] = []
+        self.ultimos_rostos: list[Rosto] | None = None
 
     def processar(self, frame: np.ndarray) -> ResultadoFrame:
         saturado, fracao = frame_saturado(frame, self.config.arco)
         if saturado:
             # RF14: frame estourado pelo arco não muda nenhum estado; repete o último resultado válido
-            return ResultadoFrame(self.ultimas_avaliacoes, self.ultimas_deteccoes, True, fracao)
-        pessoas, deteccoes = self.detector.detectar(frame)
-        self.ultimas_avaliacoes = avaliar_frame(pessoas, deteccoes, self.config)
+            return ResultadoFrame(self.ultimas_avaliacoes, self.ultimas_deteccoes, True, fracao, self.ultimos_rostos)
+        pessoas, deteccoes, rostos = self.detector.detectar(frame)
+        self.ultimas_avaliacoes = avaliar_frame(pessoas, deteccoes, self.config, rostos)
         self.ultimas_deteccoes = deteccoes
-        return ResultadoFrame(self.ultimas_avaliacoes, deteccoes, False, fracao)
+        self.ultimos_rostos = rostos
+        return ResultadoFrame(self.ultimas_avaliacoes, deteccoes, False, fracao, rostos)
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -117,6 +124,12 @@ def desenhar(frame: np.ndarray, resultado: ResultadoFrame, linhas_hud: list[str]
             for kp in aval.pessoa.keypoints:
                 if kp.conf >= 0.5:
                     cv2.circle(img, (int(kp.x), int(kp.y)), 3, (0, 255, 255), -1)
+    if debug and resultado.rostos:
+        for rosto in resultado.rostos:   # rostos descobertos encontrados pelo YuNet (magenta)
+            x1, y1, x2, y2 = map(int, rosto.caixa)
+            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), 2)
+            cv2.putText(img, f"rosto {rosto.conf:.2f}", (x1, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
+                        (255, 0, 255), 1, cv2.LINE_AA)
 
     y = 22
     for linha in linhas_hud:
@@ -525,6 +538,21 @@ def baixar_modelos(pasta: Path) -> int:
             print(f"{nome}: baixado em {destino}")
         except Exception as erro:   # sem internet, proxy etc.
             print(f"{nome}: falha no download ({erro}). Baixe em outra rede e copie para {pasta}/")
+            return 5
+    destino = pasta / MODELO_ROSTOS
+    if destino.exists():
+        print(f"{MODELO_ROSTOS}: já existe em {destino}")
+    else:
+        try:
+            import urllib.request
+            urllib.request.urlretrieve(URL_MODELO_ROSTOS, destino)
+            if destino.stat().st_size < 100_000:   # o GitHub devolveu um ponteiro, não o modelo
+                destino.unlink()
+                raise RuntimeError("arquivo baixado incompleto")
+            print(f"{MODELO_ROSTOS}: baixado em {destino}")
+        except Exception as erro:   # sem internet, proxy etc.
+            print(f"{MODELO_ROSTOS}: falha no download ({erro}). Baixe {URL_MODELO_ROSTOS} em outra rede e "
+                  f"copie para {pasta}/")
             return 5
     if not (pasta / "epi_solda_best.pt").exists():
         print("Atenção: falta models/epi_solda_best.pt (gerado pelo notebook de treinamento).")

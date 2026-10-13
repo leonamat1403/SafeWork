@@ -3,7 +3,7 @@ from dataclasses import replace
 
 from src.compliance import AvaliacaoEPI, avaliar_frame, cor_da_pessoa
 from src.tipos import Estado, Pessoa
-from tests.auxiliares import (CAIXA_PADRAO, MASCARA_ABAIXADA, MASCARA_LEVANTADA, MASCARA_NA_BANCADA, ORELHAS,
+from tests.auxiliares import (CAIXA_PADRAO, MASCARA_ABAIXADA, MASCARA_LEVANTADA, MASCARA_NA_BANCADA, ORELHAS, ROSTO_DETECTADO,
                               OMBROS_COSTAS, QUADRIS, ROSTO_COBERTO, ROSTO_DESCOBERTO, criar_pessoa, deslocar,
                               deslocar_caixa, mascara)
 
@@ -163,3 +163,46 @@ def test_cor_amarela_quando_nenhum_nao_conforme_mas_algum_indeterminado():
 
 def test_cor_verde_quando_todos_conformes():
     assert cor_da_pessoa({"mascara": AvaliacaoEPI(Estado.CONFORME)}) == "verde"
+
+
+# --- Com o detector de rostos (testes de campo de 13/10/2026) -------------------------------------------------------
+# A pose "enxerga" olhos e nariz até atrás da máscara de solda; o detector de rostos não. ROSTO_DESCOBERTO abaixo
+# representa a pose "imaginando" o rosto; a lista `rostos` é o que o detector de rostos realmente encontrou.
+def test_soldador_com_mascara_e_pose_imaginando_o_rosto_fica_conforme(config):
+    """Caso real (T07): a pose vê "olhos", o detector de rostos não vê rosto, a máscara foi detectada."""
+    for caixa in (MASCARA_ABAIXADA, MASCARA_LEVANTADA):
+        aval = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [mascara(caixa)], config, rostos=[])[0]
+        assert aval.epis["mascara"].estado == Estado.CONFORME
+        assert not aval.mascara_levantada
+
+
+def test_sem_mascara_detectada_e_sem_rosto_detectado_fica_indeterminado(config):
+    """Caso real (T03): máscara real não reconhecida pelo detector; sem rosto descoberto -> não acusa."""
+    aval = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [], config, rostos=[])[0]
+    assert aval.epis["mascara"].estado == Estado.INDETERMINADO
+
+
+def test_rosto_descoberto_detectado_sem_mascara_e_nao_conforme(config):
+    aval = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [], config, rostos=[ROSTO_DETECTADO])[0]
+    assert aval.epis["mascara"].estado == Estado.NAO_CONFORME
+    assert aval.regioes.rosto_por_detector
+
+
+def test_mascara_levantada_com_rosto_detectado(config):
+    aval = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [mascara(MASCARA_LEVANTADA)], config,
+                         rostos=[ROSTO_DETECTADO])[0]
+    assert aval.mascara_levantada
+    assert aval.epis["mascara"].motivo == "máscara levantada"
+
+
+def test_contradicao_com_o_detector_de_rostos(config):
+    aval = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [mascara(MASCARA_ABAIXADA)], config,
+                         rostos=[ROSTO_DETECTADO])[0]
+    assert aval.epis["mascara"].estado == Estado.INDETERMINADO
+    assert aval.epis["mascara"].motivo == "máscara na altura do rosto, mas rosto visível"
+
+
+def test_sem_pose_mas_com_rosto_detectado_pode_acusar(config):
+    aval = avaliar_frame([Pessoa(caixa=CAIXA_PADRAO)], [], config, rostos=[ROSTO_DETECTADO])[0]
+    assert aval.regioes.fallback
+    assert aval.epis["mascara"].estado == Estado.NAO_CONFORME

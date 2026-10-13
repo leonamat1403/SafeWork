@@ -53,3 +53,19 @@ def test_fallback_sem_pose_usa_25_por_cento_superiores_da_caixa():
     reg = calcular_regioes(Pessoa(caixa=CAIXA_PADRAO), CONF_KP)
     assert reg.fallback
     assert reg.cabeca == pytest.approx((100, 100, 300, 225))
+
+
+def test_com_detector_de_rostos_a_linha_dos_olhos_vem_do_rosto_detectado():
+    from tests.auxiliares import ROSTO_DETECTADO
+    reg = calcular_regioes(criar_pessoa(ROSTO_DESCOBERTO), CONF_KP, rostos=[ROSTO_DETECTADO])
+    assert reg.rosto_visivel and reg.rosto_por_detector
+    assert reg.linha_olhos_y == pytest.approx(150)
+    assert reg.orientacao == "frente"
+
+
+def test_rosto_detectado_fora_da_cabeca_nao_conta():
+    from src.tipos import Rosto
+    longe = Rosto(caixa=(500, 135, 550, 200), olhos_y=150.0, conf=0.9)
+    reg = calcular_regioes(criar_pessoa(ROSTO_DESCOBERTO), CONF_KP, rostos=[longe])
+    assert not reg.rosto_visivel
+    assert reg.orientacao == "indefinida"      # a pose "viu" rosto, mas o detector não confirmou

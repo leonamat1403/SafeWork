@@ -1,4 +1,4 @@
-"""Pessoas, pontos e máscaras SIMULADOS para os testes (sem câmera e sem modelos), RNF06.
+﻿"""Pessoas, pontos e máscaras SIMULADOS para os testes (sem câmera e sem modelos), RNF06.
 
 Pessoa padrão: caixa (100, 100) – (300, 600), de frente para a câmera. Coordenadas em pixels; Y cresce para baixo.
 
@@ -10,7 +10,7 @@ Região da cabeça esperada: x 160–240, y 116–220
 """
 from __future__ import annotations
 
-from src.tipos import Caixa, DeteccaoEPI, Keypoint, Pessoa
+from src.tipos import Caixa, DeteccaoEPI, Keypoint, Pessoa, Rosto
 
 CAIXA_PADRAO: Caixa = (100, 100, 300, 600)
 NARIZ = {0: (200, 162)}
@@ -27,6 +27,9 @@ REGIAO_CABECA_ESPERADA = (160.0, 116.0, 240.0, 220.0)
 MASCARA_ABAIXADA: Caixa = (165, 125, 235, 200)   # cobrindo o rosto
 MASCARA_LEVANTADA: Caixa = (170, 95, 230, 140)   # sobre a testa/cabeça, centro (y=117,5) acima dos olhos (y=150)
 MASCARA_NA_BANCADA: Caixa = (400, 450, 460, 500) # longe da cabeça
+
+# Rosto DESCOBERTO encontrado pelo detector de rostos (YuNet), dentro da região da cabeça; olhos em y=150
+ROSTO_DETECTADO = Rosto(caixa=(175, 135, 225, 200), olhos_y=150.0, conf=0.9)
 
 
 def criar_pessoa(pontos: dict[int, tuple[float, float]], caixa: Caixa = CAIXA_PADRAO, track_id: int | None = 1,

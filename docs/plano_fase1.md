@@ -402,6 +402,7 @@ Diferenças em relação ao exemplo do prompt (todas justificadas acima):
 | D24 | Persistência em **segundos com maioria**: ocorrência quando ≥ 75% dos frames dos últimos **4 s** forem NÃO CONFORME (substitui "20 frames consecutivos") | Pedido do usuário (soldador levanta a máscara por poucos segundos para conferir o cordão); a regra independe do FPS e tolera frames errados isolados |
 | D25 | **Máscara levantada = NÃO CONFORME** (`levantada_nao_conforme: true`), gerando ocorrência após 4 s | Decisão do usuário (13/10/2026); antecipa parte do RD03 sem depender da detecção do arco |
 | D26 | CSV com separador `;`, vírgula decimal e UTF-8 com BOM | Abre direto no Excel em português, sem importação manual |
+| D27 | **"Rosto visível" passa a vir de um detector de rostos (YuNet, OpenCV Zoo, MIT)**, e não dos pontos do rosto da pose. A pose continua localizando a cabeça e a orientação. Sem o arquivo do YuNet, o sistema volta à pose | Testes de campo (13/10/2026, vídeos do Pexels): a pose "enxergou" olhos e nariz através da máscara de solda em 84–100% dos frames, gerando falsos "SEM MÁSCARA" e "MÁSCARA LEVANTADA". O YuNet achou rosto em 0–1% dos frames com máscara e em 86–98% dos frames sem máscara |
 | D14 | **YOLO26n** treinado como experimento extra, ao lado do YOLOv8n/s exigido (decisão de 11/10/2026) | Segundo a Ultralytics, é mais rápido em CPU. A escolha final usa o mAP do teste e o FPS medido no notebook do projeto; o mesmo vale para `yolov8n-pose` x `yolo26n-pose` |
 
 ### CLI prevista (`src/run.py`)

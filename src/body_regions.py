@@ -1,4 +1,4 @@
-"""Regiões do corpo a partir dos pontos do modelo de pose (padrão COCO).
+﻿"""Regiões do corpo a partir dos pontos do modelo de pose (padrão COCO).
 
 Na Fase 1 só a região da CABEÇA é usada (máscara de solda). O cálculo não exige os olhos visíveis, porque a
 máscara abaixada cobre olhos e nariz: a cabeça é localizada pelas orelhas e pelos ombros.
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.tipos import Caixa, Keypoint, Pessoa
+from src.tipos import Caixa, Keypoint, Pessoa, Rosto
 
 # Índices dos pontos COCO
 NARIZ, OLHO_ESQ, OLHO_DIR, ORELHA_ESQ, ORELHA_DIR = 0, 1, 2, 3, 4
@@ -33,9 +33,11 @@ class RegioesCorpo:
 
     - `cabeca`: caixa da região da cabeça, ou None se a cabeça não estiver visível;
     - `linha_olhos_y`: altura (y) da linha dos olhos, se olhos ou nariz estiverem visíveis;
-    - `rosto_visivel`: olhos ou nariz visíveis (a pessoa está com o rosto voltado para a câmera e descoberto);
+    - `rosto_visivel`: rosto descoberto voltado para a câmera;
     - `orientacao`: "frente", "costas" ou "indefinida";
-    - `fallback`: True quando a região veio só da caixa da pessoa (pose indisponível, RF12).
+    - `fallback`: True quando a região veio só da caixa da pessoa (pose indisponível, RF12);
+    - `rosto_por_detector`: True quando `rosto_visivel` e `linha_olhos_y` vieram do DETECTOR DE ROSTOS (confiável com
+      máscara de solda); False quando vieram dos pontos do rosto da pose (que "enxergam" olhos atrás da máscara).
     """
 
     cabeca: Caixa | None
@@ -43,6 +45,7 @@ class RegioesCorpo:
     rosto_visivel: bool
     orientacao: str
     fallback: bool
+    rosto_por_detector: bool = False
 
 
 def _visiveis(pessoa: Pessoa, indices: tuple[int, ...], conf_min: float) -> dict[int, Keypoint]:
@@ -109,15 +112,40 @@ def linha_dos_olhos(pessoa: Pessoa, conf_min: float) -> float | None:
     return nariz[NARIZ].y if nariz else None
 
 
-def calcular_regioes(pessoa: Pessoa, conf_keypoint: float) -> RegioesCorpo:
-    """Calcula as regiões de uma pessoa; sem pontos do corpo, usa o fallback pela caixa (RF12)."""
+def rosto_na_cabeca(cabeca: Caixa | None, rostos: list[Rosto]) -> Rosto | None:
+    """O maior rosto detectado cujo centro está dentro da região da cabeça (ou None)."""
+    if cabeca is None:
+        return None
+    dentro = [r for r in rostos
+              if cabeca[0] <= (r.caixa[0] + r.caixa[2]) / 2 <= cabeca[2]
+              and cabeca[1] <= (r.caixa[1] + r.caixa[3]) / 2 <= cabeca[3]]
+    return max(dentro, key=lambda r: (r.caixa[2] - r.caixa[0]) * (r.caixa[3] - r.caixa[1]), default=None)
+
+
+def calcular_regioes(pessoa: Pessoa, conf_keypoint: float, rostos: list[Rosto] | None = None) -> RegioesCorpo:
+    """Calcula as regiões de uma pessoa; sem pontos do corpo, usa o fallback pela caixa (RF12).
+
+    Com `rostos` (saída do detector de rostos), "rosto visível" e a linha dos olhos vêm dele. Com `rostos=None`
+    (detector indisponível), vêm dos pontos do rosto da pose.
+    """
     if not pessoa.keypoints:
         x1, y1, x2, y2 = pessoa.caixa
         cabeca = (x1, y1, x2, y1 + FRACAO_CABECA_FALLBACK * (y2 - y1))
-        return RegioesCorpo(cabeca=cabeca, linha_olhos_y=None, rosto_visivel=False,
-                            orientacao="indefinida", fallback=True)
+        rosto = rosto_na_cabeca(cabeca, rostos) if rostos is not None else None
+        return RegioesCorpo(cabeca=cabeca, linha_olhos_y=rosto.olhos_y if rosto else None,
+                            rosto_visivel=rosto is not None, orientacao="frente" if rosto else "indefinida",
+                            fallback=True, rosto_por_detector=rostos is not None)
+    cabeca = regiao_cabeca(pessoa, conf_keypoint)
+    if rostos is not None:
+        rosto = rosto_na_cabeca(cabeca, rostos)
+        orientacao = "frente" if rosto else orientacao_da_pessoa(pessoa, conf_keypoint)
+        if orientacao == "frente" and rosto is None:   # a pose "viu" um rosto que o detector não viu
+            orientacao = "indefinida"
+        return RegioesCorpo(cabeca=cabeca, linha_olhos_y=rosto.olhos_y if rosto else None,
+                            rosto_visivel=rosto is not None, orientacao=orientacao, fallback=False,
+                            rosto_por_detector=True)
     return RegioesCorpo(
-        cabeca=regiao_cabeca(pessoa, conf_keypoint),
+        cabeca=cabeca,
         linha_olhos_y=linha_dos_olhos(pessoa, conf_keypoint),
         rosto_visivel=bool(_visiveis(pessoa, PONTOS_ROSTO, conf_keypoint)),
         orientacao=orientacao_da_pessoa(pessoa, conf_keypoint),

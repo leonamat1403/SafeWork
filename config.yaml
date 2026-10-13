@@ -1,4 +1,4 @@
-# Configuração do Verificador de EPIs de Solda – Fase 1
+﻿# Configuração do Verificador de EPIs de Solda – Fase 1
 #
 # Foco da Fase 1 (decisão de 11/10/2026, com o orientador): apenas a MÁSCARA DE SOLDA.
 # Os demais EPIs ficam desativados (trabalho futuro); se forem ativados, o programa avisa e os ignora.
@@ -41,6 +41,8 @@ deteccao:
   conf_keypoint: 0.5         # confiança mínima para um ponto do corpo ser "visível"
   altura_min_pessoa_px: 200  # (luvas/calçado – trabalho futuro) pessoas menores ficam INDETERMINADO
   pular_frames: 1            # processa 1 a cada N frames (aumente se o FPS ficar baixo)
+  conf_rosto: 0.6            # confiança mínima do detector de rostos
+  tamanho_recorte_rosto: 224 # o rosto é procurado só no recorte da cabeça de cada pessoa, ampliado para este lado
 
 # --- Filtro do arco elétrico (RF14) ----------------------------------------------------------------------
 arco:
@@ -54,8 +56,12 @@ turnos: {"1": "06:00-14:00", "2": "14:00-22:00", "3": "22:00-06:00"}   # Fase 2
 
 # --- Modelos (caminhos relativos a este arquivo) -----------------------------------------------------------
 modelos:
-  epi: "models/epi_solda_best.pt"     # treinado no notebook (rodada v2: yolo26n_640, classe "mascara")
+  epi: "models/epi_solda_best.pt"     # treinado no notebook (rodada v3: yolov8n_640, classe "mascara")
   pose: "models/yolov8n-pose.pt"      # baixe com:  python -m src.run --baixar-modelos
+  # Detector de ROSTOS descobertos (YuNet, OpenCV Zoo, licença MIT). Decide se o rosto está visível: os pontos do
+  # rosto da pose "enxergam" olhos até atrás da máscara de solda (testes de campo de 13/10/2026). Sem este arquivo,
+  # o sistema volta a usar a pose (menos confiável). Baixe com:  python -m src.run --baixar-modelos
+  rosto: "models/face_detection_yunet_2023mar.onnx"
 
 # --- Nomes de classe dos modelos -> EPI interno ------------------------------------------------------------
 # Camada de segurança para modelos que ainda usem os nomes originais dos datasets.
