@@ -11,6 +11,30 @@ divisão e mesmos experimentos. Muda só o ambiente:
 | Cota de GPU | não divulgada | ~30 h por semana (visível no painel) |
 | Continuar de onde parou | automático, pelo Drive | anexando a pasta `treinos` como *Input* (seção 2b do notebook) |
 
+## Rodada v5 (negativos difíceis): treino novo, com 1 Dataset anexado
+
+A v5 é a v4 com 362 quadros de vídeos do Pexels de pessoas **sem** máscara de solda (cabeça baixa, oficina escura,
+capacete de obra, boné, óculos escuros com maçarico). Os quadros não estão no Roboflow, então sobem como um
+**Dataset** do Kaggle.
+
+**A. Subir os quadros (só uma vez)**
+1. https://www.kaggle.com/datasets → **+ New Dataset**.
+2. Arraste o arquivo `Z:\Documentos\SafeWork\dados\epi_solda_negativos_v5.zip` (56 MB). **Não descompacte.**
+3. Título: `epi-solda-negativos-v5`. Visibilidade: **Private** → **Create** e aguarde o processamento.
+
+**B. Notebook novo**
+1. Baixe `notebooks/kaggle/treinamento_epi_solda_kaggle.ipynb` do GitHub (a célula 1 mostra `RODADA = "v5"`).
+2. https://www.kaggle.com/code → **+ New Notebook** → **File → Import Notebook** → escolha o arquivo.
+3. **Session options:** **Accelerator: GPU T4 x2** e **Internet: On**.
+4. **Add-ons → Secrets:** marque a caixa do `ROBOFLOW_API_KEY`.
+5. **Input → + Add Input → Your Work → Datasets** → `epi-solda-negativos-v5` → **+**. Só esse; não anexe saídas de
+   rodadas anteriores. O notebook encontra a pasta `negativos_v5_quadros` sozinho. Se ela não for anexada, ele
+   **para com erro** na seção 6a (de propósito, para não treinar uma v4 repetida).
+6. **Save Version → Save & Run All (Commit) → Save**. Pode fechar o navegador; leva mais ou menos o mesmo tempo da v4.
+7. Nos *Logs*, a seção 6a deve mostrar `pasta negativos_v5_quadros: 362 imagens negativas`.
+8. No fim, aba **Output** → baixe **`resultado_treino_v5.zip`** e coloque em `Z:\Documentos\SafeWork\testes_campo\`.
+   Eu guardo a v4 como `epi_solda_best_v4.pt`, instalo a v5 e repito os testes de campo.
+
 ## Rodada v4 (soldadores reais): treino novo, do zero
 
 A v4 não continua nenhum treino anterior. Use um notebook **novo** no Kaggle, sem nada anexado em *Input*.

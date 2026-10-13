@@ -145,6 +145,31 @@ Observação de método: sem centralizar os vetores, a semelhança ficou em ~0,9
 ordenar); centralizados, a mediana é 0,57 e o máximo 0,93. Os datasets antigos (Welding-PPE, Welding Helmet) não
 foram conferidos assim, porque não estão no computador; eles são anteriores aos vídeos de teste e têm outra origem.
 
+### 2.9 Verde falso com a v4: negativos difíceis (rodada v5)
+Nos testes de campo, a v4 confirmou mais vezes a máscara verdadeira, mas mostrou **verde falso** em quem estava sem
+máscara: cabeça baixa no escuro (T10, 45% do tempo) e boné/gorro com óculos de maçarico (T22, 16%). Subir o limiar
+de confiança não separa os casos (`docs/resultados_testes_campo.md`, seção 6). O modelo precisa ver essas situações
+**sem** máscara.
+
+**Solução:** 25 vídeos do Pexels (licença livre) de pessoas **sem máscara de solda** em oficinas, obras e
+estaleiros, baixados pelo usuário e conferidos quadro a quadro:
+- **1 quadro por segundo** (`ferramentas/capturar.py --intervalo-s 1`): 362 quadros, reduzidos para 1.280 px no
+  pacote do Kaggle (`dados/epi_solda_negativos_v5.zip`, fora do git; lista dos vídeos no `FONTES.txt` do pacote);
+- conferência de cada vídeo com folhas de contato e com as detecções da v4 desenhadas. A v4 confundia com máscara um
+  **protetor facial transparente**, um **capacete de obra de costas**, um **lenço na cabeça**, um rosto de perfil
+  numa oficina escura e **boné + óculos escuros com maçarico**: são os exemplos mais úteis;
+- **6 vídeos recusados**: 3 eram cópias exatas de vídeos de teste (T10, T17, T18) e 3 eram da mesma série/sessão de
+  vídeos de teste (mesma pessoa e lugar do T10; série 4941… dos testes T08, T19, T20, T25 e T26);
+- `ferramentas/conferir_vazamento.py`: nenhum dos 362 quadros é da mesma cena de um vídeo de teste;
+- no notebook, os quadros vão **só para o treino** (são sequências) e cada um ganha **2 cópias bem escuras** (20–45%
+  do brilho, com ruído), para o caso "oficina escura". Validação e teste ficam iguais aos da v4, então as métricas
+  das duas rodadas são comparáveis. É a única mudança em relação à v4.
+
+Vídeos usados (https://www.pexels.com/video/ID/): 2865276, 3976811, 3977979, 6263171, 6263483, 6964237, 7165971,
+7519299, 8064125, 9480718, 12724977, 12748637, 12938242, 13398903, 13530494, 13752039, 14514794, 14649305,
+15342548, 15342588, 15477233, 15694207, 16313183, 17014398 e um vídeo do Pexels salvo sem o número
+(`uhd_30fps.mp4`, operário com vergalhão e capacete amarelo).
+
 ## 3. Verificação da classe `helmet` do Welding-PPE
 
 Conferi as amostras com o filtro `class = helmet` (imagens `img136.jpg` a `img144.jpg` e vizinhas). Em todas aparece uma pessoa usando uma **máscara/capacete de solda metálico com visor escuro** cobrindo o rosto. Não são capacetes de segurança (de obra). **Decisão:** `helmet` → `mascara`.
@@ -173,7 +198,8 @@ Para treinar outros EPIs no futuro, basta acrescentar o nome em `CLASSES_MODELO`
 | v1 | 5 | Welding-PPE (fork v1) | 561 / 160 / 80 (Roboflow) | descartada, ver `docs/resultados_treino/README.md` |
 | v2 | 1 (`mascara`) | Welding-PPE (fork v1) + Welding Helmet (fork v1) | 1.013 / 290 / 145 (notebook) | `docs/resultados_treino/v2/` – mAP@0.5 = 0,913 (`yolo26n_640`) |
 | v3 | 1 (`mascara`) | v2 + **COCO pessoas** (negativos) | 2.063 / 590 / 295 (notebook) | `docs/resultados_treino/v3/` – mAP@0.5 = 0,855 (`yolov8n_640`); falso positivo em pessoas 2,1% |
-| v4 | 1 (`mascara`) | v3 + **welder** + **safeweld** (soldadores reais, conferidos: seção 2.7) | notebook (sequências só no treino) | em andamento |
+| v4 | 1 (`mascara`) | v3 + **welder** + **safeweld** (soldadores reais, conferidos: seção 2.7) | 4.316 / 909 / 455 (notebook; sequências só no treino) | `docs/resultados_treino/v4/` – mAP@0.5 = 0,946; falso positivo em pessoas 0,6% |
+| v5 | 1 (`mascara`) | v4 + **362 quadros sem máscara** de vídeos do Pexels (+2 cópias escuras de cada), só no treino (seção 2.9) | treino +362; validação e teste iguais aos da v4 | em andamento |
 
 ## 6. Passo a passo para a rodada v2 (VOCÊ)
 
