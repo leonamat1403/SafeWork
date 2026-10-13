@@ -1,4 +1,4 @@
-# Roteiro de testes de campo – Fase 1 (máscara de solda)
+﻿# Roteiro de testes de campo – Fase 1 (máscara de solda)
 
 **Etapa 1.5.** Este roteiro diz **o que gravar**, **como avaliar** e **como medir** se a detecção atende às METAS DE
 VALIDAÇÃO. Ferramentas:
@@ -102,6 +102,12 @@ vídeos filmados de dentro da máscara. Cadastre cada vídeo na aba **Fontes** (
 útil como uma linha na aba **Testes**, com `inicio_s`/`fim_s`. **Vídeos usados em teste não podem ir para o treino.**
 
 ## 5. Passo a passo da avaliação
+
+**Atalho para vídeos prontos (ex.: baixados da internet):** coloque os arquivos em
+`testes_campo/videos/conformes/` (pessoas **com máscara abaixada o tempo todo**) ou `testes_campo/videos/nao_conformes/`
+(pessoas **sem máscara**) e rode `python ferramentas/avaliar_testes.py`. Os vídeos novos são cadastrados sozinhos
+(situação `mascara_abaixada` ou `sem_mascara`, ângulo `varia`) e avaliados em seguida. Depois, revise na planilha o
+ângulo e as condições de cada um e preencha o link e a licença na aba Fontes.
 
 1. **Criar a planilha** (só na primeira vez):
    ```

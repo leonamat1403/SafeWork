@@ -12,11 +12,17 @@ Uso (na pasta do projeto, com o ambiente .venv ativo e a planilha FECHADA no Exc
 
 Na primeira execução, se testes_campo/planilha_testes_campo.xlsx não existir, ela é criada a partir do modelo
 docs/planilha_testes_campo.xlsx.
+
+Importação automática: todo vídeo novo colocado em
+    testes_campo/videos/conformes/      (pessoas COM máscara abaixada o tempo todo)  -> situacao_real = mascara_abaixada
+    testes_campo/videos/nao_conformes/  (pessoas SEM máscara)                       -> situacao_real = sem_mascara
+é cadastrado sozinho na aba Testes (e na aba Fontes) antes da avaliação. Revise depois o ângulo e as condições.
 """
 from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import sys
 import time
@@ -39,6 +45,9 @@ from src.occurrences import GerenciadorOcorrencias, Ocorrencia, formatar_tempo  
 from src.tipos import Estado  # noqa: E402
 
 PLANILHA_PADRAO = RAIZ / "testes_campo" / "planilha_testes_campo.xlsx"
+PASTA_VIDEOS = RAIZ / "testes_campo" / "videos"
+PASTAS_IMPORTACAO = {"conformes": "mascara_abaixada", "nao_conformes": "sem_mascara"}
+EXTENSOES_VIDEO = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"}
 
 
 @dataclass
@@ -148,6 +157,44 @@ def substituir_ocorrencias(wb, id_teste: str, novas: list[list]) -> None:
             escrever_formulas_ocorrencia(ws, n)
 
 
+def importar_pastas(wb, pasta_videos: Path = PASTA_VIDEOS, raiz: Path = RAIZ) -> list[str]:
+    """Cadastra na aba Testes (e em Fontes) os vídeos novos das pastas conformes/ e nao_conformes/."""
+    ws = wb["Testes"]
+    linhas_usadas = [n for n in range(2, ULTIMA_LINHA + 1)
+                     if ws[f"{COL['arquivo']}{n}"].value or ws[f"{COL['ID']}{n}"].value]
+    existentes = {str(ws[f"{COL['arquivo']}{n}"].value).replace("\\", "/") for n in linhas_usadas}
+    numeros = [int(m.group(1)) for n in linhas_usadas
+               if (m := re.fullmatch(r"T(\d+)", str(ws[f"{COL['ID']}{n}"].value or "")))]
+    proximo = max(numeros, default=0) + 1
+    livres = (n for n in range(2, ULTIMA_LINHA + 1) if n not in set(linhas_usadas))
+    fontes = wb["Fontes"]
+    linha_fonte = next((n for n in range(2, 201) if not fontes[f"A{n}"].value), None)
+    importados = []
+    for subpasta, situacao in PASTAS_IMPORTACAO.items():
+        pasta = pasta_videos / subpasta
+        videos = sorted(p for p in pasta.glob("*") if p.suffix.lower() in EXTENSOES_VIDEO) if pasta.exists() else []
+        for video in videos:
+            relativo = video.relative_to(raiz).as_posix() if video.is_relative_to(raiz) else str(video)
+            if relativo in existentes:
+                continue
+            n = next(livres, None)
+            if n is None:
+                raise RuntimeError("a aba Testes está cheia; crie uma planilha nova")
+            id_teste = f"T{proximo:02d}"
+            proximo += 1
+            for coluna, valor in [("ID", id_teste), ("arquivo", relativo), ("situacao_real", situacao),
+                                  ("angulo", "varia"), ("pessoas", None), ("origem", "internet"),
+                                  ("observacoes", f"importado de videos/{subpasta} (revisar ângulo e condições)")]:
+                ws[f"{COL[coluna]}{n}"] = valor
+            if linha_fonte is not None and linha_fonte <= 200:
+                for col, valor in zip("ABF", (relativo, "internet", "teste")):
+                    fontes[f"{col}{linha_fonte}"] = valor
+                fontes[f"G{linha_fonte}"] = "preencher link e licença"
+                linha_fonte += 1
+            importados.append(id_teste)
+    return importados
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Avalia os testes de campo da planilha e preenche os resultados.")
     p.add_argument("--planilha", default=str(PLANILHA_PADRAO), help="planilha de testes (padrão: %(default)s)")
@@ -162,8 +209,6 @@ def main(argv: list[str] | None = None) -> int:
         planilha.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(DESTINO_PADRAO, planilha)
         print(f"Planilha criada a partir do modelo: {planilha}")
-        print("Preencha a aba Testes (colunas amarelas) e rode este comando de novo.")
-        return 0
     try:
         config = carregar_config(args.config, args.posto)
     except ErroConfig as erro:
@@ -171,6 +216,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     wb = load_workbook(planilha)
+    importados = importar_pastas(wb)
+    if importados:
+        print(f"Vídeos novos cadastrados das pastas testes_campo/videos/: {', '.join(importados)}")
     ws = wb["Testes"]
     avaliados = 0
     for n in range(2, ULTIMA_LINHA + 1):
@@ -204,8 +252,9 @@ def main(argv: list[str] | None = None) -> int:
               f"{esp or '?'} -> {resultado(esp, len(res.ocorrencias)) or '-'}")
         avaliados += 1
 
-    if avaliados == 0:
-        print("Nenhuma linha nova para avaliar (use --todos para reavaliar).")
+    if avaliados == 0 and not importados:
+        print("Nenhuma linha nova para avaliar. Preencha a aba Testes ou coloque vídeos em testes_campo/videos/"
+              "conformes e nao_conformes (use --todos para reavaliar).")
         return 0
     wb.calculation.fullCalcOnLoad = True   # o Excel recalcula as métricas ao abrir
     try:

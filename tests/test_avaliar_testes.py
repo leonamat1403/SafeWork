@@ -51,6 +51,25 @@ def test_planilha_modelo(tmp_path):
     assert wb.calculation.fullCalcOnLoad
 
 
+def test_importa_videos_das_pastas_conformes_e_nao_conformes(tmp_path):
+    from ferramentas.avaliar_testes import importar_pastas
+    for subpasta, nomes in {"conformes": ["a.mp4", "notas.txt"], "nao_conformes": ["b.MP4", "c.avi"]}.items():
+        (tmp_path / "videos" / subpasta).mkdir(parents=True)
+        for nome in nomes:
+            (tmp_path / "videos" / subpasta / nome).write_bytes(b"x")
+    wb = load_workbook(criar(tmp_path / "planilha.xlsx"))
+
+    assert importar_pastas(wb, tmp_path / "videos", tmp_path) == ["T02", "T03", "T04"]
+    ws = wb["Testes"]
+    linhas = [(ws[f"{COL['ID']}{n}"].value, ws[f"{COL['arquivo']}{n}"].value, ws[f"{COL['situacao_real']}{n}"].value)
+              for n in (3, 4, 5)]
+    assert linhas == [("T02", "videos/conformes/a.mp4", "mascara_abaixada"),
+                      ("T03", "videos/nao_conformes/b.MP4", "sem_mascara"),
+                      ("T04", "videos/nao_conformes/c.avi", "sem_mascara")]
+    assert wb["Fontes"]["A3"].value == "videos/conformes/a.mp4"
+    assert importar_pastas(wb, tmp_path / "videos", tmp_path) == []        # não cadastra o mesmo vídeo duas vezes
+
+
 def test_gravar_resultado_e_reavaliar_mantendo_a_revisao_dos_outros_testes(tmp_path):
     caminho = criar(tmp_path / "planilha.xlsx")
     wb = load_workbook(caminho)
