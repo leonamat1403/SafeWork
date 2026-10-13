@@ -6,6 +6,9 @@ Fase 1: regra da MÁSCARA DE SOLDA (RF07), a cor da caixa (RF04) e o rótulo. As
 Regra da máscara, em ordem:
   1. máscara detectada com pelo menos `cobertura_min` da caixa dentro da região da cabeça -> CONFORME
      (e "máscara levantada" se o centro dela estiver acima da linha dos olhos com o rosto visível);
+     EXCETO se a "máscara" estiver na altura do rosto e o rosto estiver nitidamente visível (olhos/nariz com
+     confiança alta): uma máscara abaixada cobre os olhos, então isso é contraditório -> INDETERMINADO.
+     (Teste da webcam, 13/10/2026: rosto de perfil com luz lateral confundido com máscara.)
   2. sem máscara e cabeça não visível                     -> INDETERMINADO
   3. sem máscara e sem pose (fallback)                    -> INDETERMINADO (não dá para saber se o rosto aparece)
   4. sem máscara e rosto visível (de frente, descoberto)  -> NÃO CONFORME
@@ -15,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from src.body_regions import RegioesCorpo, calcular_regioes
+from src.body_regions import RegioesCorpo, calcular_regioes, pontos_do_rosto_visiveis
 from src.config import Config, ConfigEPI
 from src.tipos import DeteccaoEPI, Estado, Pessoa, centro, fracao_dentro
 
@@ -109,13 +112,22 @@ def _associar(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[DeteccaoEPI],
 def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[DeteccaoEPI], cfg: ConfigEPI) -> None:
     """Aplica a regra da máscara (RF07) a todas as pessoas do frame."""
     associacao = _associar(avaliacoes, [d for d in deteccoes if d.epi == "mascara"], cfg.cobertura_min)
+    # Contradição "máscara sobre o rosto + rosto nítido" (configurável em epis.mascara do config.yaml)
+    checar_contradicao = bool(cfg.extras.get("contradicao_rosto_visivel", True))
+    conf_rosto = float(cfg.extras.get("conf_rosto_contradicao", 0.7))
     for i, aval in enumerate(avaliacoes):
         reg = aval.regioes
         det = associacao.get(i)
         if det is not None:
             _, cy = centro(det.caixa)
-            aval.mascara_levantada = bool(reg.rosto_visivel and reg.linha_olhos_y is not None
-                                          and cy < reg.linha_olhos_y)
+            acima_dos_olhos = reg.linha_olhos_y is not None and cy < reg.linha_olhos_y
+            aval.mascara_levantada = bool(reg.rosto_visivel and acima_dos_olhos)
+            if (checar_contradicao and not acima_dos_olhos
+                    and pontos_do_rosto_visiveis(aval.pessoa, conf_rosto) >= 2):
+                aval.mascara_levantada = False
+                aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, det.conf,
+                                                    "máscara na altura do rosto, mas rosto visível", det.caixa)
+                continue
             aval.epis["mascara"] = AvaliacaoEPI(Estado.CONFORME, det.conf, "máscara na região da cabeça", det.caixa)
         elif reg.cabeca is None:
             aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, motivo="cabeça não visível")

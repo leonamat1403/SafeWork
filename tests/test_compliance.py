@@ -88,12 +88,42 @@ def test_uma_mascara_nao_conta_para_duas_pessoas(config):
     assert estados == ["CONFORME", "NAO_CONFORME"]
 
 
+def com_extras_da_mascara(config, **extras):
+    mascara_cfg = config.epis["mascara"]
+    return replace(config, epis={**config.epis, "mascara": replace(mascara_cfg, extras={**mascara_cfg.extras, **extras})})
+
+
 def test_cobertura_minima_configuravel(config):
     """Máscara com só ~20% da caixa dentro da cabeça: não conta com o padrão (0,30), conta com 0,10."""
     meio_fora = mascara((225, 130, 300, 180))   # 15 de 75 px de largura dentro da cabeça (x <= 240)
-    assert avaliar_uma(config, ROSTO_DESCOBERTO, [meio_fora]).epis["mascara"].estado == Estado.NAO_CONFORME
+    assert avaliar_uma(config, ROSTO_COBERTO, [meio_fora]).epis["mascara"].estado == Estado.INDETERMINADO
     permissiva = replace(config, epis={**config.epis, "mascara": replace(config.epis["mascara"], cobertura_min=0.10)})
-    assert avaliar_uma(permissiva, ROSTO_DESCOBERTO, [meio_fora]).epis["mascara"].estado == Estado.CONFORME
+    assert avaliar_uma(permissiva, ROSTO_COBERTO, [meio_fora]).epis["mascara"].estado == Estado.CONFORME
+
+
+# --- Contradição: "máscara" sobre o rosto com o rosto nítido (falso positivo do teste da webcam) ---------------------
+def test_mascara_na_altura_do_rosto_com_rosto_nitido_e_indeterminado(config):
+    aval = avaliar_uma(config, ROSTO_DESCOBERTO, [mascara(MASCARA_ABAIXADA)])
+    assert aval.epis["mascara"].estado == Estado.INDETERMINADO
+    assert aval.epis["mascara"].motivo == "máscara na altura do rosto, mas rosto visível"
+    assert not aval.mascara_levantada
+    assert aval.cor == "amarelo"                      # não diz "OK" e também não acusa (não gera ocorrência)
+
+
+def test_mascara_real_com_pontos_do_rosto_fracos_continua_conforme(config):
+    """Pose "imaginando" olhos através da máscara com confiança baixa (0,6 < 0,7): a máscara continua valendo."""
+    pessoa = criar_pessoa(ROSTO_DESCOBERTO)
+    for indice in (0, 1, 2):                          # nariz e olhos com confiança 0,6
+        k = pessoa.keypoints[indice]
+        pessoa.keypoints[indice] = type(k)(k.x, k.y, 0.6)
+    aval = avaliar_frame([pessoa], [mascara(MASCARA_ABAIXADA)], config)[0]
+    assert aval.epis["mascara"].estado == Estado.CONFORME
+
+
+def test_contradicao_pode_ser_desligada(config):
+    cfg = com_extras_da_mascara(config, contradicao_rosto_visivel=False)
+    aval = avaliar_uma(cfg, ROSTO_DESCOBERTO, [mascara(MASCARA_ABAIXADA)])
+    assert aval.epis["mascara"].estado == Estado.CONFORME
 
 
 def test_somente_epis_ativos_sao_avaliados(config):

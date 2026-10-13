@@ -109,7 +109,7 @@ Para treinar outros EPIs no futuro, basta acrescentar o nome em `CLASSES_MODELO`
 |---|---|---|---|---|
 | v1 | 5 | Welding-PPE (fork v1) | 561 / 160 / 80 (Roboflow) | descartada, ver `docs/resultados_treino/README.md` |
 | v2 | 1 (`mascara`) | Welding-PPE (fork v1) + Welding Helmet (fork v1) | 1.013 / 290 / 145 (notebook) | `docs/resultados_treino/v2/` – mAP@0.5 = 0,913 (`yolo26n_640`) |
-| v3 | 1 (`mascara`) | v2 + **COCO pessoas** (negativos) + fotos próprias (opcional) | `____ / ____ / ____` (notebook) | `docs/resultados_treino/v3/` – em andamento |
+| v3 | 1 (`mascara`) | v2 + **COCO pessoas** (negativos) | 2.063 / 590 / 295 (notebook) | `docs/resultados_treino/v3/` – mAP@0.5 = 0,855 (`yolov8n_640`); falso positivo em pessoas 2,1% |
 
 ## 6. Passo a passo para a rodada v2 (VOCÊ)
 

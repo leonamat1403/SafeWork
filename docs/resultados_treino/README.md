@@ -7,7 +7,36 @@ Os pesos (`.pt`) não ficam aqui: o modelo escolhido vai para `models/`, que est
 |---|---|---|---|---|
 | `v1/` | 10–11/10/2026 | 5 (mascara, luvas, avental, macacao, calcado) | Welding-PPE (fork v1), divisão do Roboflow | **Descartado** como resultado final; serve de comparação "antes" |
 | `v2/` | 11–12/10/2026 | 1 (`mascara`) | Welding-PPE + Welding Helmet, divisão estratificada no notebook | Modelo `yolo26n_640`. **Falso positivo** em rosto inclinado/de perfil no teste da webcam |
-| `v3/` | (em andamento) | 1 (`mascara`) | v2 + pessoas do COCO como negativos (+ fotos próprias, opcional) | Corrige o falso positivo da v2; modelo `yolov8n_640` |
+| `v3/` | 13/10/2026 | 1 (`mascara`) | v2 + 1.500 pessoas do COCO como negativos | **Atual**: modelo `yolov8n_640` (mAP@0.5 0,855; falso positivo em pessoas 2,1%) |
+
+## v3 – resultado (13/10/2026, `yolov8n_640`, Kaggle em modo Commit)
+
+**Dados:** 2.948 imagens originais (treino 2.063 / validação 590 / teste 295): 1.072 caixas de máscara e 1.934 imagens
+negativas (381 do Welding-PPE, 53 do Welding Helmet e **1.500 de pessoas do COCO**). 82 épocas (parada antecipada).
+
+**Conjunto de teste:**
+
+| Medida | v2 (`yolo26n_640`) | v3 (`yolov8n_640`) |
+|---|---|---|
+| Precisão | 0,959 | 0,872 |
+| Recall | 0,877 | 0,736 |
+| mAP@0.5 | 0,913 | **0,855** (meta boa ≥ 0,75 ✅) |
+| mAP@0.5:0.95 | 0,673 | 0,587 |
+| Falso positivo em pessoas do COCO (143 imagens) | – | **2,1%** (3 imagens) |
+| Falso positivo nos negativos do Welding-PPE (46 imagens) | – | 4,3% |
+
+O teste da v3 é mais difícil que o da v2: agora inclui 194 imagens sem máscara, quase todas de pessoas, onde a v2
+erraria bastante. O recall menor (0,736) significa que o modelo ficou mais "cauteloso"; no sistema, máscara não
+detectada com o rosto coberto vira INDETERMINADO, não "SEM MÁSCARA".
+
+**Vídeo sem máscara (teste da webcam):** o falso "OK" caiu de 17% (v2) para 8% (v3), e para **2%** com a regra de
+contradição (D23), sem perder nenhuma detecção correta de "SEM MÁSCARA" (89%). Os 8% restantes da v3 estavam
+concentrados em dois trechos (40 e 20 frames) com a **cabeça de perfil e luz lateral forte**. Neles, a pose
+enxergava olhos e nariz nitidamente, o que é impossível com uma máscara abaixada.
+
+**A validar com uma máscara real:** se o modelo de pose "enxergar" olhos através de uma máscara verdadeira com
+confiança ≥ 0,7, a regra de contradição marca INDETERMINADO (amarelo) em vez de OK. Isso não gera alarme falso, mas
+precisa ser medido com vídeos de soldadores (bancos de vídeo gratuitos, laboratório, Marcopolo).
 
 ## v3 – 1ª execução (13/10/2026, sessão interativa do Kaggle: arquivos perdidos)
 
@@ -59,7 +88,8 @@ cabeça em todas as direções; gravado com `ferramentas/capturar.py` e avaliado
 | Modelo | CONFORME (falso positivo) | NÃO CONFORME | INDETERMINADO |
 |---|---|---|---|
 | v2 (`yolo26n_640`) | **239 (17%)** | 1.163 (81%) | 38 (3%) |
-| v3 | (a medir no mesmo vídeo) | | |
+| v3 (`yolov8n_640`) | 110 (8%) | 1.285 (89%) | 45 (3%) |
+| v3 + regra de contradição (D23) | **30 (2%)** | 1.285 (89%) | 125 (9%) |
 
 Este vídeo é o **conjunto de teste** do problema: não deve ser usado no treino.
 

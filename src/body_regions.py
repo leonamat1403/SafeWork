@@ -51,6 +51,11 @@ def _visiveis(pessoa: Pessoa, indices: tuple[int, ...], conf_min: float) -> dict
             if i < len(pessoa.keypoints) and pessoa.keypoints[i].conf >= conf_min}
 
 
+def pontos_do_rosto_visiveis(pessoa: Pessoa, conf_min: float) -> int:
+    """Quantos pontos do rosto (nariz e olhos) estão visíveis com confiança >= conf_min."""
+    return len(_visiveis(pessoa, PONTOS_ROSTO, conf_min))
+
+
 def orientacao_da_pessoa(pessoa: Pessoa, conf_min: float) -> str:
     """"frente", "costas" ou "indefinida".
 

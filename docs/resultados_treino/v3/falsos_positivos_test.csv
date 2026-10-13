@@ -1,0 +1,4 @@
+experimento,fonte,nome,imagens_sem_mascara,com_falso_positivo,taxa_falso_positivo
+yolov8n_640,f0,Welding-PPE,46,2,0.043
+yolov8n_640,f1,Welding Helmet,5,1,0.2
+yolov8n_640,f2,COCO pessoas,143,3,0.021

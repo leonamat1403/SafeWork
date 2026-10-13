@@ -1,3 +1,0 @@
-classe,test,train,val,f0,f1,imagens,area_media_%_da_imagem,total
-mascara,107,747,218,36,1036,1014,28.48,1072
-(negativo: sem objetos),44,303,87,381,53,434,,434
