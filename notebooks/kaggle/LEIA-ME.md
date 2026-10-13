@@ -54,6 +54,11 @@ divisão e mesmos experimentos. Muda só o ambiente:
    Se aparecer `Nenhum progresso anterior encontrado`, o Dataset não foi anexado (passo D.5).
 3. Pare a sessão (botão ■ / **Stop session**) para não gastar cota à toa.
 
+> ⚠️ **Não treine na sessão interativa** (o "Draft Session" do topo, rodando célula por célula ou com *Run All*).
+> Nela, os arquivos de `/kaggle/working` são temporários e **somem se a sessão reiniciar** (por inatividade ou por
+> tempo): isso aconteceu na rodada v3, e o treino precisou ser refeito. Use a sessão interativa só para conferências
+> rápidas (passo E) e treine sempre com **Save & Run All (Commit)**.
+
 ### F. Rodar com o navegador fechado
 1. Canto superior direito: **Save Version** → **Save & Run All (Commit)** → **Save**.
 2. Pode fechar o navegador. Para acompanhar: https://www.kaggle.com/code → **Your Work** → o notebook → a versão em execução → **Logs**.
