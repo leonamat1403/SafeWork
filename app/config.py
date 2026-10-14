@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, replace
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -16,6 +16,7 @@ import yaml
 from dotenv import dotenv_values
 
 from app.tempo import validar_turnos
+from src.config import EPIS_IMPLEMENTADOS, Config, ConfigEPI
 
 RAIZ = Path(__file__).resolve().parent.parent
 PASTAS_DADOS = ("db", "ocorrencias", "thumbnails", "uploads_temp", "relatorios", "backups", "logs")
@@ -46,6 +47,12 @@ class Ajustes:
     espaco_minimo_mb: float
     backups_manter: int
     uploads_max_idade_s: int
+    upload_tamanho_max_mb: int = 200
+    borrar_ao_vivo: bool = True          # F2-D20: o vídeo ao vivo também sai com as cabeças borradas
+    host: str = "127.0.0.1"              # 0.0.0.0 para outros computadores/celulares da rede acessarem
+    porta: int = 8000
+    modo_desenvolvimento: bool = False   # liga a documentação interativa /docs (só para testes)
+    cookie_seguro: bool = False          # true quando o sistema estiver atrás de HTTPS
 
     @property
     def caminho_sqlite(self) -> Path | None:
@@ -100,6 +107,12 @@ def carregar_ajustes(arquivo_env: Path | None = None, config_yaml: Path | None =
         raise ErroAjustes(f"config.yaml, seção turnos: {erro}") from erro
     ocorrencias = dados.get("ocorrencias") or {}
     armazenamento = dados.get("armazenamento") or {}
+    privacidade = dados.get("privacidade") or {}
+    sim = lambda texto: texto.lower() in ("1", "true", "sim", "yes")   # noqa: E731
+    try:
+        porta = int(valor("PORTA", "8000"))
+    except ValueError as erro:
+        raise ErroAjustes(f"PORTA no .env deve ser um número (valor atual: {valor('PORTA')!r})") from erro
     return Ajustes(
         data_dir=data_dir,
         database_url=_url_banco(valor("DATABASE_URL"), data_dir),
@@ -116,7 +129,37 @@ def carregar_ajustes(arquivo_env: Path | None = None, config_yaml: Path | None =
         espaco_minimo_mb=float(_inteiro(armazenamento, "espaco_minimo_mb", "armazenamento", 500, 0)),
         backups_manter=_inteiro(armazenamento, "backups_manter", "armazenamento", 7, 1),
         uploads_max_idade_s=60 * _inteiro(armazenamento, "uploads_max_idade_min", "armazenamento", 60, 1),
+        upload_tamanho_max_mb=_inteiro(armazenamento, "upload_tamanho_max_mb", "armazenamento", 200, 1),
+        borrar_ao_vivo=bool(privacidade.get("borrar_ao_vivo", True)),
+        host=valor("HOST", "127.0.0.1"),
+        porta=porta,
+        modo_desenvolvimento=sim(valor("MODO_DESENVOLVIMENTO", "false")),
+        cookie_seguro=sim(valor("COOKIE_SEGURO", "false")),
     )
+
+
+def config_da_camera(base: Config, linhas_epi: Iterable) -> Config:
+    """Config da Fase 1 para uma câmera: padrões do config.yaml + EPIs e limiares do posto (tabela config_epi_camera).
+
+    `linhas_epi` são objetos com epi, exigido, conf_min, persistencia_s, fracao_minima e parametros_extra.
+    EPIs que ainda não foram implementados (só a máscara foi validada) ficam desligados, como na Fase 1.
+    """
+    epis = dict(base.epis)
+    for linha in linhas_epi:
+        padrao = base.epis.get(linha.epi) or ConfigEPI(nome=linha.epi, ativo=False, conf=linha.conf_min)
+        extras = {**padrao.extras, **(linha.parametros_extra or {})}
+        cobertura = float(extras.pop("cobertura_min", padrao.cobertura_min))
+        epis[linha.epi] = replace(padrao, ativo=bool(linha.exigido) and linha.epi in EPIS_IMPLEMENTADOS,
+                                  conf=float(linha.conf_min), persistencia_s=float(linha.persistencia_s),
+                                  fracao_minima=float(linha.fracao_minima), cobertura_min=cobertura, extras=extras)
+    return replace(base, epis=epis)
+
+
+def epis_padrao(base: Config) -> list[dict]:
+    """Linhas de config_epi_camera para uma câmera nova, copiadas do config.yaml."""
+    return [{"epi": nome, "exigido": epi.ativo, "conf_min": epi.conf, "persistencia_s": epi.persistencia_s,
+             "fracao_minima": epi.fracao_minima, "parametros_extra": {**epi.extras, "cobertura_min": epi.cobertura_min}}
+            for nome, epi in base.epis.items()]
 
 
 def preparar_pastas(data_dir: Path) -> None:

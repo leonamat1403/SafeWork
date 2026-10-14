@@ -6,8 +6,8 @@ as não conformidades (NR-6).
 
 > **Fase 1 – validação da detecção:** concluída e validada para a **máscara de solda**
 > (`docs/relatorio_validacao_fase1.md`). Execução por linha de comando, com janela do OpenCV.
-> **Fase 2 – sistema completo:** em andamento (`docs/arquitetura_fase2.md`). Etapa 2.2 pronta: banco, armazenamento
-> das imagens borradas e rotinas automáticas (seção "Fase 2" abaixo).
+> **Fase 2 – sistema completo:** em andamento (`docs/arquitetura_fase2.md`). Etapas 2.2 (banco, imagens borradas,
+> rotinas) e 2.3 (servidor web: login, câmera ao vivo, upload, ocorrências) prontas (seção "Fase 2" abaixo).
 
 ## Como funciona (resumo)
 
@@ -90,7 +90,28 @@ Arquitetura: `docs/arquitetura_fase2.md`. O código novo fica em `app/` e **impo
 | Retenção (03:00), backup do banco (02:00), limpeza de uploads (15 min) | `app/scheduler.py` |
 | Fuso de Brasília e turnos | `app/tempo.py` |
 
-**Demonstração (ainda não há tela):** processa um vídeo e grava as ocorrências no banco, com as imagens já borradas:
+| Etapa 2.3 – servidor web | Arquivo |
+|---|---|
+| Inicialização, cabeçalhos de segurança, documentação /docs (modo desenvolvimento) | `app/main.py` (`python -m app`) |
+| Login, sessão (8 h), perfis ADMIN/SUPERVISOR, CSRF, bloqueio após 5 erros, troca de senha | `app/auth.py`, `app/rotas/acesso.py` |
+| Câmeras ao vivo: uma thread por câmera, stream MJPEG, status, pausar, snapshot borrado | `app/stream.py`, `app/rotas/cameras.py` |
+| Upload de foto/vídeo, resultado borrado, "registrar como ocorrência" | `app/uploads.py`, `app/rotas/uploads.py` |
+| Ocorrências (filtros, 20 por página, validação, exclusão) e imagens em `/midia/{uuid}` | `app/rotas/ocorrencias.py` |
+
+**Rodar o sistema web** (as telas vêm na Etapa 2.4; por enquanto, teste pela documentação interativa):
+
+```powershell
+copy .env.example .env          # depois edite: SECRET_KEY, ADMIN_SENHA_INICIAL e MODO_DESENVOLVIMENTO=true
+python -m app                   # Ctrl+C para encerrar
+```
+
+1. Abra http://127.0.0.1:8000/docs → **POST /login** → *Try it out* → login `admin` e a senha do `.env` → *Execute*.
+2. Copie o `csrf_token` da resposta → botão **Authorize** (cadeado, no topo) → cole → *Authorize*.
+3. **POST /api/trocar-senha** (obrigatório no 1º acesso). Depois teste as outras rotas.
+4. Vídeo ao vivo: abra http://127.0.0.1:8000/api/cameras/1/stream.mjpg numa nova aba (no 1º uso a câmera 1 é a
+   "Webcam 0"; o sistema liga a webcam ao iniciar).
+
+**Demonstração sem servidor:** processa um vídeo e grava as ocorrências no banco, com as imagens já borradas:
 
 ```powershell
 python ferramentas\demo_registro.py --fonte testes_campo\videos\nao_conformes\7006656-uhd_4096_2160_25fps.mp4

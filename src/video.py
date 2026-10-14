@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -61,8 +62,11 @@ class FonteVideo:
             return self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
         return time.monotonic() - self._inicio
 
-    def ler(self) -> tuple[np.ndarray | None, float]:
-        """Lê o próximo frame. Retorna (None, 0) no fim do arquivo; ao vivo, tenta reconectar até conseguir."""
+    def ler(self, parar: threading.Event | None = None) -> tuple[np.ndarray | None, float]:
+        """Lê o próximo frame. Retorna (None, 0) no fim do arquivo; ao vivo, tenta reconectar até conseguir.
+
+        `parar` (usado pelo sistema web): se for acionado durante a reconexão, desiste e retorna (None, 0).
+        """
         ok, frame = self.cap.read()
         if ok:
             return frame, self._tempo()
@@ -70,8 +74,11 @@ class FonteVideo:
             return None, 0.0
         espera = 1
         while True:
-            log.warning("Sem imagem de %s. Nova tentativa em %d s (Ctrl+C para sair)...", ocultar_senha(self.fonte), espera)
-            time.sleep(espera)
+            log.warning("Sem imagem de %s. Nova tentativa em %d s...", ocultar_senha(self.fonte), espera)
+            if parar is None:
+                time.sleep(espera)
+            elif parar.wait(espera):
+                return None, 0.0
             self.cap.release()
             self.cap = self._abrir()
             ok, frame = self.cap.read()

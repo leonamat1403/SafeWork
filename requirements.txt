@@ -18,3 +18,13 @@ alembic==1.20.0      # migrações do banco
 APScheduler==3.11.3  # retenção, backup e limpeza (a série 4 ainda não é estável)
 tzdata==2026.5       # fuso America/Sao_Paulo no Windows
 python-dotenv==1.2.4 # leitura do .env
+
+# --- Fase 2: servidor web (Etapa 2.3) --------------------------------------------------------------------
+fastapi==0.143.1
+starlette==1.8.0
+uvicorn==0.54.0
+python-multipart==0.0.32   # formulários e upload de arquivos
+itsdangerous==2.2.0        # cookie de sessão assinado
+bcrypt==5.0.0              # hash das senhas
+jinja2==3.1.6              # telas (Etapa 2.4)
+httpx2==2.13.1             # cliente de testes do FastAPI (pytest)

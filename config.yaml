@@ -59,6 +59,11 @@ armazenamento:
   espaco_minimo_mb: 500      # abaixo disso, a ocorrência é registrada SEM imagem e o sistema avisa (RNF03)
   backups_manter: 7          # cópias diárias do banco mantidas em data/backups
   uploads_max_idade_min: 60  # uploads temporários são apagados depois deste tempo
+  upload_tamanho_max_mb: 200 # maior foto/vídeo aceito na tela de upload
+
+# --- Privacidade (Fase 2) ----------------------------------------------------------------------------------
+privacidade:
+  borrar_ao_vivo: true       # o vídeo ao vivo também sai com cabeças e rostos borrados (as imagens salvas, SEMPRE)
 
 # --- Modelos (caminhos relativos a este arquivo) -----------------------------------------------------------
 modelos:

@@ -132,8 +132,7 @@ status e no log (RNF03).
 | Uploads | 1 thread e 1 job por vez, com progresso consultado pela página | evita disputar CPU com as câmeras |
 | Agendador | APScheduler no mesmo processo: backup às 02:00, retenção às 03:00, limpeza de uploads a cada 15 min, espaço em disco a cada 10 min | sem serviços externos |
 
-**Capacidade neste computador** (Ryzen 5 5600, CPU): ~12 FPS no total. Uma câmera roda com folga; duas ficam com
-~6 FPS cada (ainda acima da meta de 5). Para mais câmeras, `pular_frames` ou uma GPU.
+**Capacidade neste computador** (Ryzen 5 5600, CPU): ~12 FPS no total com uma câmera Full HD. Medido na Etapa 2.3 com os modelos reais: um vídeo **4K** usado como câmera rodou a **7,7 FPS** (a decodificação e a redução do 4K custam caro). Duas câmeras Full HD ficam com ~6 FPS cada (ainda acima da meta de 5). Para mais câmeras, `pular_frames` ou uma GPU.
 
 **Pausar/retomar** (T02) para o processamento e as ocorrências daquela câmera, e o stream mostra "PAUSADO".
 **Alterações de configuração** valem sem reiniciar: a thread da câmera percebe a mudança e reconstrói o `Config`
@@ -149,7 +148,7 @@ Perfis: **A** = só ADMIN; **A/S** = ADMIN e SUPERVISOR.
 | Rota | Tela | Perfil |
 |---|---|---|
 | `GET /` | redireciona para `/ao-vivo` | A/S |
-| `GET, POST /login` · `POST /logout` | T01 Login | público / A/S |
+| `GET, POST /login` · `POST /logout` | T01 Login (na Etapa 2.3, só o `POST /login`, que responde em JSON; a página vem na 2.4) | público / A/S |
 | `GET, POST /trocar-senha` | troca de senha (obrigatória no 1º acesso) | A/S |
 | `GET /ao-vivo` | T02 Monitoramento ao vivo | A/S |
 | `GET /upload` | T03 Análise por upload | A/S |
@@ -163,6 +162,7 @@ Perfis: **A** = só ADMIN; **A/S** = ADMIN e SUPERVISOR.
 
 | Método e rota | Para quê | Perfil |
 |---|---|---|
+| `GET /api/me` · `POST /api/trocar-senha` | quem está logado (e o token CSRF) · troca da própria senha | A/S |
 | `GET /api/cameras` | lista de câmeras com status (online, pausada, FPS) | A/S |
 | `GET /api/cameras/{id}/stream.mjpg` | stream ao vivo anotado (RF01) | A/S |
 | `GET /api/status?camera_id=` | FPS, online, arco/frame ignorado, pessoas e estado de cada EPI, máscara levantada, últimas 5 ocorrências (T02, a cada 1 s) | A/S |
@@ -270,7 +270,7 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 | Etapa | Entrega |
 |---|---|
 | 2.2 ✅ | `database.py`/`models.py` + Alembic + `storage.py` + `privacy.py` + `scheduler.py` + registro de ocorrências no banco + testes (e a refatoração F2-D2). Demonstração: `ferramentas/demo_registro.py` |
-| 2.3 | Backend FastAPI: autenticação, streaming ao vivo, upload, `/midia/{uuid}`, API de status e de ocorrências |
+| 2.3 ✅ | Backend FastAPI: autenticação, streaming ao vivo, upload, `/midia/{uuid}`, API de status e de ocorrências. Teste pela documentação interativa `/docs` (modo desenvolvimento) |
 | 2.4 | Wireframes T01–T08 + mapa de navegação (**aguardar aprovação**) → telas T01, T02, T03, T04 e T08 |
 | 2.5 | Desejáveis, na ordem: RD01, RD02 (T07), RD03, RD04 (T05), RD05 + RD06 (T06), RD07, RD08, depois os demais |
 | 2.6 | README completo, revisão LGPD, aviso de monitoramento e termo de autorização (RF30) |
@@ -298,4 +298,8 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 | F2-D16 | Imagem da ocorrência gravada com no máximo **1.920 px** de largura (JPEG 85); textos e linhas do desenho crescem com o tamanho da imagem | numa câmera 4K, o print ocupava vários MB e o rótulo ficava ilegível; Full HD basta para validar (~160 KB) |
 | F2-D17 | Pastas de imagens pelo **dia de Brasília** (`AAAA/MM/DD`), banco em UTC | quem procura um arquivo pensa no dia local; o banco não sofre com horário de verão |
 | F2-D18 | Câmera **com ocorrências não pode ser apagada** (só desativada); ao apagar uma câmera sem ocorrências, os EPIs dela vão junto | o histórico de ocorrências não pode sumir |
-| F2-D19 | Blur por **mosaico** (até 6 × 6 blocos) + suavização, com 20% de folga em volta da região | mais seguro que um desfoque leve: não sobra detalhe para reconhecer o rosto |
+| F2-D19 | Blur: a região (com 20% de folga) é reduzida a no máximo **6 × 6 cores médias** e ampliada de volta com interpolação linear (fica suave) | não sobra detalhe para reconhecer o rosto; custa o mesmo em qualquer resolução (o desfoque Gaussiano levava ~900 ms por quadro numa cabeça de vídeo 4K; assim, ~30 ms) |
+| F2-D20 | **Vídeo ao vivo também borrado** por padrão (`privacidade.borrar_ao_vivo` no config.yaml), usando as cabeças da pose e os rostos já encontrados pela Fase 1 | minimização de dados (LGPD): o supervisor vê o estado dos EPIs pelas cores e rótulos; sem rodar de novo o detector de rostos, o custo é pequeno |
+| F2-D21 | Telemetria do FastAPI (OpenTelemetry) **desligada** no código | ela só exportaria dados se alguém configurasse um destino, mas o projeto é on-premises: desligada, não há risco e não gasta CPU |
+| F2-D22 | Documentação interativa `/docs` só com `MODO_DESENVOLVIMENTO=true`; a página é aberta, mas todas as rotas da API continuam exigindo login | permite testar o backend antes das telas (2.4) sem abrir nenhum dado |
+| F2-D23 | Resultado de vídeo do upload em H.264 (`.mp4`), com VP8 (`.webm`) e mp4v de reserva; cada upload só aparece para quem enviou (o ADMIN vê todos) | H.264 e VP8 tocam direto no navegador (T03); o mp4v só serve para download |

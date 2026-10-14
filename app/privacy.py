@@ -78,15 +78,19 @@ def regioes_das_cabecas(pessoas: Iterable[Pessoa], conf_keypoint: float) -> list
 
 
 def pixelizar(img: np.ndarray, caixa: Caixa, folga: float = FOLGA) -> None:
-    """Transforma a região em mosaico (blocos grandes) e suaviza, alterando `img` no lugar."""
+    """Reduz a região a no máximo 6 x 6 cores médias e a amplia de volta suavizada, alterando `img` no lugar.
+
+    Só sobram 36 cores médias da região: não dá para reconhecer ninguém. A suavização vem da própria ampliação
+    (interpolação linear), que custa o mesmo em qualquer resolução (um desfoque Gaussiano numa cabeça de vídeo 4K
+    levava quase 1 s por quadro).
+    """
     altura, largura = img.shape[:2]
     x1, y1, x2, y2 = _ampliar(caixa, folga, largura, altura)
     if x2 - x1 < 2 or y2 - y1 < 2:
         return
     regiao = img[y1:y2, x1:x2]
     pequena = cv2.resize(regiao, (min(BLOCOS, x2 - x1), min(BLOCOS, y2 - y1)), interpolation=cv2.INTER_AREA)
-    mosaico = cv2.resize(pequena, (x2 - x1, y2 - y1), interpolation=cv2.INTER_NEAREST)
-    img[y1:y2, x1:x2] = cv2.GaussianBlur(mosaico, (0, 0), sigmaX=max(1.0, (x2 - x1) / (2 * BLOCOS)))
+    img[y1:y2, x1:x2] = cv2.resize(pequena, (x2 - x1, y2 - y1), interpolation=cv2.INTER_LINEAR)
 
 
 class DetectorRostosQuadro:

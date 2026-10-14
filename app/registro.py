@@ -14,7 +14,7 @@ import numpy as np
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import ORIGENS, Ocorrencia
-from app.privacy import Borrador
+from app.privacy import Borrador, ImagemBorrada
 from app.storage import CaminhosImagem, ErroDiscoCheio, Storage
 from app.tempo import para_utc, turno_de
 from src.occurrences import Ocorrencia as OcorrenciaDetectada
@@ -34,15 +34,17 @@ class RegistradorOcorrencias:
         self.turnos = turnos
         self.sem_espaco = False   # vira True quando o disco enche (o status ao vivo mostra o alerta)
 
-    def _imagem(self, frame: np.ndarray, resultado: ResultadoFrame, uuid: str,
-                quando: datetime) -> CaminhosImagem | None:
-        """Borra, desenha as caixas por cima e grava. None se o disco estiver cheio (RNF03)."""
+    def imagem_anotada(self, frame: np.ndarray, resultado: ResultadoFrame) -> ImagemBorrada:
+        """Cópia BORRADA do frame com as caixas e os rótulos desenhados por cima (o que vai para o disco)."""
         pessoas = [a.pessoa for a in resultado.avaliacoes]
         rostos = [r.caixa for r in (resultado.rostos or [])]
         borrada = self.borrador.borrar(frame, pessoas, rostos)
-        anotada = borrada.com_desenho(lambda img: desenhar(img, resultado, []))
+        return borrada.com_desenho(lambda img: desenhar(img, resultado, []))
+
+    def _salvar(self, imagem: ImagemBorrada, uuid: str, quando: datetime) -> CaminhosImagem | None:
+        """Grava a imagem. None se o disco estiver cheio (RNF03): a ocorrência é registrada sem imagem."""
         try:
-            caminhos = self.storage.salvar_ocorrencia(anotada, uuid, quando)
+            caminhos = self.storage.salvar_ocorrencia(imagem, uuid, quando)
         except ErroDiscoCheio as erro:
             if not self.sem_espaco:
                 log.error("Disco cheio: as ocorrências serão registradas SEM imagem até liberar espaço. %s", erro)
@@ -57,11 +59,16 @@ class RegistradorOcorrencias:
 
         `frame` é o frame ORIGINAL em que a ocorrência foi confirmada; ele só é usado para gerar a cópia borrada.
         """
+        return self.registrar_com_imagem(detectada, self.imagem_anotada(frame, resultado), camera_id, origem)
+
+    def registrar_com_imagem(self, detectada: OcorrenciaDetectada, imagem: ImagemBorrada, camera_id: int,
+                             origem: str = "ao_vivo") -> Ocorrencia:
+        """Como registrar(), mas com a imagem já borrada e anotada (ex.: ocorrências de um upload, T03)."""
         if origem not in ORIGENS:
             raise ValueError(f"origem deve ser uma de {ORIGENS}")
         uuid = str(uuid_mod.uuid4())
         quando = para_utc(detectada.data_hora)
-        caminhos = self._imagem(frame, resultado, uuid, quando)
+        caminhos = self._salvar(imagem, uuid, quando)
         registro = Ocorrencia(
             uuid=uuid,
             camera_id=camera_id,
