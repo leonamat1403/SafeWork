@@ -1,12 +1,12 @@
 """[FASE 2] Configuração (.env + config.yaml), pastas de dados, log e turnos/fuso horário."""
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 
 import pytest
 
 from app.config import PASTAS_DADOS, RAIZ, ErroAjustes, carregar_ajustes, configurar_logging, preparar_pastas
-from app.tempo import para_local, para_utc, turno_de, validar_turnos
+from app.tempo import janela_do_turno, para_local, para_utc, turno_de, validar_turnos
 
 UTC = timezone.utc
 TURNOS = {"1": "06:00-14:00", "2": "14:00-22:00", "3": "22:00-06:00"}
@@ -25,6 +25,26 @@ def test_turno_pelo_horario_de_brasilia(hora_utc, turno):
 
 def test_horario_sem_turno():
     assert turno_de(datetime(2026, 10, 14, 3, 0, tzinfo=UTC), {"1": "06:00-14:00"}) is None
+
+
+@pytest.mark.parametrize("agora, turno, inicio, fim", [
+    # 14:30 em Brasília: turno 2, das 14:00 às 22:00 (17:00 a 01:00 UTC)
+    (datetime(2026, 10, 14, 17, 30, tzinfo=UTC), "2", datetime(2026, 10, 14, 17, 0, tzinfo=UTC),
+     datetime(2026, 10, 15, 1, 0, tzinfo=UTC)),
+    # 22:30 do dia 13 em Brasília: turno 3, que só termina às 06:00 do dia 14
+    (datetime(2026, 10, 14, 1, 30, tzinfo=UTC), "3", datetime(2026, 10, 14, 1, 0, tzinfo=UTC),
+     datetime(2026, 10, 14, 9, 0, tzinfo=UTC)),
+    # 02:00 do dia 14 em Brasília: turno 3, que começou às 22:00 do dia 13
+    (datetime(2026, 10, 14, 5, 0, tzinfo=UTC), "3", datetime(2026, 10, 14, 1, 0, tzinfo=UTC),
+     datetime(2026, 10, 14, 9, 0, tzinfo=UTC)),
+])
+def test_janela_do_turno_para_o_cordao(agora, turno, inicio, fim):
+    assert janela_do_turno(agora, TURNOS) == (turno, inicio, fim)
+
+
+def test_janela_sem_turno_sao_as_ultimas_8_horas():
+    agora = datetime(2026, 10, 14, 3, 0, tzinfo=UTC)
+    assert janela_do_turno(agora, {"1": "06:00-14:00"}) == (None, agora - timedelta(hours=8), agora)
 
 
 @pytest.mark.parametrize("ruim", [{"1": "6h-14h"}, {"1": "25:00-06:00"}, {"1": "06:00 - 14:00"}])

@@ -1,0 +1,39 @@
+{% extends "base_simples.html" %}
+{% block titulo %}Trocar senha{% endblock %}
+{% block conteudo %}
+<form class="login-cartao" id="form-senha" data-login="{{ usuario.login }}" novalidate>
+  {% if usuario.deve_trocar_senha %}
+  <h2 class="titulo-pagina fs-4 mb-1">Defina uma senha nova</h2>
+  <p class="text-secondary">Este é o seu primeiro acesso (ou a sua senha foi redefinida): a senha atual é temporária e
+    precisa ser trocada.</p>
+  {% else %}
+  <h2 class="titulo-pagina fs-4 mb-3">Trocar senha</h2>
+  {% endif %}
+  <div class="mb-3">
+    <label for="senha-atual" class="form-label">Senha atual</label>
+    <input type="password" class="form-control" id="senha-atual" autocomplete="current-password" required>
+  </div>
+  <div class="mb-3">
+    <label for="nova-senha" class="form-label">Nova senha</label>
+    <input type="password" class="form-control" id="nova-senha" autocomplete="new-password" required
+           aria-describedby="regras-senha">
+  </div>
+  <div class="mb-2">
+    <label for="repita-senha" class="form-label">Repita a nova senha</label>
+    <input type="password" class="form-control" id="repita-senha" autocomplete="new-password" required>
+  </div>
+  <ul class="lista-regras" id="regras-senha" aria-live="polite">
+    <li data-regra="tamanho"><i class="bi bi-dash" aria-hidden="true"></i> pelo menos 8 caracteres</li>
+    <li data-regra="diferente"><i class="bi bi-dash" aria-hidden="true"></i> diferente do login e da senha atual</li>
+    <li data-regra="igual"><i class="bi bi-dash" aria-hidden="true"></i> as duas senhas novas iguais</li>
+  </ul>
+  <button type="submit" class="btn btn-primary w-100">Salvar nova senha</button>
+  <div class="alert alert-danger d-flex gap-2 align-items-start mt-3 mb-0" id="erro-senha" role="alert" hidden>
+    <i class="bi bi-x-octagon-fill" aria-hidden="true"></i><span></span>
+  </div>
+  {% if not usuario.deve_trocar_senha %}
+  <a href="/ao-vivo" class="d-block text-center mt-3">Voltar sem trocar</a>
+  {% endif %}
+</form>
+{% endblock %}
+{% block scripts %}<script src="/static/js/trocar_senha.js?v={{ v }}"></script>{% endblock %}

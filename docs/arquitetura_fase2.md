@@ -1,8 +1,8 @@
-# Arquitetura do sistema completo – Fase 2 (Etapa 2.1)
+# Arquitetura do sistema completo – Fase 2 (Etapa 2.1, atualizada até a 2.4)
 
 **Data:** 14/10/2026. A Fase 1 foi validada para a **máscara de solda** (`docs/relatorio_validacao_fase1.md`).
 Esta etapa define **como** o sistema completo vai funcionar: componentes, modelo de dados, rotas e a integração com o
-código da Fase 1. **Ainda não há código da Fase 2** nem telas (os wireframes são a Etapa 2.4).
+código da Fase 1. O código está em `app/`; o andamento das etapas fica na seção 12.
 
 ## 0. Princípios
 
@@ -148,8 +148,8 @@ Perfis: **A** = só ADMIN; **A/S** = ADMIN e SUPERVISOR.
 | Rota | Tela | Perfil |
 |---|---|---|
 | `GET /` | redireciona para `/ao-vivo` | A/S |
-| `GET, POST /login` · `POST /logout` | T01 Login (na Etapa 2.3, só o `POST /login`, que responde em JSON; a página vem na 2.4) | público / A/S |
-| `GET, POST /trocar-senha` | troca de senha (obrigatória no 1º acesso) | A/S |
+| `GET /login` (página) · `POST /login` (JSON) · `POST /logout` | T01 Login; volta para a página pedida (`?proximo=`, só caminhos deste sistema) | público / A/S |
+| `GET /trocar-senha` (página) · `POST /api/trocar-senha` | troca de senha (obrigatória no 1º acesso e depois de uma senha temporária) | A/S |
 | `GET /ao-vivo` | T02 Monitoramento ao vivo | A/S |
 | `GET /upload` | T03 Análise por upload | A/S |
 | `GET /ocorrencias` | T04 Ocorrências | A/S |
@@ -165,18 +165,19 @@ Perfis: **A** = só ADMIN; **A/S** = ADMIN e SUPERVISOR.
 | `GET /api/me` · `POST /api/trocar-senha` | quem está logado (e o token CSRF) · troca da própria senha | A/S |
 | `GET /api/cameras` | lista de câmeras com status (online, pausada, FPS) | A/S |
 | `GET /api/cameras/{id}/stream.mjpg` | stream ao vivo anotado (RF01) | A/S |
-| `GET /api/status?camera_id=` | FPS, online, arco/frame ignorado, pessoas e estado de cada EPI, máscara levantada, últimas 5 ocorrências (T02, a cada 1 s) | A/S |
+| `GET /api/status?camera_id=` | FPS, online, arco/frame ignorado, pessoas e estado de cada EPI, máscara levantada, últimas 5 ocorrências e o **cordão do turno** (trechos de 10 s + pinos das ocorrências) (T02, a cada 1 s) | A/S |
 | `POST /api/cameras/{id}/pausar` · `/retomar` | pausar ou retomar o monitoramento | A |
 | `GET /api/cameras/{id}/snapshot.jpg` | foto atual **borrada**, para download | A/S |
 | `POST /api/uploads` | envia foto (jpg/png) ou vídeo (mp4); valida tipo e tamanho (RF02) | A/S |
 | `GET /api/uploads/{job}` | progresso, estado e tabela de pessoas × EPIs | A/S |
 | `GET /api/uploads/{job}/arquivo` | baixa o resultado anotado (borrado) | A/S |
 | `POST /api/uploads/{job}/registrar` | "registrar como ocorrência" (T03) | A/S |
-| `GET /api/ocorrencias` | lista com filtros (período, posto, EPI, turno, validação), 20 por página (RF22) | A/S |
+| `GET /api/ocorrencias` | lista com filtros (período, posto, EPI, turno, validação), 20 por página (RF22), e o resumo do período (total, pendentes, confirmadas, falsos positivos) | A/S |
+| `GET /api/ocorrencias/resumo` | quantas esperam validação (número na barra lateral) | A/S |
 | `GET /api/ocorrencias/{uuid}` | detalhes para o modal | A/S |
 | `POST /api/ocorrencias/{uuid}/validacao` | Confirmada / Falso positivo (auditado) | A/S |
 | `DELETE /api/ocorrencias/{uuid}` | exclusão manual (auditada) | A |
-| `GET /api/ocorrencias/exportar.csv` | exportação com os mesmos filtros (RD10, auditada) | A/S |
+| `GET /api/ocorrencias/exportar.csv` | exportação com os mesmos filtros (RD10, auditada) – **Etapa 2.5** (o botão já aparece, desativado) | A/S |
 | `GET /midia/{uuid}?tipo=imagem\|thumb` | imagem ou miniatura da ocorrência, só com login (RF24) | A/S |
 | `GET /api/dashboard` | números e séries dos gráficos (RD04) | A/S |
 | `GET, POST, PUT, DELETE /api/cameras[/{id}]` | cadastro de câmeras/postos (RD05) | A |
@@ -184,7 +185,7 @@ Perfis: **A** = só ADMIN; **A/S** = ADMIN e SUPERVISOR.
 | `PUT /api/cameras/{id}/roi` | zona de interesse (RD06) | A |
 | `GET, PUT /api/config/sistema` | cooldown, retenção, imgsz, arco, turnos, Telegram, uso de disco (RD05) | A |
 | `GET /api/cameras/{id}/calibracao.mjpg` · `GET /api/calibracao/{id}` | stream com pontos e regiões do corpo e valores numéricos (RD02) | A |
-| `GET, POST /api/usuarios` · `POST /api/usuarios/{id}/desativar` · `POST /api/usuarios/{id}/senha` | gestão de usuários (T08) | A |
+| `GET, POST /api/usuarios` · `POST /api/usuarios/{id}/desativar` · `/reativar` · `/senha` | gestão de usuários (T08): criar, desativar/reativar, senha temporária (mostrada uma vez); tudo auditado | A |
 
 Sem login, as páginas redirecionam para `/login` e a API e o `/midia` respondem **401**. Um SUPERVISOR em rota de
 ADMIN recebe **403**. As imagens **nunca** ficam em `static/`: o `/midia` busca o caminho no banco e lê pelo
@@ -263,7 +264,10 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 - turno (inclusive o que atravessa a meia-noite, 22:00–06:00) e conversão UTC → America/Sao_Paulo;
 - ocorrência de ponta a ponta: frames simulados → `GerenciadorOcorrencias` → registro (arquivo borrado + linha no
   banco);
-- filtros, paginação e CSV com os mesmos filtros.
+- filtros, paginação e CSV com os mesmos filtros;
+- telas (Etapa 2.4, `tests/test_fase2_telas.py`): redirecionamento para o login e de volta, troca obrigatória de
+  senha, menu de administração só para o ADMIN, nenhuma página com script/estilo dentro do HTML (CSP), todos os
+  arquivos carregados existem e são locais, gestão de usuários, resumo das ocorrências e o cordão do turno.
 
 ## 12. Próximas etapas (como no prompt)
 
@@ -271,7 +275,7 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 |---|---|
 | 2.2 ✅ | `database.py`/`models.py` + Alembic + `storage.py` + `privacy.py` + `scheduler.py` + registro de ocorrências no banco + testes (e a refatoração F2-D2). Demonstração: `ferramentas/demo_registro.py` |
 | 2.3 ✅ | Backend FastAPI: autenticação, streaming ao vivo, upload, `/midia/{uuid}`, API de status e de ocorrências. Teste pela documentação interativa `/docs` (modo desenvolvimento) |
-| 2.4 | Wireframes T01–T08 + mapa de navegação (**aguardar aprovação**) → telas T01, T02, T03, T04 e T08 |
+| 2.4 ✅ | Wireframes T01–T08 + mapa de navegação (`docs/wireframes_fase2.md`, aprovados) → telas T01, T02, T03, T04 e T08 |
 | 2.5 | Desejáveis, na ordem: RD01, RD02 (T07), RD03, RD04 (T05), RD05 + RD06 (T06), RD07, RD08, depois os demais |
 | 2.6 | README completo, revisão LGPD, aviso de monitoramento e termo de autorização (RF30) |
 | 2.7 | Material acadêmico: metodologia, resultados, limitações, planilha antes x depois, roteiro da palestra |
@@ -303,3 +307,7 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 | F2-D21 | Telemetria do FastAPI (OpenTelemetry) **desligada** no código | ela só exportaria dados se alguém configurasse um destino, mas o projeto é on-premises: desligada, não há risco e não gasta CPU |
 | F2-D22 | Documentação interativa `/docs` só com `MODO_DESENVOLVIMENTO=true`; a página é aberta, mas todas as rotas da API continuam exigindo login | permite testar o backend antes das telas (2.4) sem abrir nenhum dado |
 | F2-D23 | Resultado de vídeo do upload em H.264 (`.mp4`), com VP8 (`.webm`) e mp4v de reserva; cada upload só aparece para quem enviou (o ADMIN vê todos) | H.264 e VP8 tocam direto no navegador (T03); o mp4v só serve para download |
+| F2-D24 | O **cordão do turno** mostra o estado que **predominou** em cada trecho de 10 s (vermelho com metade ou mais dos quadros não conformes; verde com maioria conforme; amarelo na mistura; "ninguém" se houve gente em menos de 1/4 dos quadros), e não o pior quadro | no teste com um vídeo conforme, o "pior quadro" pintou 43% do cordão de vermelho sem nenhuma ocorrência: um quadro isolado errado não pode valer 10 s. As ocorrências continuam com a regra de 4 s / 75% |
+| F2-D25 | Telas sem nenhum script ou estilo dentro do HTML (CSP `script-src 'self'`, sem `unsafe-inline`); dados da API entram sempre como texto (`textContent`); CSS e JS com `?v=` que muda quando os arquivos mudam | um dado vindo do banco nunca vira código na página (XSS); o navegador não usa um arquivo velho do cache depois de uma atualização |
+| F2-D26 | Não existe "excluir usuário" (só desativar); ninguém desativa a si mesmo e sempre sobra um ADMIN ativo; a senha temporária gerada pelo ADMIN aparece **uma única vez** e obriga a troca no próximo acesso | o histórico de validações e a auditoria apontam para o usuário; o sistema não pode ficar sem administrador; o ADMIN não fica sabendo a senha definitiva de ninguém |
+| F2-D27 | Bootstrap, ícones e fontes ficam no próprio sistema (`app/static/vendor/`), sem CDN | a rede da fábrica pode não ter internet, e nada sai do computador |

@@ -59,7 +59,8 @@ Mesmo quem não distingue vermelho de verde reconhece o estado pela forma, como 
 ### Assinatura: o **cordão do turno**
 
 Uma faixa horizontal embaixo do vídeo ao vivo, desenhada como um **cordão de solda**: cada trecho de 10 segundos do
-turno tem a cor do pior estado daquele trecho (verde, amarelo ou vermelho), e um **pino** marca cada ocorrência
+turno tem a cor do estado que predominou naquele trecho (verde, amarelo ou vermelho; na implementação, decisão F2-D24
+de `docs/arquitetura_fase2.md`), e um **pino** marca cada ocorrência
 registrada. O supervisor vê de uma vez se o turno está "limpo" ou se as faltas se repetem num horário. É a mesma
 informação do sistema (estados por quadro), só que no tempo.
 

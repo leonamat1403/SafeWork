@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 FUSO = ZoneInfo("America/Sao_Paulo")   # no Windows, o pacote tzdata fornece a tabela de fusos
@@ -43,6 +43,30 @@ def validar_turnos(turnos: dict) -> dict[str, tuple[time, time]]:
         h1, m1, h2, m2 = achado.groups()
         faixas[str(nome)] = (_hora(h1, m1, texto), _hora(h2, m2, texto))
     return faixas
+
+
+def janela_do_turno(momento: datetime, turnos: dict, horas_sem_turno: float = 8) -> tuple[str | None, datetime, datetime]:
+    """(nome, início, fim) do turno em que `momento` cai, em UTC. Sem turno cobrindo o horário: as últimas 8 horas.
+
+    Usado pelo "cordão do turno" da tela ao vivo (T02).
+    """
+    local = para_local(momento)
+    hora, hoje = local.time(), local.date()
+    um_dia = timedelta(days=1)
+    for nome, (inicio, fim) in validar_turnos(turnos).items():
+        if inicio <= fim:
+            if not inicio <= hora < fim:
+                continue
+            comeco, termino = datetime.combine(hoje, inicio, FUSO), datetime.combine(hoje, fim, FUSO)
+        elif hora >= inicio:                       # turno da noite, antes da meia-noite
+            comeco, termino = datetime.combine(hoje, inicio, FUSO), datetime.combine(hoje + um_dia, fim, FUSO)
+        elif hora < fim:                           # turno da noite, depois da meia-noite
+            comeco, termino = datetime.combine(hoje - um_dia, inicio, FUSO), datetime.combine(hoje, fim, FUSO)
+        else:
+            continue
+        return nome, comeco.astimezone(timezone.utc), termino.astimezone(timezone.utc)
+    agora = para_utc(momento)
+    return None, agora - timedelta(hours=horas_sem_turno), agora
 
 
 def turno_de(momento: datetime, turnos: dict) -> str | None:

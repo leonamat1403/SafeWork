@@ -39,6 +39,15 @@ QUALIDADE_STREAM = 70
 INTERVALO_METRICAS_S = 60      # metricas_sessao é atualizada a cada minuto
 ESPERA_MAX_RECONEXAO_S = 30
 QUADROS_POR_SEGUNDO_MJPEG = 10
+PASSO_CORDAO_S = 10            # cordão do turno (T02): um trecho a cada 10 segundos
+HORAS_CORDAO = 12              # guarda no máximo 12 h de trechos na memória
+# Código de cada trecho do cordão: V = câmera ligada sem ninguém, C = conforme, I = indeterminado, N = não conforme.
+# Cada quadro vale o pior estado entre as pessoas dele; o trecho mostra o estado que PREDOMINOU nos quadros (F2-D24):
+# um quadro isolado errado não pinta 10 s de vermelho (as ocorrências exigem 4 s; o cordão não pode ser mais nervoso).
+# Trecho ausente ("-") = câmera parada, pausada ou só quadros estourados pelo arco.
+GRAVIDADE_CORDAO = {"V": 0, "C": 1, "I": 2, "N": 3}
+CODIGO_ESTADO = {Estado.CONFORME: "C", Estado.INDETERMINADO: "I", Estado.NAO_CONFORME: "N"}
+FRACAO_PESSOAS_CORDAO = 0.25   # com gente em menos de 1/4 dos quadros do trecho, ele conta como "ninguém no quadro"
 
 
 def jpeg(img: np.ndarray, largura_max: int = LARGURA_STREAM, qualidade: int = QUALIDADE_STREAM) -> bytes:
@@ -73,6 +82,31 @@ def origem_da_camera(tipo: str, origem: str, ajustes: Ajustes) -> str:
             credenciais = quote(ajustes.rtsp_usuario, safe="") + ":" + quote(ajustes.rtsp_senha, safe="")
             return urlunsplit(partes._replace(netloc=f"{credenciais}@{partes.netloc}"))
     return origem
+
+
+def pior_estado(aval) -> Estado:
+    """Estado da pessoa: NÃO CONFORME se algum EPI faltar; INDETERMINADO se algum não for visível; senão CONFORME."""
+    estados = {e.estado for e in aval.epis.values()}
+    if Estado.NAO_CONFORME in estados:
+        return Estado.NAO_CONFORME
+    if Estado.INDETERMINADO in estados or not estados:
+        return Estado.INDETERMINADO
+    return Estado.CONFORME
+
+
+def codigo_do_trecho(quadros: list[int] | None) -> str:
+    """Estado que predominou num trecho do cordão, a partir da contagem de quadros [V, C, I, N] (F2-D24)."""
+    if quadros is None:
+        return "-"
+    vazios, conformes, indeterminados, nao_conformes = quadros
+    com_pessoas = conformes + indeterminados + nao_conformes
+    if com_pessoas == 0 or com_pessoas < FRACAO_PESSOAS_CORDAO * (com_pessoas + vazios):
+        return "V"
+    if 2 * nao_conformes >= com_pessoas:      # metade ou mais dos quadros com a falta
+        return "N"
+    if 2 * conformes > com_pessoas:
+        return "C"
+    return "I"                                 # mistura sem maioria: incerto
 
 
 def status_das_pessoas(resultado: ResultadoFrame) -> list[dict]:
@@ -115,6 +149,7 @@ class TrabalhadorCamera(threading.Thread):
         self.pessoas: list[dict] = []
         self.ultimas: deque[dict] = deque(maxlen=5)
         self._metrica_id: int | None = None
+        self._cordao: dict[int, list[int]] = {}              # nº do trecho de 10 s -> quadros [V, C, I, N]
         self._contagem = {"frames": 0, "ignorados": 0, "pessoas": 0, Estado.CONFORME: 0, Estado.NAO_CONFORME: 0,
                           Estado.INDETERMINADO: 0}
 
@@ -181,10 +216,28 @@ class TrabalhadorCamera(threading.Thread):
             return
         for aval in resultado.avaliacoes:
             c["pessoas"] += 1
-            estados = {e.estado for e in aval.epis.values()}
-            pior = (Estado.NAO_CONFORME if Estado.NAO_CONFORME in estados else
-                    Estado.INDETERMINADO if Estado.INDETERMINADO in estados or not estados else Estado.CONFORME)
-            c[pior] += 1
+            c[pior_estado(aval)] += 1
+
+    def marcar_cordao(self, resultado: ResultadoFrame, instante: float | None = None) -> None:
+        """Conta o quadro no trecho de 10 s atual (quadros estourados pelo arco não contam)."""
+        if resultado.saturado:
+            return
+        codigo = max((CODIGO_ESTADO[pior_estado(a)] for a in resultado.avaliacoes), key=GRAVIDADE_CORDAO.get,
+                     default="V")
+        trecho = int((time.time() if instante is None else instante) // PASSO_CORDAO_S)
+        with self._trava:
+            self._cordao.setdefault(trecho, [0, 0, 0, 0])[GRAVIDADE_CORDAO[codigo]] += 1
+            limite = trecho - HORAS_CORDAO * 3600 // PASSO_CORDAO_S
+            if len(self._cordao) > HORAS_CORDAO * 3600 // PASSO_CORDAO_S + 60:
+                for antigo in [k for k in self._cordao if k < limite]:
+                    del self._cordao[antigo]
+
+    def cordao(self, inicio: float, fim: float) -> str:
+        """Códigos dos trechos de `inicio` a `fim` (timestamps), um caractere por trecho de 10 s."""
+        primeiro, ultimo = int(inicio // PASSO_CORDAO_S), int(fim // PASSO_CORDAO_S)
+        with self._trava:   # copia as contagens: a thread da câmera continua somando nelas
+            contagens = [list(c) if (c := self._cordao.get(k)) else None for k in range(primeiro, ultimo + 1)]
+        return "".join(codigo_do_trecho(c) for c in contagens)
 
     def _salvar_metricas(self, fim: bool = False) -> None:
         """Taxa de conformidade da sessão, sem imagens (tabela metricas_sessao)."""
@@ -258,6 +311,7 @@ class TrabalhadorCamera(threading.Thread):
                 self._registrar(gerenciador.atualizar(resultado.avaliacoes, t, n, resultado.saturado), frame,
                                 resultado)
                 self._contar(resultado)
+                self.marcar_cordao(resultado)
                 frames_fps += 1
                 agora = time.monotonic()
                 if agora - inicio_fps >= 2:

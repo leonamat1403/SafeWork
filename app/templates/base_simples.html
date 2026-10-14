@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf | default('') }}">
+  <title>{% block titulo %}{% endblock %} · Verificador de EPIs de Solda</title>
+  <link rel="icon" href="/static/img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/css/app.css?v={{ v }}">
+</head>
+<body class="pagina-login">
+{% include "_icones.html" %}
+<main class="login-caixa">
+  <div class="login-marca">
+    <svg aria-hidden="true"><use href="#icone-mascara"></use></svg>
+    <h1>Verificador de EPIs de Solda</h1>
+    <p>Postos de solda · FSG / Marcopolo</p>
+  </div>
+  {% block conteudo %}{% endblock %}
+  <p class="login-aviso">
+    Área monitorada por câmera para verificar o uso de EPIs (NR-6). O sistema não identifica pessoas e as imagens
+    guardadas são borradas.<br><span class="numero">v{{ versao }}</span>
+  </p>
+</main>
+<script src="/static/js/app.js?v={{ v }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

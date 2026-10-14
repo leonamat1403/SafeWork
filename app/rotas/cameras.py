@@ -6,9 +6,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
 from app.auth import UsuarioSessao, exigir_admin, exigir_csrf, usuario_liberado
-from app.models import Camera
-from app.stream import TrabalhadorCamera, gerar_mjpeg, jpeg
-from app.tempo import agora_utc, para_local
+from app.models import Camera, Ocorrencia
+from app.stream import PASSO_CORDAO_S, TrabalhadorCamera, gerar_mjpeg, jpeg
+from app.tempo import agora_utc, janela_do_turno, para_local
 
 rotas = APIRouter(prefix="/api", tags=["câmeras"])
 SEM_CACHE = {"Cache-Control": "no-store, private"}
@@ -58,9 +58,32 @@ def status_ao_vivo(request: Request, camera_id: int | None = None,
         if not ids:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Nenhuma câmera ativa.")
         camera_id = ids[0]
-    dados = _trabalhador(request, camera_id).status()
-    dados["agora_local"] = para_local(agora_utc()).strftime("%d/%m/%Y %H:%M:%S")
+    trabalhador = _trabalhador(request, camera_id)
+    dados = trabalhador.status()
+    agora = agora_utc()
+    dados["agora_local"] = para_local(agora).strftime("%d/%m/%Y %H:%M:%S")
+    dados["cordao"] = cordao_do_turno(request, trabalhador, agora)
     return dados
+
+
+def cordao_do_turno(request: Request, trabalhador: TrabalhadorCamera, agora) -> dict:
+    """Cordão do turno (T02): o pior estado de cada trecho de 10 s desde o início do turno, e um pino por ocorrência."""
+    ctx = request.app.state.ctx
+    turno, inicio, fim = janela_do_turno(agora, ctx.ajustes.turnos)
+    with ctx.fabrica() as sessao:
+        ocorrencias = sessao.execute(
+            select(Ocorrencia.uuid, Ocorrencia.data_hora, Ocorrencia.epis_faltantes)
+            .where(Ocorrencia.camera_id == trabalhador.camera_id, Ocorrencia.data_hora >= inicio,
+                   Ocorrencia.origem == "ao_vivo")
+            .order_by(Ocorrencia.data_hora)).all()
+    return {
+        "turno": turno, "passo_s": PASSO_CORDAO_S,
+        "inicio": inicio.isoformat(), "fim": fim.isoformat(),
+        "inicio_local": para_local(inicio).strftime("%H:%M"), "fim_local": para_local(fim).strftime("%H:%M"),
+        "trechos": trabalhador.cordao(inicio.timestamp(), agora.timestamp()),
+        "pinos": [{"uuid": u, "segundos": round((d - inicio).total_seconds()),
+                   "hora_local": para_local(d).strftime("%H:%M"), "epis_faltantes": e} for u, d, e in ocorrencias],
+    }
 
 
 @rotas.post("/cameras/{camera_id}/pausar", dependencies=[Depends(exigir_csrf)])

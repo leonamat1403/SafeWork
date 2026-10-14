@@ -1,4 +1,4 @@
-﻿"""Ocorrências (RF22): lista com filtros e paginação, detalhes, validação manual e exclusão; imagens em /midia (RF24)."""
+"""Ocorrências (RF22): lista com filtros e paginação, detalhes, validação manual e exclusão; imagens em /midia (RF24)."""
 from __future__ import annotations
 
 import uuid as uuid_mod
@@ -74,6 +74,7 @@ def listar(request: Request,
         filtros.append(cast(Ocorrencia.epis_faltantes, String).like(f'%"{epi}"%'))
     if turno:
         filtros.append(Ocorrencia.turno == turno)
+    filtros_do_periodo = list(filtros)   # o resumo do período ignora o filtro de validação
     if validacao:
         filtros.append(Ocorrencia.validacao == validacao)
     with request.app.state.ctx.fabrica() as sessao:
@@ -82,8 +83,22 @@ def listar(request: Request,
             select(Ocorrencia, Camera.nome_posto).join(Camera).where(*filtros)
             .order_by(Ocorrencia.data_hora.desc(), Ocorrencia.id.desc())
             .offset((pagina - 1) * POR_PAGINA).limit(POR_PAGINA)).all()
-    return {"total": total, "pagina": pagina, "por_pagina": POR_PAGINA,
-            "paginas": max(1, -(-total // POR_PAGINA)), "itens": [ocorrencia_json(oc, posto) for oc, posto in linhas]}
+        por_validacao = dict(sessao.execute(select(Ocorrencia.validacao, func.count()).where(*filtros_do_periodo)
+                                            .group_by(Ocorrencia.validacao)).all())
+    resumo = {"total": sum(por_validacao.values()), "pendentes": por_validacao.get("PENDENTE", 0),
+              "confirmadas": por_validacao.get("CONFIRMADA", 0),
+              "falsos_positivos": por_validacao.get("FALSO_POSITIVO", 0)}
+    return {"total": total, "pagina": pagina, "por_pagina": POR_PAGINA, "paginas": max(1, -(-total // POR_PAGINA)),
+            "resumo": resumo, "itens": [ocorrencia_json(oc, posto) for oc, posto in linhas]}
+
+
+@rotas.get("/api/ocorrencias/resumo")
+def resumo_geral(request: Request, _: UsuarioSessao = Depends(usuario_liberado)) -> dict:
+    """Quantas ocorrências esperam validação (número ao lado de "Ocorrências" na barra lateral)."""
+    with request.app.state.ctx.fabrica() as sessao:
+        pendentes = sessao.scalar(select(func.count()).select_from(Ocorrencia)
+                                  .where(Ocorrencia.validacao == "PENDENTE"))
+    return {"pendentes": pendentes}
 
 
 def _buscar(sessao, uuid: str) -> tuple[Ocorrencia, str]:

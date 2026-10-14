@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf }}">
+  <title>{% block titulo %}{% endblock %} · Verificador de EPIs de Solda</title>
+  <link rel="icon" href="/static/img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/css/app.css?v={{ v }}">
+</head>
+<body>
+{% include "_icones.html" %}
+<a class="visually-hidden-focusable btn btn-primary position-absolute m-2" href="#conteudo">Pular para o conteúdo</a>
+<div class="estrutura">
+  <aside class="lateral offcanvas-lg offcanvas-start" id="menu" tabindex="-1" aria-label="Menu principal">
+    <div class="lateral-marca">
+      <svg aria-hidden="true"><use href="#icone-mascara"></use></svg>
+      <span>EPI · SOLDA</span>
+      <button type="button" class="btn-close btn-close-white ms-auto d-lg-none" data-bs-dismiss="offcanvas"
+              data-bs-target="#menu" aria-label="Fechar menu"></button>
+    </div>
+    <nav aria-label="Telas">
+      <p class="rotulo">Operação</p>
+      <a class="lateral-link {% if ativa == 'ao-vivo' %}ativa{% endif %}" href="/ao-vivo"
+         {% if ativa == 'ao-vivo' %}aria-current="page"{% endif %}><i class="bi bi-broadcast" aria-hidden="true"></i> Ao vivo</a>
+      <a class="lateral-link {% if ativa == 'ocorrencias' %}ativa{% endif %}" href="/ocorrencias"
+         {% if ativa == 'ocorrencias' %}aria-current="page"{% endif %}>
+        <i class="bi bi-images" aria-hidden="true"></i> Ocorrências
+        <span class="contador {% if not pendentes %}zero{% endif %}" id="contador-pendentes"
+              title="Ocorrências esperando validação">{{ pendentes }}<span class="visually-hidden"> pendentes</span></span>
+      </a>
+      <a class="lateral-link {% if ativa == 'upload' %}ativa{% endif %}" href="/upload"
+         {% if ativa == 'upload' %}aria-current="page"{% endif %}><i class="bi bi-cloud-upload" aria-hidden="true"></i> Analisar arquivo</a>
+      <span class="lateral-link desativado" aria-disabled="true"><i class="bi bi-bar-chart" aria-hidden="true"></i> Painel <small>em breve</small></span>
+      {% if usuario.admin %}
+      <p class="rotulo">Administração</p>
+      <span class="lateral-link desativado" aria-disabled="true"><i class="bi bi-sliders" aria-hidden="true"></i> Configurações <small>em breve</small></span>
+      <span class="lateral-link desativado" aria-disabled="true"><i class="bi bi-bounding-box" aria-hidden="true"></i> Calibração <small>em breve</small></span>
+      <a class="lateral-link {% if ativa == 'usuarios' %}ativa{% endif %}" href="/usuarios"
+         {% if ativa == 'usuarios' %}aria-current="page"{% endif %}><i class="bi bi-people" aria-hidden="true"></i> Usuários</a>
+      {% endif %}
+    </nav>
+    <div class="lateral-rodape">
+      <div><strong>{{ usuario.nome }}</strong></div>
+      <div class="mb-2">{{ "Administrador" if usuario.admin else "Supervisor" }}</div>
+      <a href="/trocar-senha"><i class="bi bi-key" aria-hidden="true"></i> Trocar senha</a>
+      <button type="button" data-acao="sair"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Sair</button>
+    </div>
+  </aside>
+
+  <div class="principal">
+    <header class="topo">
+      <button type="button" class="btn btn-outline-secondary btn-sm d-lg-none" data-bs-toggle="offcanvas"
+              data-bs-target="#menu" aria-controls="menu" aria-label="Abrir menu"><i class="bi bi-list"></i></button>
+      <span class="topo-nome">Verificador de EPIs de Solda</span>
+      {% if cameras %}
+      <div class="topo-posto">
+        <label for="seletor-posto" class="rotulo">Posto</label>
+        <select id="seletor-posto" class="form-select form-select-sm">
+          {% for camera in cameras %}
+          <option value="{{ camera.id }}" {% if camera_id == camera.id %}selected{% endif %}>{{ camera.nome }}</option>
+          {% endfor %}
+        </select>
+        <span id="status-camera" class="estado estado-off" role="status">
+          <i class="bi bi-hourglass" aria-hidden="true"></i><span>—</span>
+        </span>
+      </div>
+      {% endif %}
+    </header>
+
+    <main id="conteudo" class="conteudo" tabindex="-1" data-admin="{{ 1 if usuario.admin else 0 }}"
+          {% block dados %}{% endblock %}>
+      {% block conteudo %}{% endblock %}
+    </main>
+
+    <footer class="rodape">
+      Verificador de EPIs de Solda v{{ versao }} · FSG / Marcopolo · nenhuma pessoa é identificada e as imagens guardadas são borradas
+    </footer>
+  </div>
+</div>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="avisos" aria-live="polite"></div>
+<script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js?v={{ v }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

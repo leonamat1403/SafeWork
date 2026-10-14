@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titulo %}Analisar arquivo{% endblock %}
+{% block dados %}data-tamanho-max-mb="{{ tamanho_max_mb }}"{% endblock %}
+{% block conteudo %}
+<h1 class="titulo-pagina mb-3">Analisar foto ou vídeo</h1>
+
+<div class="cartao">
+  <div class="row g-2 align-items-center mb-3">
+    <div class="col-auto"><label for="posto-upload" class="col-form-label">Regras do posto</label></div>
+    <div class="col-sm-6 col-lg-4">
+      <select id="posto-upload" class="form-select">
+        {% for camera in cameras %}<option value="{{ camera.id }}">{{ camera.nome }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="area-envio" id="area-envio">
+    <i class="bi bi-cloud-upload" aria-hidden="true"></i>
+    <p class="mt-2 mb-2">Arraste uma foto (.jpg, .png) ou um vídeo (.mp4) para cá</p>
+    <label class="btn btn-primary">
+      Escolher arquivo
+      <input type="file" id="arquivo" class="visually-hidden" accept=".jpg,.jpeg,.png,.mp4,image/jpeg,image/png,video/mp4">
+    </label>
+    <p class="text-secondary small mt-2 mb-0">até {{ tamanho_max_mb }} MB</p>
+  </div>
+  <p class="text-secondary small mt-2 mb-0">O arquivo é apagado logo após a análise; o resultado fica disponível por 1 hora.</p>
+
+  <div class="alert alert-danger d-flex gap-2 mt-3 mb-0" id="erro-envio" role="alert" hidden>
+    <i class="bi bi-x-octagon-fill" aria-hidden="true"></i><span></span>
+  </div>
+
+  <div class="mt-3" id="andamento" hidden>
+    <div class="d-flex justify-content-between small"><span id="andamento-texto"></span><span class="numero" id="andamento-pct"></span></div>
+    <div class="progress" role="progressbar" aria-labelledby="andamento-texto" aria-valuemin="0" aria-valuemax="100" id="barra">
+      <div class="progress-bar" id="barra-valor"></div>
+    </div>
+  </div>
+</div>
+
+<section class="cartao" id="resultado" aria-labelledby="titulo-resultado" hidden>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h2 class="rotulo" id="titulo-resultado">Resultado</h2>
+    <a class="btn btn-outline-primary btn-sm" id="baixar-resultado" download><i class="bi bi-download" aria-hidden="true"></i> Baixar resultado</a>
+  </div>
+  <div class="resultado-midia mb-3" id="midia"></div>
+  <div class="table-responsive">
+    <table class="table tabela align-middle">
+      <thead><tr><th scope="col">Pessoa</th><th scope="col">Máscara</th><th scope="col">Máscara levantada</th></tr></thead>
+      <tbody id="tabela-pessoas"></tbody>
+    </table>
+  </div>
+  <div id="bloco-ocorrencias">
+    <p class="mb-1"><strong id="qtd-ocorrencias"></strong></p>
+    <p class="text-secondary small">Arquivos enviados não viram ocorrências oficiais sozinhos.</p>
+    <button type="button" class="btn btn-primary" id="botao-registrar">Registrar como ocorrência</button>
+  </div>
+  <div class="alert alert-success d-flex gap-2 mb-0" id="registrado" role="status" hidden>
+    <i class="bi bi-check-circle-fill" aria-hidden="true"></i><span></span>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/js/upload.js?v={{ v }}"></script>{% endblock %}

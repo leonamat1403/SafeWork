@@ -7,7 +7,8 @@ as não conformidades (NR-6).
 > **Fase 1 – validação da detecção:** concluída e validada para a **máscara de solda**
 > (`docs/relatorio_validacao_fase1.md`). Execução por linha de comando, com janela do OpenCV.
 > **Fase 2 – sistema completo:** em andamento (`docs/arquitetura_fase2.md`). Etapas 2.2 (banco, imagens borradas,
-> rotinas) e 2.3 (servidor web: login, câmera ao vivo, upload, ocorrências) prontas (seção "Fase 2" abaixo).
+> rotinas), 2.3 (servidor web) e 2.4 (telas: login, ao vivo, analisar arquivo, ocorrências e usuários) prontas
+> (seção "Fase 2" abaixo).
 
 ## Como funciona (resumo)
 
@@ -98,18 +99,30 @@ Arquitetura: `docs/arquitetura_fase2.md`. O código novo fica em `app/` e **impo
 | Upload de foto/vídeo, resultado borrado, "registrar como ocorrência" | `app/uploads.py`, `app/rotas/uploads.py` |
 | Ocorrências (filtros, 20 por página, validação, exclusão) e imagens em `/midia/{uuid}` | `app/rotas/ocorrencias.py` |
 
-**Rodar o sistema web** (as telas vêm na Etapa 2.4; por enquanto, teste pela documentação interativa):
+| Etapa 2.4 – telas (`docs/wireframes_fase2.md`) | Arquivo |
+|---|---|
+| Páginas: login, troca de senha, Ao vivo (T02), Analisar arquivo (T03), Ocorrências (T04), Usuários (T08) | `app/paginas.py`, `app/templates/` |
+| Comportamento das telas (JavaScript puro, sem script dentro do HTML) | `app/static/js/` |
+| Visual: Bootstrap 5.3.8, Bootstrap Icons 1.13.2 e fontes **locais** (funciona sem internet) | `app/static/css/app.css`, `app/static/vendor/` |
+| "Cordão do turno" (estado de cada 10 s do turno) e gestão de usuários | `app/stream.py`, `app/rotas/cameras.py`, `app/rotas/usuarios.py` |
+
+**Rodar o sistema web:**
 
 ```powershell
-copy .env.example .env          # depois edite: SECRET_KEY, ADMIN_SENHA_INICIAL e MODO_DESENVOLVIMENTO=true
+copy .env.example .env          # depois edite: SECRET_KEY e ADMIN_SENHA_INICIAL
 python -m app                   # Ctrl+C para encerrar
 ```
 
-1. Abra http://127.0.0.1:8000/docs → **POST /login** → *Try it out* → login `admin` e a senha do `.env` → *Execute*.
-2. Copie o `csrf_token` da resposta → botão **Authorize** (cadeado, no topo) → cole → *Authorize*.
-3. **POST /api/trocar-senha** (obrigatório no 1º acesso). Depois teste as outras rotas.
-4. Vídeo ao vivo: abra http://127.0.0.1:8000/api/cameras/1/stream.mjpg numa nova aba (no 1º uso a câmera 1 é a
-   "Webcam 0"; o sistema liga a webcam ao iniciar).
+1. Abra http://127.0.0.1:8000 → entre com `admin` e a senha do `.env` → defina uma senha nova (obrigatório).
+2. **Ao vivo:** vídeo da câmera (cabeças borradas), "Pessoas agora", últimas ocorrências e o cordão do turno.
+   No 1º uso a câmera 1 é a "Webcam 0" (o sistema liga a webcam ao iniciar).
+3. **Ocorrências:** filtros (padrão: últimos 7 dias), clique numa linha para ver a imagem e validar
+   (Confirmar falta / Marcar falso positivo; ← → passam de uma para outra).
+4. **Analisar arquivo:** arraste uma foto ou um vídeo; o resultado sai borrado e pode virar ocorrência.
+5. **Usuários** (só administrador): criar supervisor, desativar/reativar, gerar senha temporária.
+
+Com `MODO_DESENVOLVIMENTO=true`, a documentação da API fica em http://127.0.0.1:8000/docs (a API continua exigindo
+login).
 
 **Demonstração sem servidor:** processa um vídeo e grava as ocorrências no banco, com as imagens já borradas:
 
@@ -156,6 +169,10 @@ Resultados dos testes de campo (v3, v4 e v5): `docs/resultados_testes_campo.md`.
 **Relatório de validação da Fase 1 (Etapa 1.6):** `docs/relatorio_validacao_fase1.md`.
 
 ## Licenças de software
+
+As telas usam **Bootstrap** e **Bootstrap Icons** (licença MIT) e as fontes **Barlow Semi Condensed**, **Atkinson
+Hyperlegible** e **IBM Plex Mono** (SIL Open Font License 1.1), todas guardadas em `app/static/vendor/` com as
+licenças junto.
 
 O Ultralytics YOLO é distribuído sob **AGPL-3.0**: adequado a este projeto acadêmico; um uso interno contínuo pela
 empresa deve considerar essa licença.

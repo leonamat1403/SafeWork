@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Ao vivo{% endblock %}
+{% block dados %}data-camera-id="{{ camera_id or '' }}"{% endblock %}
+{% block conteudo %}
+{% if not camera_id %}
+<div class="cartao">
+  <h1 class="titulo-pagina mb-2">Ao vivo</h1>
+  <p class="mb-0">Nenhuma câmera ativa. {% if usuario.admin %}Cadastre ou ative um posto em Configurações (Etapa 2.5).{% else %}Peça ao administrador para ativar um posto.{% endif %}</p>
+</div>
+{% else %}
+<div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-3">
+  <h1 class="titulo-pagina">Ao vivo <small id="nome-posto">{% for c in cameras if c.id == camera_id %}· {{ c.nome }}{% endfor %}</small></h1>
+  <span class="numero text-secondary" id="relogio" aria-live="off"></span>
+</div>
+
+<div class="alert alert-danger d-flex gap-2" id="aviso-erro" role="alert" hidden>
+  <i class="bi bi-x-octagon-fill" aria-hidden="true"></i><span></span>
+</div>
+<div class="alert alert-warning d-flex gap-2" id="aviso-disco" role="status" hidden>
+  <i class="bi bi-question-diamond-fill" aria-hidden="true"></i>
+  <span>Disco quase cheio: as ocorrências estão sendo registradas sem imagem. Libere espaço em data/.</span>
+</div>
+
+<div class="ao-vivo">
+  <div class="area-video">
+    <div class="quadro-video">
+      <img id="video" alt="Vídeo ao vivo do posto, com as cabeças borradas e as caixas de cada pessoa">
+      <div class="faixa-alerta" id="faixa" hidden><span></span></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mt-2">
+      {% if usuario.admin %}
+      <button type="button" class="btn btn-outline-secondary" id="botao-pausar">
+        <i class="bi bi-pause-fill" aria-hidden="true"></i> <span>Pausar posto</span>
+      </button>
+      {% endif %}
+      <a class="btn btn-outline-primary" id="botao-foto" href="/api/cameras/{{ camera_id }}/snapshot.jpg" download>
+        <i class="bi bi-download" aria-hidden="true"></i> Baixar foto (borrada)
+      </a>
+    </div>
+  </div>
+
+  <section class="cartao area-pessoas" aria-labelledby="titulo-pessoas">
+    <h2 class="rotulo mb-2" id="titulo-pessoas">Pessoas agora <span class="numero" id="qtd-pessoas"></span></h2>
+    <p class="visually-hidden" id="pessoas-resumo" aria-live="polite"></p>
+    <div id="pessoas"><p class="text-secondary mb-0">Carregando…</p></div>
+  </section>
+
+  <section class="cartao area-cordao" aria-labelledby="titulo-cordao">
+    <div class="cordao-cabecalho">
+      <h2 class="rotulo" id="titulo-cordao">Cordão do turno</h2>
+      <span class="text-secondary small" id="cordao-resumo"></span>
+    </div>
+    <div class="cordao-trilho" id="cordao-trilho">
+      <canvas id="cordao" height="24" role="img" aria-label="Cordão do turno" aria-describedby="cordao-resumo"></canvas>
+    </div>
+    <div class="cordao-escala"><span id="cordao-inicio"></span><span id="cordao-fim"></span></div>
+    <div class="cordao-legenda">
+      <span><i class="amostra amostra-c"></i>conforme</span>
+      <span><i class="amostra amostra-n"></i>não conforme</span>
+      <span><i class="amostra amostra-i"></i>indeterminado</span>
+      <span><i class="amostra amostra-v"></i>ninguém no quadro</span>
+      <span><i class="amostra amostra-off"></i>câmera parada</span>
+      <span><i class="bi bi-caret-down-fill text-danger" aria-hidden="true"></i>ocorrência registrada</span>
+    </div>
+  </section>
+
+  <section class="cartao area-ultimas" aria-labelledby="titulo-ultimas">
+    <h2 class="rotulo mb-1" id="titulo-ultimas">Últimas ocorrências</h2>
+    <ul class="lista-ultimas" id="ultimas"></ul>
+    <p class="text-secondary small mb-0" id="sem-ultimas">Nenhuma ocorrência desde que o sistema foi iniciado.</p>
+    <a href="/ocorrencias" class="d-inline-block mt-2">Ver todas as ocorrências <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+  </section>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/js/ao_vivo.js?v={{ v }}"></script>{% endblock %}

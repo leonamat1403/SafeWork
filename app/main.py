@@ -12,20 +12,23 @@ import secrets
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 
+from app import VERSAO, paginas
 from app.auth import ControleTentativas, criar_admin_inicial
 from app.config import Ajustes, carregar_ajustes, configurar_logging, epis_padrao, preparar_pastas
 from app.database import aplicar_migracoes, criar_engine, criar_fabrica_sessoes
 from app.models import Camera, ConfigEpiCamera
 from app.privacy import Borrador, DetectorRostosQuadro
 from app.registro import RegistradorOcorrencias
-from app.rotas import acesso, cameras, ocorrencias, uploads
+from app.rotas import acesso, cameras, ocorrencias, uploads, usuarios
 from app.scheduler import iniciar_agendador
 from app.storage import StorageDisco
 from app.stream import GerenciadorCameras
@@ -35,8 +38,13 @@ from src.detector import Detector
 from src.video import FonteVideo
 
 log = logging.getLogger("epi_solda")
-VERSAO = "2.3"
 CHAVE_PADRAO = "troque-esta-chave"
+PASTA_ESTATICOS = Path(__file__).resolve().parent / "static"   # só css, js, ícones e fontes: NUNCA imagens de ocorrências
+# Páginas: o navegador só carrega scripts, estilos, fontes e imagens do próprio sistema (sem nada de fora, sem
+# scripts embutidos no HTML). A documentação /docs (modo desenvolvimento) fica de fora porque usa arquivos da internet.
+POLITICA_CONTEUDO = ("default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; "
+                     "img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; "
+                     "frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
 
 
 @dataclass
@@ -141,6 +149,9 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
         resposta.headers.setdefault("Referrer-Policy", "same-origin")
         if request.url.path.startswith(("/api/", "/midia/")):
             resposta.headers.setdefault("Cache-Control", "no-store, private")
+        if resposta.headers.get("content-type", "").startswith("text/html") and request.url.path != "/docs":
+            resposta.headers.setdefault("Content-Security-Policy", POLITICA_CONTEUDO)
+            resposta.headers.setdefault("Cache-Control", "no-store, private")
         return resposta
 
     if desenvolvimento:   # documentação interativa só para testes (MODO_DESENVOLVIMENTO=true no .env)
@@ -149,6 +160,7 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
             return get_swagger_ui_html(openapi_url="/openapi.json", title="Verificador de EPIs – API",
                                        swagger_ui_parameters={"withCredentials": True, "persistAuthorization": True})
 
-    for modulo in (acesso, cameras, uploads, ocorrencias):
+    for modulo in (acesso, cameras, uploads, ocorrencias, usuarios, paginas):
         app.include_router(modulo.rotas)
+    app.mount("/static", StaticFiles(directory=PASTA_ESTATICOS), name="static")
     return app

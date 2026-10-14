@@ -1,0 +1,238 @@
+/* Verificador de EPIs de Solda – estilos das telas (docs/wireframes_fase2.md, seção 1).
+   As cores de estado são as do prompt; o resto vem do ambiente: chapa de aço, placas de segurança, cordão de solda. */
+
+/* ---------- Fontes (arquivos locais, licença OFL: static/vendor/fontes) ---------- */
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; font-display: swap;
+  src: url("../vendor/fontes/barlow-semi-condensed-600.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Semi Condensed"; font-weight: 700; font-display: swap;
+  src: url("../vendor/fontes/barlow-semi-condensed-700.woff2") format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-display: swap;
+  src: url("../vendor/fontes/atkinson-hyperlegible-400.woff2") format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-display: swap;
+  src: url("../vendor/fontes/atkinson-hyperlegible-700.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-display: swap;
+  src: url("../vendor/fontes/ibm-plex-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap;
+  src: url("../vendor/fontes/ibm-plex-mono-500.woff2") format("woff2"); }
+
+/* ---------- Tokens ---------- */
+:root {
+  --aco: #1E2933;
+  --grafite: #4A5661;
+  --chapa: #EEF1F4;
+  --linha: #D5DBE1;
+  --branco: #FFFFFF;
+  --conforme: #198754;
+  --nao-conforme: #DC3545;
+  --indeterminado: #FFC107;
+  --acao: #0D6EFD;
+  --vazio: #B8C2CC;            /* câmera ligada, ninguém no quadro (cordão do turno) */
+  --trilho: #E1E6EB;           /* trecho sem avaliação (câmera parada) */
+
+  --fonte-titulo: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --fonte-texto: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif;
+  --fonte-numeros: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  --largura-lateral: 15.5rem;
+
+  --bs-body-font-family: var(--fonte-texto);
+  --bs-body-color: var(--aco);           /* --bs-body-bg fica branco: campos, tabelas e modais; o fundo da página é a chapa */
+  --bs-border-color: var(--linha);
+  --bs-secondary-color: var(--grafite);
+}
+
+body { min-height: 100vh; background: var(--chapa); color: var(--aco); }
+[hidden] { display: none !important; }   /* vence as classes d-flex/d-block do Bootstrap (este arquivo vem depois) */
+:focus-visible { outline: 3px solid var(--acao); outline-offset: 2px; }
+
+/* ---------- Texto ---------- */
+.rotulo {
+  font-family: var(--fonte-titulo); font-weight: 600; font-size: .78rem;
+  text-transform: uppercase; letter-spacing: .09em; color: var(--grafite); margin: 0;
+}
+.titulo-pagina {
+  font-family: var(--fonte-titulo); font-weight: 700; font-size: 1.65rem;
+  text-transform: uppercase; letter-spacing: .04em; margin: 0;
+}
+.titulo-pagina small { font-weight: 600; color: var(--grafite); letter-spacing: .02em; text-transform: none; }
+.numero { font-family: var(--fonte-numeros); font-variant-numeric: tabular-nums; }
+
+/* ---------- Estrutura: barra lateral + conteúdo ---------- */
+.estrutura { display: flex; min-height: 100vh; }
+.principal { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.conteudo { flex: 1; padding: 1.5rem; }
+
+.lateral { --bs-offcanvas-width: var(--largura-lateral); --bs-offcanvas-bg: var(--aco); --bs-offcanvas-color: #C9D2DA;
+  background: var(--aco); color: #C9D2DA; }
+@media (min-width: 992px) {
+  .lateral { width: var(--largura-lateral); flex-shrink: 0; position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column; }
+  .lateral.offcanvas-lg { background-color: var(--aco) !important; }   /* o Bootstrap deixa transparente no desktop */
+}
+.lateral-marca { display: flex; align-items: center; gap: .6rem; padding: 1.1rem 1.25rem;
+  font-family: var(--fonte-titulo); font-weight: 700; font-size: 1.15rem; letter-spacing: .12em; color: var(--branco); }
+.lateral-marca svg { width: 1.9rem; height: 1.9rem; color: var(--indeterminado); }
+.lateral nav { flex: 1; padding: .5rem 0; overflow-y: auto; }
+.lateral .rotulo { color: #8C99A6; padding: 1rem 1.25rem .4rem; }
+.lateral-link { display: flex; align-items: center; gap: .65rem; padding: .55rem 1.25rem; color: #C9D2DA;
+  text-decoration: none; border-left: 4px solid transparent; }
+.lateral-link:hover { color: var(--branco); background: rgba(255, 255, 255, .05); }
+.lateral-link.ativa { color: var(--branco); border-left-color: var(--acao); background: rgba(13, 110, 253, .14); }
+.lateral-link.desativado { color: #6F7C88; cursor: not-allowed; }
+.lateral-link small { margin-left: auto; font-size: .72rem; color: #6F7C88; }
+.contador { margin-left: auto; min-width: 1.6rem; padding: .05rem .45rem; border-radius: 1rem; text-align: center;
+  background: var(--nao-conforme); color: var(--branco); font-family: var(--fonte-numeros); font-size: .8rem; }
+.contador.zero { background: #3A4753; color: #C9D2DA; }
+.lateral-rodape { border-top: 1px solid #33414E; padding: 1rem 1.25rem; font-size: .9rem; }
+.lateral-rodape a, .lateral-rodape button { display: flex; align-items: center; gap: .5rem; color: #C9D2DA;
+  background: none; border: 0; padding: .3rem 0; text-decoration: none; }
+.lateral-rodape a:hover, .lateral-rodape button:hover { color: var(--branco); }
+
+.topo { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; background: var(--branco);
+  border-bottom: 1px solid var(--linha); padding: .6rem 1.5rem; }
+.topo-nome { font-family: var(--fonte-titulo); font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  font-size: .95rem; margin-right: auto; }
+.topo-posto { display: flex; align-items: center; gap: .5rem; }
+.topo-posto select { min-width: 13rem; }
+.rodape { padding: .75rem 1.5rem; font-size: .8rem; color: var(--grafite); border-top: 1px solid var(--linha); }
+
+/* ---------- Estados: cor + forma + texto (nunca só a cor) ---------- */
+.estado { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .6rem; border-radius: .3rem;
+  font-family: var(--fonte-titulo); font-weight: 600; font-size: .85rem; text-transform: uppercase;
+  letter-spacing: .05em; white-space: nowrap; line-height: 1.3; }
+.estado-c { background: var(--conforme); color: var(--branco); }
+.estado-n { background: var(--nao-conforme); color: var(--branco); }
+.estado-i { background: var(--indeterminado); color: #000; }
+.estado-off { background: #6C757D; color: var(--branco); }
+.estado-claro { background: transparent; padding-left: 0; padding-right: 0; }
+.estado-claro.estado-c { color: var(--conforme); }
+.estado-claro.estado-n { color: var(--nao-conforme); }
+.estado-claro.estado-i { color: #8A6400; }   /* amarelo escurecido para contraste sobre branco */
+
+/* Validação de uma ocorrência: estilos neutros (as cores de estado ficam reservadas aos EPIs) */
+.validacao { display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .55rem; border-radius: .3rem;
+  font-size: .85rem; font-weight: 700; white-space: nowrap; border: 1px solid var(--aco); }
+.validacao-pendente { background: var(--branco); color: var(--aco); border-style: dashed; }
+.validacao-confirmada { background: var(--aco); color: var(--branco); }
+.validacao-falso { background: var(--branco); color: var(--grafite); border-color: var(--grafite); }
+
+/* ---------- Cartões ---------- */
+.cartao { background: var(--branco); border: 1px solid var(--linha); border-radius: .5rem; padding: 1.1rem 1.25rem; }
+.cartao + .cartao { margin-top: 1rem; }
+
+/* ---------- T02: grade (celular: vídeo → pessoas → cordão → últimas) ---------- */
+.ao-vivo { display: grid; gap: 1rem; grid-template-areas: "video" "pessoas" "cordao" "ultimas"; }
+.ao-vivo > .cartao { margin-top: 0; min-width: 0; }
+.area-video { grid-area: video; min-width: 0; }
+.area-pessoas { grid-area: pessoas; }
+.area-cordao { grid-area: cordao; }
+.area-ultimas { grid-area: ultimas; }
+@media (min-width: 1200px) {
+  .ao-vivo { grid-template-columns: minmax(0, 2fr) minmax(19rem, 1fr); align-items: start;
+    grid-template-areas: "video pessoas" "cordao ultimas"; }
+  /* "Pessoas agora" acompanha a altura do vídeo e rola por dentro (não empurra o cordão para baixo) */
+  .area-pessoas { align-self: stretch; height: 0; min-height: 100%; overflow-y: auto; }
+}
+
+/* ---------- T02: vídeo, faixa de alerta, pessoas ---------- */
+.quadro-video { position: relative; background: #11181E; border-radius: .5rem; overflow: hidden; aspect-ratio: 16 / 9; }
+.quadro-video img { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Faixa listrada amarela e aço (fita de isolamento): SÓ quando o vídeo não está sendo avaliado */
+.faixa-alerta { position: absolute; left: 0; right: 0; bottom: 0; padding: .55rem; text-align: center;
+  background: repeating-linear-gradient(-45deg, var(--indeterminado) 0 16px, var(--aco) 16px 32px); }
+.faixa-alerta span { display: inline-block; background: var(--aco); color: var(--branco); padding: .3rem .9rem;
+  font-family: var(--fonte-titulo); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.faixa-alerta.cobrir { top: 0; display: flex; align-items: center; justify-content: center; }
+
+.pessoa { border: 1px solid var(--linha); border-left: 6px solid var(--grafite); border-radius: .4rem;
+  padding: .7rem .85rem; background: var(--branco); }
+.pessoa + .pessoa { margin-top: .6rem; }
+.pessoa-c { border-left-color: var(--conforme); }
+.pessoa-n { border-left-color: var(--nao-conforme); }
+.pessoa-i { border-left-color: var(--indeterminado); }
+.pessoa-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.pessoa-id { font-family: var(--fonte-numeros); font-weight: 500; font-size: 1.05rem; }
+.pessoa-epi { display: flex; align-items: flex-start; gap: .5rem; margin-top: .45rem; font-size: .92rem; }
+.pessoa-epi svg, .icone-epi { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+.pessoa-motivo { color: var(--grafite); font-size: .85rem; }
+.marca-levantada { display: inline-block; margin-top: .4rem; padding: .1rem .5rem; border: 1px solid var(--nao-conforme);
+  color: var(--nao-conforme); border-radius: .3rem; font-size: .8rem; font-weight: 700; }
+
+.lista-ultimas { list-style: none; padding: 0; margin: 0; }
+.lista-ultimas li + li { border-top: 1px solid var(--linha); }
+.lista-ultimas a { display: flex; gap: .7rem; align-items: center; padding: .5rem 0; color: inherit; text-decoration: none; }
+.lista-ultimas a:hover .hora { text-decoration: underline; }
+.lista-ultimas img, .miniatura { width: 4.5rem; aspect-ratio: 16 / 10; object-fit: cover; border-radius: .25rem;
+  background: var(--trilho); flex-shrink: 0; }
+
+/* ---------- Assinatura: cordão do turno ---------- */
+.cordao-cabecalho { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.cordao-trilho { position: relative; margin-top: 1.6rem; }
+.cordao-trilho canvas { display: block; width: 100%; height: 24px; }
+.cordao-pino { position: absolute; top: -1.35rem; transform: translateX(-50%); background: none; border: 0; padding: 0;
+  color: var(--nao-conforme); font-size: 1rem; line-height: 1; }
+.cordao-pino:hover, .cordao-pino:focus-visible { color: #A71D2A; }
+.cordao-escala { display: flex; justify-content: space-between; margin-top: .3rem; font-family: var(--fonte-numeros);
+  font-size: .78rem; color: var(--grafite); }
+.cordao-legenda { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; margin-top: .6rem; font-size: .82rem; color: var(--grafite); }
+.cordao-legenda i.amostra { display: inline-block; width: .9rem; height: .65rem; border-radius: .2rem; margin-right: .3rem;
+  vertical-align: middle; }
+.amostra-c { background: var(--conforme); }
+.amostra-n { background: var(--nao-conforme); }
+.amostra-i { background: var(--indeterminado); }
+.amostra-v { background: var(--vazio); }
+.amostra-off { background: var(--trilho); border: 1px solid var(--linha); }
+
+/* ---------- T03: área de envio ---------- */
+.area-envio { border: 2px dashed #A9B4BF; border-radius: .6rem; background: var(--branco); padding: 2.2rem 1rem;
+  text-align: center; transition: border-color .15s, background .15s; }
+.area-envio.arrastando { border-color: var(--acao); background: #EEF4FF; }
+.area-envio .bi { font-size: 2.2rem; color: var(--grafite); }
+.resultado-midia img, .resultado-midia video { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto;
+  border-radius: .4rem; background: #11181E; }
+
+/* ---------- Tabelas ---------- */
+.tabela thead th { font-family: var(--fonte-titulo); font-weight: 600; font-size: .78rem; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--grafite); border-bottom-width: 2px; white-space: nowrap; }
+.tabela tbody tr.clicavel { cursor: pointer; }
+.tabela tbody tr.clicavel:hover { background: #F6F8FA; }
+.filtros-grade { display: grid; gap: .6rem .75rem; align-items: end;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); }
+.filtros-acoes { grid-column: span 2; display: flex; gap: .5rem; }
+.tabela td.data-hora { white-space: nowrap; }
+.lista-cartoes li + li { margin-top: .6rem; }
+.cartao-oc { display: flex; gap: .8rem; align-items: center; width: 100%; text-align: left; color: inherit;
+  background: var(--branco); border: 1px solid var(--linha); border-radius: .5rem; padding: .7rem; }
+.cartao-oc:hover { border-color: var(--acao); }
+.cartao-oc .miniatura { width: 6rem; }
+.resumo-periodo { color: var(--grafite); }
+.resumo-periodo strong { color: var(--aco); font-family: var(--fonte-numeros); }
+
+/* ---------- Login ---------- */
+.pagina-login { background: var(--aco); color: var(--branco); display: flex; align-items: center; justify-content: center;
+  padding: 2rem 1rem; }
+.login-caixa { width: 100%; max-width: 26rem; }
+.login-marca { text-align: center; margin-bottom: 1.6rem; }
+.login-marca svg { width: 3.6rem; height: 3.6rem; color: var(--indeterminado); }
+.login-marca h1 { font-family: var(--fonte-titulo); font-weight: 700; letter-spacing: .1em; font-size: 1.55rem;
+  text-transform: uppercase; margin: .6rem 0 .2rem; }
+.login-marca p { color: #A9B4BF; margin: 0; }
+.login-cartao { background: var(--branco); color: var(--aco); border-radius: .6rem; padding: 1.6rem; }
+.login-aviso { color: #A9B4BF; font-size: .85rem; text-align: center; margin-top: 1.4rem; }
+.lista-regras { list-style: none; padding: 0; margin: .5rem 0 1rem; font-size: .88rem; color: var(--grafite); }
+.lista-regras li.ok { color: var(--conforme); }
+
+/* ---------- Avisos (toasts) ---------- */
+.toast.aviso-erro { border-left: 6px solid var(--nao-conforme); }
+.toast.aviso-sucesso { border-left: 6px solid var(--conforme); }
+
+/* ---------- Celular e tablet ---------- */
+@media (max-width: 991.98px) {
+  .conteudo { padding: 1rem; }
+  .topo { padding: .6rem 1rem; }
+  .topo-posto { width: 100%; }
+  .topo-posto select { flex: 1; min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
