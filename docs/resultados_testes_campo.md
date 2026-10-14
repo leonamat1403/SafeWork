@@ -166,3 +166,34 @@ baixa, gorro e óculos sem máscara, de preferência gravados no posto real (RF3
 
 **Máscara abaixada que continua amarela:** T03, T20 e T26 (perfil ou arco aceso) e T02 (de costas, que caiu de 32%
 para 0%). Nesses casos o sistema não confirma, mas também não acusa.
+
+## 7. Modelo v5 (negativos difíceis) x v4 x v3, nos mesmos 28 trechos
+
+A v5 é a v4 com 362 quadros de vídeos do Pexels de pessoas **sem** máscara (cabeça baixa, oficina escura, capacete
+de obra, boné, óculos com maçarico), só no treino (D30). Planilhas: `planilha_testes_campo_v3.xlsx`,
+`planilha_testes_campo_v4.xlsx` e `planilha_testes_campo.xlsx` (v5). Modelos: `models/epi_solda_best_v3.pt`,
+`epi_solda_best_v4.pt` e `epi_solda_best.pt` (v5).
+
+| Métrica | v3 | v4 | v5 |
+|---|---|---|---|
+| Recall da ausência | 82% (9/11) | 82% (9/11) | 82% (9/11) |
+| Testes "sem ocorrência" com alarme falso | 0 de 12 | 0 de 12 | 0 de 12 |
+| Mistos (revisão manual) | 6 VP | 6 VP | 6 VP (as mesmas ocorrências) |
+| **Verde falso** em testes sem máscara (média) | 0,9% | 7,3% | **1,3%** |
+| Verde na máscara abaixada (média) | 14,3% | **25,8%** | 19,3% |
+| Máscara levantada com o motivo certo | – | T28 | – |
+| FPS médio nos testes | 11,0 | 11,3 | 12,9 |
+
+**O que a v5 corrigiu:** o verde falso do **T10** (cabeça baixa no escuro) caiu de 45% para **0%**, e o do **T22**
+(gorro + óculos de maçarico) de 16% para 10% (6% na v3). Na média dos testes sem máscara, o verde falso voltou
+praticamente ao nível da v3 (1,3%).
+
+**O que a v5 perdeu em relação à v4:** ficou mais "desconfiada". Continua confirmando a máscara de costas no T05
+(83%) e a do T07 (50%), mas deixou de confirmar a do T06 (18% → 0%), a do T15 (21% → 1%) e a máscara laranja de
+fibra do T04 (22% → 4%); T27 caiu de 60% para 39%. O T28 voltou a sair como "rosto visível sem máscara" (a v4
+reconhecia a máscara levantada). Nada disso mudou as ocorrências: nos três modelos, as mesmas.
+
+**Leitura:** o verde da v5 é mais **confiável** (quase nunca aparece para quem está sem máscara), ao custo de
+aparecer menos para quem está de máscara (19% contra 26%). Para um sistema de segurança, um "conforme" falso é pior
+que um "indeterminado", por isso a v5 é o modelo recomendado. Melhorar os dois ao mesmo tempo exige imagens do posto
+real (RF33), com máscaras abaixadas e pessoas sem máscara no mesmo ambiente.

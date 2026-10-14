@@ -8,7 +8,26 @@ Os pesos (`.pt`) não ficam aqui: o modelo escolhido vai para `models/`, que est
 | `v1/` | 10–11/10/2026 | 5 (mascara, luvas, avental, macacao, calcado) | Welding-PPE (fork v1), divisão do Roboflow | **Descartado** como resultado final; serve de comparação "antes" |
 | `v2/` | 11–12/10/2026 | 1 (`mascara`) | Welding-PPE + Welding Helmet, divisão estratificada no notebook | Modelo `yolo26n_640`. **Falso positivo** em rosto inclinado/de perfil no teste da webcam |
 | `v3/` | 13/10/2026 | 1 (`mascara`) | v2 + 1.500 pessoas do COCO como negativos | modelo `yolov8n_640` (mAP@0.5 0,855; falso positivo em pessoas 2,1%). Guardado em `models/epi_solda_best_v3.pt` |
-| `v4/` | 13/10/2026 | 1 (`mascara`) | v3 + *welder* + *safeweld* (soldadores reais, conferidos) | **Atual**: modelo `yolov8n_640` (mAP@0.5 0,946; falso positivo em pessoas 0,6%) |
+| `v4/` | 13/10/2026 | 1 (`mascara`) | v3 + *welder* + *safeweld* (soldadores reais, conferidos) | modelo `yolov8n_640` (mAP@0.5 0,946; falso positivo em pessoas 0,6%). Guardado em `models/epi_solda_best_v4.pt` |
+| `v5/` | 13/10/2026 | 1 (`mascara`) | v4 + 362 quadros de vídeos do Pexels **sem** máscara (negativos difíceis) + cópias escuras, só no treino | **Atual**: modelo `yolov8n_640` (mAP@0.5 0,945; falso positivo em pessoas 0%) |
+
+## v5 – resultado (13/10/2026, `yolov8n_640`, Kaggle em modo Commit, 2 h 8 min)
+
+**Dados:** os mesmos da v4 mais 362 quadros sem máscara (e 724 cópias escuras), **só no treino**: treino 4.678 /
+validação 909 / teste 455 imagens originais. A validação e o teste são **idênticos aos da v4**, então a comparação
+abaixo é direta. 87 épocas (parada antecipada).
+
+| Medida (mesmo conjunto de teste) | v4 | v5 |
+|---|---|---|
+| Precisão | 0,931 | **0,948** |
+| Recall | 0,928 | 0,931 |
+| mAP@0.5 | 0,946 | 0,945 |
+| mAP@0.5:0.95 | 0,669 | 0,666 |
+| Falso positivo em pessoas do COCO (155 imagens) | 0,6% | **0%** |
+
+Por fonte (mAP@0.5): Welding Helmet 0,943, welder 0,940, safeweld 0,967. Os negativos novos não tiraram nada da
+detecção da máscara e deixaram o modelo um pouco mais preciso. O efeito nos casos que motivaram a v5 (verde falso
+em T10 e T22) é medido nos testes de campo.
 
 ## v4 – resultado (13/10/2026, `yolov8n_640`, Kaggle em modo Commit, ~2 h)
 
