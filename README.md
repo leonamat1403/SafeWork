@@ -104,6 +104,9 @@ Roteiro completo: `docs/roteiro_testes_campo.md` (cenários, gravação, seguran
 | `python ferramentas/avaliar_testes.py` | processa os vídeos listados na planilha (`testes_campo/planilha_testes_campo.xlsx`) e preenche resultados e métricas |
 | `python ferramentas/criar_planilha_testes.py` | recria o modelo da planilha |
 
+Resultados dos testes de campo (v3, v4 e v5): `docs/resultados_testes_campo.md`.
+**Relatório de validação da Fase 1 (Etapa 1.6):** `docs/relatorio_validacao_fase1.md`.
+
 ## Licenças de software
 
 O Ultralytics YOLO é distribuído sob **AGPL-3.0**: adequado a este projeto acadêmico; um uso interno contínuo pela
