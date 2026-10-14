@@ -21,6 +21,9 @@ testes_campo/
 # Datasets baixados para conferência local (grandes, com pessoas reais)
 dados/
 
+# Fase 2: pasta de dados do sistema (banco, imagens de ocorrências, backups, logs) – DATA_DIR no .env
+data/
+
 # Editor / sistema
 .vscode/
 Thumbs.db

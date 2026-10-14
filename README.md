@@ -4,8 +4,10 @@ Projeto extensionista de Ciência da Computação da **FSG** (Caxias do Sul – 
 Uma câmera instalada no posto de solda verifica se o soldador está usando a **máscara de solda** e sinaliza
 as não conformidades (NR-6).
 
-> **Fase 1 – validação da detecção.** Execução por linha de comando, com janela do OpenCV.
-> Foco atual: **máscara de solda** (decisão de 11/10/2026, com o orientador). Ver `docs/plano_fase1.md`.
+> **Fase 1 – validação da detecção:** concluída e validada para a **máscara de solda**
+> (`docs/relatorio_validacao_fase1.md`). Execução por linha de comando, com janela do OpenCV.
+> **Fase 2 – sistema completo:** em andamento (`docs/arquitetura_fase2.md`). Etapa 2.2 pronta: banco, armazenamento
+> das imagens borradas e rotinas automáticas (seção "Fase 2" abaixo).
 
 ## Como funciona (resumo)
 
@@ -68,7 +70,32 @@ python -m pytest
 ```
 
 Os testes usam pessoas e máscaras **simuladas** (sem câmera). O teste de integração usa os modelos reais e é pulado
-se eles não estiverem em `models/`.
+se eles não estiverem em `models/`. Os arquivos `tests/test_fase2_*.py` testam a Fase 2 com um banco e uma pasta
+de dados temporários (nada toca a pasta `data/` real).
+
+## Fase 2 – sistema completo (em andamento)
+
+Arquitetura: `docs/arquitetura_fase2.md`. O código novo fica em `app/` e **importa** a detecção da Fase 1 (`src/`).
+
+**Primeira vez:** copie `.env.example` para `.env` e ajuste (a pasta de dados padrão é `./data`, fora do git).
+
+| Etapa 2.2 – o que já existe | Arquivo |
+|---|---|
+| Configuração (.env + config.yaml), pastas de dados, log com rotação | `app/config.py` |
+| Banco SQLite (SQLAlchemy), 7 tabelas, datas em UTC | `app/database.py`, `app/models.py` |
+| Migrações do banco | `alembic/` (`alembic upgrade head`; o sistema também aplica ao iniciar) |
+| Blur de cabeças e rostos antes de gravar (só `ImagemBorrada` pode ir para o disco) | `app/privacy.py` |
+| Imagens das ocorrências em `data/ocorrencias/AAAA/MM/DD/` e miniaturas | `app/storage.py` |
+| Ocorrência da Fase 1 → blur → imagem → banco | `app/registro.py` |
+| Retenção (03:00), backup do banco (02:00), limpeza de uploads (15 min) | `app/scheduler.py` |
+| Fuso de Brasília e turnos | `app/tempo.py` |
+
+**Demonstração (ainda não há tela):** processa um vídeo e grava as ocorrências no banco, com as imagens já borradas:
+
+```powershell
+python ferramentas\demo_registro.py --fonte testes_campo\videos\nao_conformes\7006656-uhd_4096_2160_25fps.mp4
+python ferramentas\demo_registro.py --listar
+```
 
 ## Treinamento
 

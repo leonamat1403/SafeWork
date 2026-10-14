@@ -44,6 +44,13 @@ def test_desenhar_nao_altera_o_frame_original(config):
     assert not np.array_equal(anotado, original)
 
 
+def test_texto_e_linhas_crescem_em_imagens_grandes():
+    """Rótulos legíveis em câmeras HD/4K; até 1280 px de largura, o tamanho original."""
+    from src.pipeline import fator_desenho
+    assert fator_desenho(np.zeros((480, 640, 3), np.uint8)) == 1.0
+    assert fator_desenho(np.zeros((2160, 4096, 3), np.uint8)) == 3.2
+
+
 def test_contagem_de_estados_ignora_frames_saturados(config):
     from collections import Counter
 

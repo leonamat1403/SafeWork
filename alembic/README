@@ -1,0 +1,2 @@
+Migrações do banco de dados (Alembic). Veja o cabeçalho de alembic.ini para os comandos.
+Cada arquivo em versions/ é um passo de alteração das tabelas; nunca edite um passo já aplicado: crie um novo.

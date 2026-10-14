@@ -108,6 +108,11 @@ status e no log (RNF03).
   achados pelo detector de rostos em todo o frame (pessoas que a pose não pegou). Isso cobre o "blur preventivo" do
   RF27: a cabeça é borrada mesmo quando a máscara esconde o rosto.
 - **Detector de rostos:** YuNet (já usado na Fase 1, MIT), em vez do MediaPipe (F2-D5).
+- **Como o blur é feito:** cada região, com 20% de folga, vira um mosaico de no máximo 6 × 6 blocos e depois é
+  suavizada (F2-D19). As caixas e os rótulos são desenhados **por cima** da imagem já borrada.
+- **Risco residual:** uma pessoa que nem a pose nem o detector de rostos encontram (muito pequena, desfocada, quase
+  toda escondida) não é borrada. Na demonstração com o vídeo do T21, isso aconteceu com um trabalhador ao fundo,
+  desfocado e de cabeça baixa, que não dá para reconhecer. Registrar na revisão LGPD (Etapa 2.6).
 - **Uploads (T03):** o arquivo enviado fica em `uploads_temp/` só durante o processamento (máximo 1 h, depois é
   apagado); o resultado anotado para download também é **borrado**.
 - **Snapshot (T02):** é entregue já borrado direto para download e não fica guardado no servidor (F2-D6).
@@ -228,6 +233,7 @@ SafeWork/
 │   ├── stream.py             # GerenciadorCameras, TrabalhadorCamera, MJPEG
 │   ├── uploads.py            # FilaUploads (T03)
 │   ├── scheduler.py          # retenção, backup, limpeza, disco
+│   ├── tempo.py              # UTC <-> horário de Brasília, turnos
 │   ├── notifier.py (RD09), reports.py (RD10)   # só nas etapas dos desejáveis
 │   ├── templates/            # base, login, ao_vivo, upload, ocorrencias, dashboard, configuracoes, calibracao, usuarios
 │   └── static/               # css, js, vendor (Bootstrap, Bootstrap Icons, Chart.js locais) – NUNCA imagens de ocorrências
@@ -263,7 +269,7 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 
 | Etapa | Entrega |
 |---|---|
-| 2.2 | `database.py`/`models.py` + Alembic + `storage.py` + `privacy.py` + `scheduler.py` + registro de ocorrências no banco + testes (e a refatoração F2-D2) |
+| 2.2 ✅ | `database.py`/`models.py` + Alembic + `storage.py` + `privacy.py` + `scheduler.py` + registro de ocorrências no banco + testes (e a refatoração F2-D2). Demonstração: `ferramentas/demo_registro.py` |
 | 2.3 | Backend FastAPI: autenticação, streaming ao vivo, upload, `/midia/{uuid}`, API de status e de ocorrências |
 | 2.4 | Wireframes T01–T08 + mapa de navegação (**aguardar aprovação**) → telas T01, T02, T03, T04 e T08 |
 | 2.5 | Desejáveis, na ordem: RD01, RD02 (T07), RD03, RD04 (T05), RD05 + RD06 (T06), RD07, RD08, depois os demais |
@@ -289,3 +295,7 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 | F2-D13 | Senhas com a biblioteca **bcrypt** diretamente (sem passlib) | o passlib não é mais mantido e dá avisos com o bcrypt atual |
 | F2-D14 | SUPERVISOR pode ver, validar, exportar CSV, fazer upload e baixar snapshot; **não** pode pausar câmeras nem mexer em configurações, calibração ou usuários | "só visualiza e valida" (RF23); pausar a câmera interrompe o monitoramento |
 | F2-D15 | Máscara **levantada = NÃO CONFORME** continua (D25); o RD03 (arco) poderá tornar isso dependente do arco aceso | coerência com a Fase 1 validada |
+| F2-D16 | Imagem da ocorrência gravada com no máximo **1.920 px** de largura (JPEG 85); textos e linhas do desenho crescem com o tamanho da imagem | numa câmera 4K, o print ocupava vários MB e o rótulo ficava ilegível; Full HD basta para validar (~160 KB) |
+| F2-D17 | Pastas de imagens pelo **dia de Brasília** (`AAAA/MM/DD`), banco em UTC | quem procura um arquivo pensa no dia local; o banco não sofre com horário de verão |
+| F2-D18 | Câmera **com ocorrências não pode ser apagada** (só desativada); ao apagar uma câmera sem ocorrências, os EPIs dela vão junto | o histórico de ocorrências não pode sumir |
+| F2-D19 | Blur por **mosaico** (até 6 × 6 blocos) + suavização, com 20% de folga em volta da região | mais seguro que um desfoque leve: não sobra detalhe para reconhecer o rosto |

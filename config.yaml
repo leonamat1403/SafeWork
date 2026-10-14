@@ -51,12 +51,18 @@ arco:
   exigir_mascara_somente_com_arco: false   # RD03 (Fase 2)
 
 # --- Ocorrências (Etapa 1.4) -----------------------------------------------------------------------------
-ocorrencias: {cooldown_s: 60, retencao_dias: 30}           # retencao_dias: Fase 2
-turnos: {"1": "06:00-14:00", "2": "14:00-22:00", "3": "22:00-06:00"}   # Fase 2
+ocorrencias: {cooldown_s: 60, retencao_dias: 30}           # retencao_dias: Fase 2 (apaga imagens e registros antigos)
+turnos: {"1": "06:00-14:00", "2": "14:00-22:00", "3": "22:00-06:00"}   # Fase 2 (horário de Brasília)
+
+# --- Armazenamento (Fase 2): pasta de dados definida no .env (DATA_DIR) ---------------------------------
+armazenamento:
+  espaco_minimo_mb: 500      # abaixo disso, a ocorrência é registrada SEM imagem e o sistema avisa (RNF03)
+  backups_manter: 7          # cópias diárias do banco mantidas em data/backups
+  uploads_max_idade_min: 60  # uploads temporários são apagados depois deste tempo
 
 # --- Modelos (caminhos relativos a este arquivo) -----------------------------------------------------------
 modelos:
-  epi: "models/epi_solda_best.pt"     # treinado no notebook (rodada v3: yolov8n_640, classe "mascara")
+  epi: "models/epi_solda_best.pt"     # treinado no notebook (rodada v5: yolov8n_640, classe "mascara")
   pose: "models/yolov8n-pose.pt"      # baixe com:  python -m src.run --baixar-modelos
   # Detector de ROSTOS descobertos (YuNet, OpenCV Zoo, licença MIT). Decide se o rosto está visível: os pontos do
   # rosto da pose "enxergam" olhos até atrás da máscara de solda (testes de campo de 13/10/2026). Sem este arquivo,

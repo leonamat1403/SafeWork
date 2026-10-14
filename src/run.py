@@ -15,12 +15,11 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import re
 import shutil
 import sys
 import time
 from collections import Counter
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -29,12 +28,12 @@ os.environ.setdefault("YOLO_OFFLINE", "true")   # sem consultas à internet dura
 import cv2
 import numpy as np
 
-from src.arc_filter import frame_saturado
-from src.compliance import CORES_BGR, AvaliacaoPessoa, avaliar_frame
 from src.config import Config, ErroConfig, carregar_config
 from src.detector import Detector, ErroModelo
 from src.occurrences import GerenciadorOcorrencias, Ocorrencia, RegistroCSV
-from src.tipos import DeteccaoEPI, Estado, Rosto
+from src.pipeline import Pipeline, ResultadoFrame, desenhar  # noqa: F401 (reexportados para quem importa de src.run)
+from src.tipos import Estado
+from src.video import ErroFonte, FonteVideo, ocultar_senha  # noqa: F401
 
 log = logging.getLogger("epi_solda")
 
@@ -49,168 +48,9 @@ TITULO_JANELA = "Verificador de EPIs de Solda (q = sair, p = pausar)"
 ESPACO_MINIMO_MB = 500                         # abaixo disso, para de gravar a saída (RNF03: disco cheio)
 
 
-class ErroFonte(RuntimeError):
-    """Câmera, arquivo ou stream indisponível."""
-
-
 # ---------------------------------------------------------------------------------------------------------------
-# Processamento de um frame
+# Gravação
 # ---------------------------------------------------------------------------------------------------------------
-@dataclass
-class ResultadoFrame:
-    avaliacoes: list[AvaliacaoPessoa]
-    deteccoes: list[DeteccaoEPI]
-    saturado: bool
-    fracao_saturada: float
-    rostos: list[Rosto] | None = None
-
-
-class Pipeline:
-    """Filtro do arco -> modelos -> regras. Guarda o último resultado válido para os frames ignorados."""
-
-    def __init__(self, config: Config, detector) -> None:
-        self.config = config
-        self.detector = detector
-        self.ultimas_avaliacoes: list[AvaliacaoPessoa] = []
-        self.ultimas_deteccoes: list[DeteccaoEPI] = []
-        self.ultimos_rostos: list[Rosto] | None = None
-
-    def processar(self, frame: np.ndarray) -> ResultadoFrame:
-        saturado, fracao = frame_saturado(frame, self.config.arco)
-        if saturado:
-            # RF14: frame estourado pelo arco não muda nenhum estado; repete o último resultado válido
-            return ResultadoFrame(self.ultimas_avaliacoes, self.ultimas_deteccoes, True, fracao, self.ultimos_rostos)
-        pessoas, deteccoes, rostos = self.detector.detectar(frame)
-        self.ultimas_avaliacoes = avaliar_frame(pessoas, deteccoes, self.config, rostos)
-        self.ultimas_deteccoes = deteccoes
-        self.ultimos_rostos = rostos
-        return ResultadoFrame(self.ultimas_avaliacoes, deteccoes, False, fracao, rostos)
-
-
-# ---------------------------------------------------------------------------------------------------------------
-# Desenho
-# ---------------------------------------------------------------------------------------------------------------
-def _texto_com_fundo(img: np.ndarray, texto: str, x: int, y: int, fundo: tuple[int, int, int],
-                     escala: float = 0.55) -> None:
-    """Escreve um texto com retângulo de fundo; (x, y) é o canto inferior esquerdo do fundo."""
-    (larg, alt), base = cv2.getTextSize(texto, cv2.FONT_HERSHEY_SIMPLEX, escala, 1)
-    y = max(alt + base + 2, y)
-    cor_texto = (0, 0, 0) if fundo == CORES_BGR["amarelo"] else (255, 255, 255)
-    cv2.rectangle(img, (x, y - alt - base - 4), (x + larg + 6, y), fundo, -1)
-    cv2.putText(img, texto, (x + 3, y - base - 2), cv2.FONT_HERSHEY_SIMPLEX, escala, cor_texto, 1, cv2.LINE_AA)
-
-
-def desenhar(frame: np.ndarray, resultado: ResultadoFrame, linhas_hud: list[str], debug: bool = False,
-             alerta: str | None = None) -> np.ndarray:
-    """Desenha caixas das pessoas (cor RF04), rótulos, máscaras detectadas e o painel de informações (RF05)."""
-    img = frame.copy()
-    for det in resultado.deteccoes:
-        x1, y1, x2, y2 = map(int, det.caixa)
-        cv2.rectangle(img, (x1, y1), (x2, y2), (255, 255, 255), 1)
-        cv2.putText(img, f"{det.classe} {det.conf:.2f}", (x1, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.4, (255, 255, 255), 1, cv2.LINE_AA)
-    for aval in resultado.avaliacoes:
-        cor = CORES_BGR[aval.cor]
-        x1, y1, x2, y2 = map(int, aval.pessoa.caixa)
-        cv2.rectangle(img, (x1, y1), (x2, y2), cor, 3)
-        _texto_com_fundo(img, aval.rotulo, x1, y1, cor)
-        if debug:
-            if aval.regioes.cabeca is not None:
-                cx1, cy1, cx2, cy2 = map(int, aval.regioes.cabeca)
-                cv2.rectangle(img, (cx1, cy1), (cx2, cy2), (255, 255, 0), 1)
-            if aval.regioes.linha_olhos_y is not None and aval.regioes.cabeca is not None:
-                y = int(aval.regioes.linha_olhos_y)
-                cv2.line(img, (int(aval.regioes.cabeca[0]), y), (int(aval.regioes.cabeca[2]), y), (255, 255, 0), 1)
-            for kp in aval.pessoa.keypoints:
-                if kp.conf >= 0.5:
-                    cv2.circle(img, (int(kp.x), int(kp.y)), 3, (0, 255, 255), -1)
-    if debug and resultado.rostos:
-        for rosto in resultado.rostos:   # rostos descobertos encontrados pelo YuNet (magenta)
-            x1, y1, x2, y2 = map(int, rosto.caixa)
-            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), 2)
-            cv2.putText(img, f"rosto {rosto.conf:.2f}", (x1, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
-                        (255, 0, 255), 1, cv2.LINE_AA)
-
-    y = 22
-    for linha in linhas_hud:
-        _texto_com_fundo(img, linha, 8, y, (40, 40, 40))
-        y += 24
-    if resultado.saturado:
-        _texto_com_fundo(img, f"ARCO DETECTADO - frame ignorado ({resultado.fracao_saturada:.0%} saturado)",
-                         8, y, CORES_BGR["vermelho"], escala=0.65)
-    if any(a.regioes.fallback for a in resultado.avaliacoes):
-        _texto_com_fundo(img, "MODO SEM POSE (fallback)", 8, y + 28, CORES_BGR["amarelo"])
-    if alerta:
-        _texto_com_fundo(img, alerta, 8, img.shape[0] - 10, CORES_BGR["vermelho"], escala=0.7)
-    return img
-
-
-# ---------------------------------------------------------------------------------------------------------------
-# Fonte de vídeo e gravação
-# ---------------------------------------------------------------------------------------------------------------
-def ocultar_senha(texto: str) -> str:
-    """Esconde usuário/senha de URLs (rtsp://usuario:senha@ip -> rtsp://***@ip) antes de mostrar no terminal."""
-    return re.sub(r"//[^/@]+@", "//***@", texto)
-
-
-class FonteVideo:
-    """Webcam (número), arquivo de vídeo ou stream de rede (RTSP/HTTP), com reconexão automática (RNF03)."""
-
-    def __init__(self, fonte: str) -> None:
-        self.fonte = fonte
-        if fonte.isdigit():
-            self.tipo = "webcam"
-        elif fonte.lower().startswith(("rtsp://", "rtmp://", "http://", "https://")):
-            self.tipo = "rede"
-        else:
-            if not Path(fonte).exists():
-                raise ErroFonte(f"Arquivo não encontrado: {fonte}")
-            self.tipo = "arquivo"
-        self._inicio = time.monotonic()
-        self.cap = self._abrir()
-        if not self.cap.isOpened():
-            raise ErroFonte(f"Não foi possível abrir a fonte {ocultar_senha(fonte)!r} ({self.tipo}). "
-                            "Confira se a câmera está conectada e não está em uso por outro programa.")
-
-    def _abrir(self) -> cv2.VideoCapture:
-        if self.tipo == "webcam":
-            api = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY   # DirectShow abre webcams mais rápido no Windows
-            return cv2.VideoCapture(int(self.fonte), api)
-        return cv2.VideoCapture(self.fonte)
-
-    @property
-    def fps(self) -> float:
-        return self.cap.get(cv2.CAP_PROP_FPS) or 0.0
-
-    def _tempo(self) -> float:
-        """Tempo do frame em segundos: posição no vídeo (arquivo) ou tempo desde o início (ao vivo)."""
-        if self.tipo == "arquivo":
-            return self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
-        return time.monotonic() - self._inicio
-
-    def ler(self) -> tuple[np.ndarray | None, float]:
-        """Lê o próximo frame. Retorna (None, 0) no fim do arquivo; ao vivo, tenta reconectar até conseguir."""
-        ok, frame = self.cap.read()
-        if ok:
-            return frame, self._tempo()
-        if self.tipo == "arquivo":
-            return None, 0.0
-        espera = 1
-        while True:
-            log.warning("Sem imagem de %s. Nova tentativa em %d s (Ctrl+C para sair)...", ocultar_senha(self.fonte), espera)
-            time.sleep(espera)
-            self.cap.release()
-            self.cap = self._abrir()
-            ok, frame = self.cap.read()
-            if ok:
-                log.info("Fonte reconectada.")
-                return frame, self._tempo()
-            espera = min(espera * 2, 30)
-
-    def fechar(self) -> None:
-        self.cap.release()
-
-
 def nome_saida(fonte: str, extensao: str, prefixo: str = "saida") -> Path:
     """Caminho do arquivo de saída em testes_campo/, com data e hora no nome."""
     base = "webcam" if fonte.isdigit() else ("stream" if "://" in fonte else Path(fonte).stem)

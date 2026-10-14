@@ -1,5 +1,7 @@
-﻿# Verificador de EPIs de Solda – Fase 1 (Python 3.12)
+# Verificador de EPIs de Solda – Fases 1 e 2 (Python 3.12)
 # Versões fixadas (RNF07). Instale com:  pip install -r requirements.txt
+
+# --- Fase 1: detecção -------------------------------------------------------------------------------------
 ultralytics==8.4.175
 torch==2.14.1
 torchvision==0.29.1
@@ -9,3 +11,10 @@ PyYAML==6.0.3
 lap==0.5.13          # usado pelo ByteTrack; fixado aqui para o Ultralytics não tentar instalar sozinho (rede com proxy)
 openpyxl==3.1.5      # planilha de testes de campo (ferramentas/avaliar_testes.py)
 pytest==9.1.1
+
+# --- Fase 2: sistema web (Etapa 2.2: banco, armazenamento e rotinas) -------------------------------------
+SQLAlchemy==2.1.4
+alembic==1.20.0      # migrações do banco
+APScheduler==3.11.3  # retenção, backup e limpeza (a série 4 ainda não é estável)
+tzdata==2026.5       # fuso America/Sao_Paulo no Windows
+python-dotenv==1.2.4 # leitura do .env
