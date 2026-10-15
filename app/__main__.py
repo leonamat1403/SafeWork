@@ -1,9 +1,42 @@
-"""Inicia o sistema web:  python -m app   (Ctrl+C para encerrar)."""
-import uvicorn
+"""Inicia o sistema web:  .venv\\Scripts\\python -m app   (Ctrl+C para encerrar).
 
-from app.config import carregar_ajustes
+Primeira vez:  .venv\\Scripts\\python -m app --configurar   (cria o .env com a SECRET_KEY e a senha do administrador).
+"""
+import argparse
+import sys
 
-if __name__ == "__main__":
-    ajustes = carregar_ajustes()
+from app.config import RAIZ, ErroAjustes, carregar_ajustes
+from app.primeiro_uso import aviso_do_python, configurar_env, pedir_senha_no_terminal, problema_para_iniciar
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="python -m app", description="Verificador de EPIs de Solda – sistema web")
+    parser.add_argument("--configurar", action="store_true",
+                        help="cria ou completa o .env (gera a SECRET_KEY e pede a senha do 1º administrador)")
+    args = parser.parse_args()
+    if aviso := aviso_do_python():
+        print(aviso, file=sys.stderr)
+    env = RAIZ / ".env"
+    if args.configurar:
+        feitos = configurar_env(env, RAIZ / ".env.example", pedir_senha_no_terminal)
+        for item in feitos or ["o .env já estava completo; nada mudou"]:
+            print(f"- {item}")
+        print(r"Pronto. Para ligar o sistema:  .venv\Scripts\python -m app")
+        return 0
+    try:
+        ajustes = carregar_ajustes()
+    except ErroAjustes as erro:
+        print(f"Erro na configuração: {erro}", file=sys.stderr)
+        return 1
+    if problema := problema_para_iniciar(ajustes, env):
+        print(problema, file=sys.stderr)
+        return 1
+    import uvicorn
+    print(f"Abra no navegador: http://{'127.0.0.1' if ajustes.host == '0.0.0.0' else ajustes.host}:{ajustes.porta}")
     # 1 processo só (sem workers): os modelos e as câmeras ficam na memória dele (docs/arquitetura_fase2.md, seção 6)
     uvicorn.run("app.main:criar_app", factory=True, host=ajustes.host, port=ajustes.porta, log_level="info")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -78,7 +78,10 @@ de dados temporários (nada toca a pasta `data/` real).
 
 Arquitetura: `docs/arquitetura_fase2.md`. O código novo fica em `app/` e **importa** a detecção da Fase 1 (`src/`).
 
-**Primeira vez:** copie `.env.example` para `.env` e ajuste (a pasta de dados padrão é `./data`, fora do git).
+**Primeira vez:** rode `.venv\Scripts\python -m app --configurar`. Ele cria o `.env` (a partir do `.env.example`),
+gera a `SECRET_KEY` e pede a senha inicial do administrador, sem mostrá-la na tela. A pasta de dados padrão é
+`./data`, fora do git. Use sempre o Python do projeto (`.venv\Scripts\python`): o Python do Windows pode não ter o
+YOLO e as outras bibliotecas.
 
 | Etapa 2.2 – o que já existe | Arquivo |
 |---|---|
@@ -119,8 +122,8 @@ Arquitetura: `docs/arquitetura_fase2.md`. O código novo fica em `app/` e **impo
 **Rodar o sistema web:**
 
 ```powershell
-copy .env.example .env          # depois edite: SECRET_KEY e ADMIN_SENHA_INICIAL
-python -m app                   # Ctrl+C para encerrar
+.venv\Scripts\python -m app --configurar   # só na primeira vez
+.venv\Scripts\python -m app                # Ctrl+C para encerrar
 ```
 
 1. Abra http://127.0.0.1:8000 → entre com `admin` e a senha do `.env` → defina uma senha nova (obrigatório).
