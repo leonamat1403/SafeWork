@@ -118,6 +118,15 @@ def pagina_ocorrencias(request: Request) -> Response:
                    turnos=sorted(request.app.state.ctx.ajustes.turnos))
 
 
+@rotas.get("/dashboard")
+def pagina_painel(request: Request) -> Response:
+    """T05 (RD04): ocorrências e conformidade do período, para o ADMIN e o SUPERVISOR."""
+    usuario = _usuario_ou_redirecionar(request)
+    if isinstance(usuario, RedirectResponse):
+        return usuario
+    return _pagina(request, "painel.html", usuario, "painel", turnos=sorted(request.app.state.ctx.ajustes.turnos))
+
+
 def _so_admin(request: Request, usuario: UsuarioSessao, mensagem: str) -> HTMLResponse:
     """Página 403 para o SUPERVISOR que abrir uma tela de administração pelo endereço."""
     resposta = _pagina(request, "erro.html", usuario, "", titulo="Página só para administradores", mensagem=mensagem)

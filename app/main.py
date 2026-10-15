@@ -28,7 +28,7 @@ from app.database import aplicar_migracoes, criar_engine, criar_fabrica_sessoes
 from app.models import Camera, ConfigEpiCamera
 from app.privacy import Borrador, DetectorRostosQuadro
 from app.registro import RegistradorOcorrencias
-from app.rotas import acesso, cameras, ocorrencias, uploads, usuarios
+from app.rotas import acesso, cameras, ocorrencias, painel, uploads, usuarios
 from app.scheduler import iniciar_agendador
 from app.storage import StorageDisco
 from app.stream import GerenciadorCameras
@@ -160,7 +160,7 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
             return get_swagger_ui_html(openapi_url="/openapi.json", title="Verificador de EPIs – API",
                                        swagger_ui_parameters={"withCredentials": True, "persistAuthorization": True})
 
-    for modulo in (acesso, cameras, uploads, ocorrencias, usuarios, paginas):
+    for modulo in (acesso, cameras, uploads, ocorrencias, painel, usuarios, paginas):
         app.include_router(modulo.rotas)
     app.mount("/static", StaticFiles(directory=PASTA_ESTATICOS), name="static")
     return app

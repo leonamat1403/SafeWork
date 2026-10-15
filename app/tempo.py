@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 FUSO = ZoneInfo("America/Sao_Paulo")   # no Windows, o pacote tzdata fornece a tabela de fusos
@@ -25,6 +25,16 @@ def para_utc(momento: datetime) -> datetime:
 def para_local(momento: datetime) -> datetime:
     """Converte para o horário de Brasília (exibição, pastas por dia e turnos)."""
     return para_utc(momento).astimezone(FUSO)
+
+
+def inicio_do_dia_utc(dia: date) -> datetime:
+    """00:00 em Brasília daquele dia, em UTC (filtros por período usam o dia local)."""
+    return datetime.combine(dia, time.min, tzinfo=FUSO).astimezone(timezone.utc)
+
+
+def hoje_local() -> date:
+    """A data de hoje no horário de Brasília."""
+    return para_local(agora_utc()).date()
 
 
 def _hora(h: str, m: str, texto: str) -> time:

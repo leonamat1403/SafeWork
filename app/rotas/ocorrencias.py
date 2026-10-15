@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid as uuid_mod
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -12,7 +12,7 @@ from sqlalchemy import String, cast, func, select
 from app.auth import UsuarioSessao, auditar, exigir_admin, exigir_csrf, usuario_liberado
 from app.models import EPIS_CONHECIDOS, VALIDACOES, Camera, Ocorrencia, Usuario
 from app.storage import ErroArmazenamento
-from app.tempo import FUSO, agora_utc, para_local
+from app.tempo import agora_utc, inicio_do_dia_utc, para_local
 
 rotas = APIRouter(tags=["ocorrências"])
 POR_PAGINA = 20
@@ -43,11 +43,6 @@ def ocorrencia_json(oc: Ocorrencia, nome_posto: str, validador: str | None = Non
     }
 
 
-def _inicio_do_dia_utc(dia: date) -> datetime:
-    """00:00 em Brasília daquele dia, em UTC (os filtros de período usam o dia local)."""
-    return datetime.combine(dia, time.min, tzinfo=FUSO)
-
-
 @rotas.get("/api/ocorrencias")
 def listar(request: Request,
            inicio: date | None = Query(None, description="primeiro dia (AAAA-MM-DD, horário de Brasília)"),
@@ -65,9 +60,9 @@ def listar(request: Request,
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"validacao deve ser uma de {VALIDACOES}")
     filtros = []
     if inicio:
-        filtros.append(Ocorrencia.data_hora >= _inicio_do_dia_utc(inicio))
+        filtros.append(Ocorrencia.data_hora >= inicio_do_dia_utc(inicio))
     if fim:
-        filtros.append(Ocorrencia.data_hora < _inicio_do_dia_utc(fim + timedelta(days=1)))
+        filtros.append(Ocorrencia.data_hora < inicio_do_dia_utc(fim + timedelta(days=1)))
     if camera_id is not None:
         filtros.append(Ocorrencia.camera_id == camera_id)
     if epi:

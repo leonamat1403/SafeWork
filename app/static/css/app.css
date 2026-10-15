@@ -186,6 +186,28 @@ body { min-height: 100vh; background: var(--chapa); color: var(--aco); }
 .amostra-v { background: var(--vazio); }
 .amostra-off { background: var(--trilho); border: 1px solid var(--linha); }
 
+/* ---------- T05: painel ---------- */
+.painel[aria-busy="true"] .cartoes-numeros, .painel[aria-busy="true"] .graficos { opacity: .55; }   /* recarregando */
+.cartoes-numeros { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); margin: 1rem 0; }
+.numero-cartao { display: flex; flex-direction: column; gap: .15rem; background: var(--branco); border: 1px solid var(--linha);
+  border-radius: .5rem; padding: 1rem 1.25rem; color: inherit; text-decoration: none; }
+a.numero-cartao:hover { border-color: var(--acao); }
+.numero-valor { font-family: var(--fonte-texto); font-weight: 700; font-size: 2.4rem; line-height: 1.1; }
+.numero-nota { color: var(--grafite); font-size: .85rem; }
+.graficos { display: grid; gap: 1rem; }
+.graficos > .cartao { margin-top: 0; min-width: 0; }
+@media (min-width: 1200px) {
+  .graficos { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .grafico { grid-column: span 3; }
+  .grafico-largo { grid-column: span 4; }
+  .grafico-rosca { grid-column: span 2; }
+}
+.grafico-nota { color: var(--grafite); font-size: .85rem; margin: .2rem 0 .6rem; }
+.grafico-area { position: relative; height: 16rem; }
+.grafico details { margin-top: .75rem; font-size: .9rem; }
+.grafico summary { color: var(--acao); cursor: pointer; }
+.grafico-vazio { color: var(--grafite); margin: .5rem 0 0; }
+
 /* ---------- T07: calibração ---------- */
 .calibracao { display: grid; gap: 1rem; grid-template-areas: "video" "valores"; }
 .calibracao > .cartao { margin-top: 0; min-width: 0; }

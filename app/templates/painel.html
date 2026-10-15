@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block titulo %}Painel{% endblock %}
+{% block conteudo %}
+<h1 class="titulo-pagina mb-3">Painel</h1>
+
+<form class="cartao" id="filtros" aria-label="Filtros do painel">
+  <div class="d-flex flex-wrap gap-2 mb-2" role="group" aria-label="Períodos prontos">
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-periodo="hoje">Hoje</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-periodo="7">Últimos 7 dias</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-periodo="mes">Este mês</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-periodo="30">Últimos 30 dias</button>
+  </div>
+  <div class="filtros-grade">
+    <div><label class="form-label rotulo" for="f-inicio">De</label>
+      <input type="date" class="form-control" id="f-inicio" name="inicio"></div>
+    <div><label class="form-label rotulo" for="f-fim">Até</label>
+      <input type="date" class="form-control" id="f-fim" name="fim"></div>
+    <div><label class="form-label rotulo" for="f-posto">Posto</label>
+      <select class="form-select" id="f-posto" name="camera_id"><option value="">Todos</option></select></div>
+    <div class="filtros-acoes"><button type="submit" class="btn btn-primary flex-fill">Aplicar</button></div>
+  </div>
+</form>
+
+<div id="painel" class="painel" aria-busy="true">
+  <section class="cartoes-numeros" aria-label="Números principais">
+    <a class="numero-cartao" id="c-hoje" href="/ocorrencias">
+      <span class="rotulo">Hoje</span><strong class="numero-valor">—</strong>
+      <span class="numero-nota">ocorrências registradas</span></a>
+    <div class="numero-cartao" id="c-mes">
+      <span class="rotulo">Neste mês</span><strong class="numero-valor">—</strong>
+      <span class="numero-nota">ocorrências registradas</span></div>
+    <div class="numero-cartao" id="c-conformidade">
+      <span class="rotulo">Conformidade da máscara</span><strong class="numero-valor">—</strong>
+      <span class="numero-nota">das pessoas avaliadas no período</span></div>
+    <div class="numero-cartao" id="c-falsos">
+      <span class="rotulo">Falsos positivos</span><strong class="numero-valor">—</strong>
+      <span class="numero-nota">das ocorrências validadas</span></div>
+  </section>
+
+  <div class="graficos">
+    <section class="cartao grafico grafico-largo" aria-labelledby="t-dia">
+      <h2 class="rotulo" id="t-dia">Ocorrências por dia</h2>
+      <p class="grafico-nota">Clique num dia para ver as ocorrências dele.</p>
+      <div class="grafico-area"><canvas id="g-dia" role="img" aria-label="Gráfico de linha: ocorrências por dia"></canvas></div>
+      <p class="grafico-vazio" hidden>Nenhuma ocorrência no período.</p>
+      <details><summary>Ver dados</summary><table class="table table-sm tabela mb-0">
+        <thead><tr><th scope="col">Dia</th><th scope="col" class="text-end">Ocorrências</th></tr></thead>
+        <tbody id="d-dia"></tbody></table></details>
+    </section>
+
+    <section class="cartao grafico grafico-rosca" aria-labelledby="t-estados">
+      <h2 class="rotulo" id="t-estados">Pessoas avaliadas: estado da máscara</h2>
+      <p class="grafico-nota">Quadro a quadro, no vídeo ao vivo (sem imagens guardadas).</p>
+      <div class="grafico-area"><canvas id="g-estados" role="img" aria-label="Gráfico de rosca: conforme, não conforme e indeterminado"></canvas></div>
+      <p class="grafico-vazio" hidden>Nenhuma pessoa avaliada no período.</p>
+      <details><summary>Ver dados</summary><table class="table table-sm tabela mb-0">
+        <thead><tr><th scope="col">Estado</th><th scope="col" class="text-end">Avaliações</th><th scope="col" class="text-end">%</th></tr></thead>
+        <tbody id="d-estados"></tbody></table></details>
+    </section>
+
+    <section class="cartao grafico" aria-labelledby="t-turno">
+      <h2 class="rotulo" id="t-turno">Ocorrências por turno</h2>
+      <p class="grafico-nota">Sem máscara × máscara levantada. Clique num turno para ver as ocorrências.</p>
+      <div class="grafico-area"><canvas id="g-turno" role="img" aria-label="Gráfico de barras empilhadas: ocorrências por turno"></canvas></div>
+      <p class="grafico-vazio" hidden>Nenhuma ocorrência no período.</p>
+      <details><summary>Ver dados</summary><table class="table table-sm tabela mb-0">
+        <thead><tr><th scope="col">Turno</th><th scope="col" class="text-end">Sem máscara</th><th scope="col" class="text-end">Levantada</th></tr></thead>
+        <tbody id="d-turno"></tbody></table></details>
+    </section>
+
+    <section class="cartao grafico" aria-labelledby="t-posto">
+      <h2 class="rotulo" id="t-posto">Ocorrências por posto</h2>
+      <p class="grafico-nota">Clique num posto para ver as ocorrências dele.</p>
+      <div class="grafico-area"><canvas id="g-posto" role="img" aria-label="Gráfico de barras: ocorrências por posto"></canvas></div>
+      <p class="grafico-vazio" hidden>Nenhuma ocorrência no período.</p>
+      <details><summary>Ver dados</summary><table class="table table-sm tabela mb-0">
+        <thead><tr><th scope="col">Posto</th><th scope="col" class="text-end">Ocorrências</th></tr></thead>
+        <tbody id="d-posto"></tbody></table></details>
+    </section>
+  </div>
+  <p class="text-secondary small mt-3" id="nota-arco"></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/vendor/chartjs/chart.umd.js"></script>
+<script src="/static/js/painel.js?v={{ v }}"></script>
+{% endblock %}
