@@ -78,7 +78,7 @@
       el("td", {}, miniatura(oc)),
       el("td", { classe: "data-hora" }, abrirLink),
       el("td", { texto: oc.posto }),
-      el("td", {}, selo("NAO_CONFORME", { claro: true, texto: textoFalta(oc) })),
+      el("td", {}, selo("NAO_CONFORME", { claro: true, texto: textoFalta(oc) }), oc.arco_ativo ? el("div", {}, EPI.marcaArco()) : null),
       el("td", { texto: textoIndeterminados(oc) }),
       el("td", { texto: oc.mascara_levantada ? "Sim" : "Não" }),
       el("td", { classe: "numero", texto: textoConfianca(oc) }),
@@ -94,6 +94,7 @@
         el("span", { classe: "d-block numero", texto: oc.data_hora_local }),
         el("span", { classe: "d-block small text-secondary", texto: oc.posto }),
         selo("NAO_CONFORME", { claro: true, texto: textoFalta(oc) }),
+        oc.arco_ativo ? el("span", { classe: "d-block" }, EPI.marcaArco()) : null,
         el("span", { classe: "d-block mt-1" }, seloValidacao(oc.validacao))));
     botao.addEventListener("click", () => abrir(indice));
     return el("li", {}, botao);
@@ -190,6 +191,7 @@
       ...par("Pessoa no vídeo", el("span", { classe: "numero", texto: "#" + oc.track_id })),
       ...(motivos ? par("Motivo", motivos) : []),
       ...par("Em falta na janela de 4 s", fracoes || "—"),
+      ...par("Arco aceso", oc.arco_ativo ? EPI.marcaArco() : "Não"),
       ...par("Indeterminados", textoIndeterminados(oc)),
       ...par("Confiança", el("span", { classe: "numero", texto: textoConfianca(oc) })),
       ...par("Validação", seloValidacao(oc.validacao),

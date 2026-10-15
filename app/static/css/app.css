@@ -154,6 +154,10 @@ body { min-height: 100vh; background: var(--chapa); color: var(--aco); }
 .pessoa-epi { display: flex; align-items: flex-start; gap: .5rem; margin-top: .45rem; font-size: .92rem; }
 .pessoa-epi svg, .icone-epi { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
 .pessoa-motivo { color: var(--grafite); font-size: .85rem; }
+/* RD03: a pessoa estava soldando (arco aceso perto das mãos): prioridade alta */
+.marca-arco { display: inline-flex; align-items: center; gap: .25rem; margin-top: .4rem; padding: .1rem .5rem;
+  border: 1px solid var(--aco); background: var(--aco); color: var(--indeterminado); border-radius: .3rem;
+  font-size: .8rem; font-weight: 700; white-space: nowrap; }
 .marca-levantada { display: inline-block; margin-top: .4rem; padding: .1rem .5rem; border: 1px solid var(--nao-conforme);
   color: var(--nao-conforme); border-radius: .3rem; font-size: .8rem; font-weight: 700; }
 

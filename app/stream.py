@@ -11,6 +11,7 @@ import logging
 import threading
 import time
 from collections import deque
+from dataclasses import replace
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 from urllib.parse import quote, urlsplit, urlunsplit
@@ -29,6 +30,7 @@ from src.config import Config
 from src.detector import Detector, ErroModelo
 from src.occurrences import GerenciadorOcorrencias
 from src.pipeline import Pipeline, ResultadoFrame, desenhar
+from src.votacao import VotacaoTemporal
 from src.tipos import Estado
 from src.video import ErroFonte, FonteVideo, ocultar_senha
 
@@ -118,6 +120,7 @@ def status_das_pessoas(resultado: ResultadoFrame) -> list[dict]:
             "cor": aval.cor,
             "rotulo": aval.rotulo,
             "mascara_levantada": aval.mascara_levantada,
+            "arco_ativo": aval.arco_ativo,
             "epis": {nome: {"estado": epi.estado.value, "motivo": epi.motivo,
                             "conf": round(epi.conf, 2) if epi.conf is not None else None}
                      for nome, epi in aval.epis.items()},
@@ -206,6 +209,7 @@ class TrabalhadorCamera(threading.Thread):
                     "uuid": registro.uuid, "data_hora": registro.data_hora.isoformat(),
                     "hora_local": para_local(registro.data_hora).strftime("%H:%M:%S"),
                     "epis_faltantes": registro.epis_faltantes, "mascara_levantada": registro.mascara_levantada,
+                    "arco_ativo": registro.arco_ativo,
                     "thumb_url": f"/midia/{registro.uuid}?tipo=thumb"})
 
     def _contar(self, resultado: ResultadoFrame) -> None:
@@ -284,6 +288,7 @@ class TrabalhadorCamera(threading.Thread):
             return
         pipeline, gerenciador = Pipeline(self.config, detector), GerenciadorOcorrencias(self.config)
         pular = max(1, self.config.deteccao.pular_frames)
+        votacao, exibicao = VotacaoTemporal(self.config.deteccao.votacao_quadros), []
         fonte, espera, n = None, 1.0, 0
         inicio_fps, frames_fps, ultima_metrica = time.monotonic(), 0, time.monotonic()
         self._salvar_metricas()
@@ -307,20 +312,24 @@ class TrabalhadorCamera(threading.Thread):
                 if n % pular:
                     continue
                 inicio_quadro = time.monotonic()
-                resultado = pipeline.processar(frame)
+                resultado = pipeline.processar(frame)   # câmera ao vivo: o arco (RD03) usa o relógio do computador
                 self._registrar(gerenciador.atualizar(resultado.avaliacoes, t, n, resultado.saturado), frame,
                                 resultado)
                 self._contar(resultado)
                 self.marcar_cordao(resultado)
+                # RD01: a tela mostra a maioria dos últimos quadros de cada pessoa (as ocorrências usam o quadro real)
+                if not resultado.saturado:
+                    exibicao = votacao.atualizar(resultado.avaliacoes)
+                tela = replace(resultado, avaliacoes=exibicao)
                 frames_fps += 1
                 agora = time.monotonic()
                 if agora - inicio_fps >= 2:
                     self.fps, inicio_fps, frames_fps = frames_fps / (agora - inicio_fps), agora, 0
-                quadro = jpeg(self._desenhar(frame, resultado))
+                quadro = jpeg(self._desenhar(frame, tela))
                 with self._trava:
-                    self._quadro, self._resultado = frame, resultado
+                    self._quadro, self._resultado = frame, tela
                 self._publicar(quadro, online=True, saturado=resultado.saturado,
-                               fracao_saturada=resultado.fracao_saturada, pessoas=status_das_pessoas(resultado))
+                               fracao_saturada=resultado.fracao_saturada, pessoas=status_das_pessoas(tela))
                 if agora - ultima_metrica >= INTERVALO_METRICAS_S:
                     self._salvar_metricas()
                     ultima_metrica = agora

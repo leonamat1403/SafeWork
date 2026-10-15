@@ -41,6 +41,7 @@ class Ocorrencia:
     epis_indeterminados: list[str]
     confianca_media: dict[str, float]      # EPI -> confiança média das detecções associadas na janela
     mascara_levantada: bool
+    arco_ativo: bool = False               # RD03: arco aceso perto das mãos no momento (prioridade alta)
 
     def descricao(self) -> str:
         partes = [f"{epi}: {self.situacao.get(epi, 'não conforme')} ({self.fracao_nao_conforme.get(epi, 0):.0%})"
@@ -130,6 +131,7 @@ class GerenciadorOcorrencias:
             epis_indeterminados=[epi for epi, a in aval.epis.items() if a.estado == Estado.INDETERMINADO],
             confianca_media=confiancas,
             mascara_levantada=aval.mascara_levantada,
+            arco_ativo=aval.arco_ativo,
         )
 
     @staticmethod

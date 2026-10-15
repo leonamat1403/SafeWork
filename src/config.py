@@ -55,13 +55,18 @@ class ConfigDeteccao:
     pular_frames: int = 1
     conf_rosto: float = 0.6        # confiança mínima do detector de rostos (YuNet)
     tamanho_recorte_rosto: int = 224   # o recorte da cabeça é ampliado/reduzido para este lado antes de procurar rostos
+    votacao_quadros: int = 5       # RD01 (Fase 2): a tela mostra a maioria dos últimos N quadros da pessoa (1 = desliga)
 
 
 @dataclass(frozen=True)
 class ConfigArco:
     limiar_brilho: int = 245
     fracao_max_saturada: float = 0.15
-    exigir_mascara_somente_com_arco: bool = False
+    exigir_mascara_somente_com_arco: bool = False   # RD03: sem arco aceso perto das mãos, a falta de máscara não conta
+    detectar_solda_ativa: bool = True    # RD03: procura o brilho do arco perto dos punhos de cada pessoa
+    fracao_min_maos: float = 0.03        # fração de pixels estourados perto de um punho que indica arco aceso
+    raio_maos: float = 0.12              # região em volta de cada punho: esta fração da altura da pessoa, para cada lado
+    manter_aceso_s: float = 2.0          # o arco pisca: a pessoa continua "soldando" por este tempo depois de visto
 
 
 @dataclass(frozen=True)
@@ -191,6 +196,7 @@ def carregar_config(caminho: str | Path = "config.yaml", posto: str = "padrao") 
         pular_frames=int(_numero(sec, "pular_frames", "deteccao", 1, 100, padrao=1)),
         conf_rosto=_numero(sec, "conf_rosto", "deteccao", 0.0, 1.0, padrao=0.6),
         tamanho_recorte_rosto=int(_numero(sec, "tamanho_recorte_rosto", "deteccao", 64, 1024, padrao=224)),
+        votacao_quadros=int(_numero(sec, "votacao_quadros", "deteccao", 1, 60, padrao=5)),
     )
 
     sec = dados.get("arco") or {}
@@ -198,7 +204,14 @@ def carregar_config(caminho: str | Path = "config.yaml", posto: str = "padrao") 
         limiar_brilho=int(_numero(sec, "limiar_brilho", "arco", 0, 255, padrao=245)),
         fracao_max_saturada=_numero(sec, "fracao_max_saturada", "arco", 0.0, 1.0, padrao=0.15),
         exigir_mascara_somente_com_arco=bool(sec.get("exigir_mascara_somente_com_arco", False)),
+        detectar_solda_ativa=bool(sec.get("detectar_solda_ativa", True)),
+        fracao_min_maos=_numero(sec, "fracao_min_maos", "arco", 0.001, 1.0, padrao=0.03),
+        raio_maos=_numero(sec, "raio_maos", "arco", 0.01, 1.0, padrao=0.12),
+        manter_aceso_s=_numero(sec, "manter_aceso_s", "arco", 0.0, 60.0, padrao=2.0),
     )
+    if arco.exigir_mascara_somente_com_arco and not arco.detectar_solda_ativa:
+        raise ErroConfig("arco.exigir_mascara_somente_com_arco precisa de arco.detectar_solda_ativa: true "
+                         "(sem procurar o arco, a falta de máscara nunca seria cobrada).")
 
     sec = dados.get("ocorrencias") or {}
     ocorrencias = ConfigOcorrencias(cooldown_s=_numero(sec, "cooldown_s", "ocorrencias", 0, 86_400, padrao=60))

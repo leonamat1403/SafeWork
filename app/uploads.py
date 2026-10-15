@@ -15,7 +15,7 @@ import time
 import uuid as uuid_mod
 from collections import Counter, defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -34,6 +34,7 @@ from src.occurrences import GerenciadorOcorrencias
 from src.occurrences import Ocorrencia as OcorrenciaDetectada
 from src.pipeline import Pipeline, ResultadoFrame
 from src.tipos import Estado
+from src.votacao import VotacaoTemporal
 
 log = logging.getLogger("epi_solda.uploads")
 
@@ -312,6 +313,7 @@ class FilaUploads:
         total = int(captura.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
         gravador = GravadorBorrado(trabalho.pasta / "resultado", captura.get(cv2.CAP_PROP_FPS) or 25.0)
         gerenciador = GerenciadorOcorrencias(config)
+        votacao, exibicao = VotacaoTemporal(config.deteccao.votacao_quadros), []   # RD01: só o vídeo de resultado
         contagem = defaultdict(lambda: defaultdict(Counter))
         levantada: Counter = Counter()
         n = 0
@@ -321,11 +323,14 @@ class FilaUploads:
                 if not ok:
                     break
                 t = captura.get(cv2.CAP_PROP_POS_MSEC) / 1000
-                resultado = pipeline.processar(frame)
-                anotada = self.registrador.imagem_anotada(frame, resultado)
-                gravador.gravar(anotada)
-                for oc in gerenciador.atualizar(resultado.avaliacoes, t, n, resultado.saturado):
-                    trabalho.ocorrencias.append((oc, anotada))
+                resultado = pipeline.processar(frame, t)
+                if not resultado.saturado:
+                    exibicao = votacao.atualizar(resultado.avaliacoes)
+                gravador.gravar(self.registrador.imagem_anotada(frame, replace(resultado, avaliacoes=exibicao)))
+                novas = gerenciador.atualizar(resultado.avaliacoes, t, n, resultado.saturado)
+                if novas:   # a imagem da ocorrência mostra o quadro real (sem votação), como no ao vivo
+                    anotada = self.registrador.imagem_anotada(frame, resultado)
+                    trabalho.ocorrencias.extend((oc, anotada) for oc in novas)
                 if not resultado.saturado:
                     for aval in resultado.avaliacoes:
                         if aval.pessoa.track_id is None:

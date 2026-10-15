@@ -65,6 +65,7 @@
           info.motivo ? el("div", { classe: "pessoa-motivo", texto: info.motivo }) : null)));
     }
     if (pessoa.mascara_levantada) cartao.append(el("span", { classe: "marca-levantada", texto: "Máscara levantada" }));
+    if (pessoa.arco_ativo) cartao.append(" ", EPI.marcaArco());
     return cartao;
   }
 
@@ -73,7 +74,7 @@
     $("qtd-pessoas").textContent = dados.online && !dados.pausada ? String(pessoas.length) : "";
     // Só refaz quando algo visível mudou (a confiança muda a cada quadro e não aparece aqui)
     const chave = JSON.stringify([dados.online, dados.pausada, dados.saturado, pessoas.map((p) =>
-      [p.track_id, p.cor, p.mascara_levantada, Object.entries(p.epis).map(([n, e]) => [n, e.estado, e.motivo])])]);
+      [p.track_id, p.cor, p.mascara_levantada, p.arco_ativo, Object.entries(p.epis).map(([n, e]) => [n, e.estado, e.motivo])])]);
     if (chave === chavePessoas) return;
     chavePessoas = chave;
 
@@ -126,7 +127,8 @@
         miniatura(oc.thumb_url),
         el("div", {},
           el("div", { classe: "hora numero", texto: oc.hora_local }),
-          selo("NAO_CONFORME", { claro: true, texto: faltaTexto(oc.epis_faltantes, oc.mascara_levantada) }))))));
+          selo("NAO_CONFORME", { claro: true, texto: faltaTexto(oc.epis_faltantes, oc.mascara_levantada) }),
+          oc.arco_ativo ? el("div", {}, EPI.marcaArco()) : null)))));
   }
 
   // ---------------------------------------------------------------- cordão do turno (assinatura da T02)

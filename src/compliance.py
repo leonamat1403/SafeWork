@@ -16,13 +16,17 @@ Regra da máscara, em ordem:
      ("rosto visível" vem do detector de rostos quando ele existe; os pontos do rosto da pose enxergam olhos
       até atrás da máscara de solda – D27)
   5. sem máscara nos demais casos (costas, rosto coberto) -> INDETERMINADO
+
+Solda ativa (RD03, Fase 2): com o arco aceso perto das mãos, a máscara levantada é sempre NÃO CONFORME. Com
+`exigir_mascara_somente_com_arco: true`, a falta de máscara só conta com o arco aceso (sem arco, o soldador não está
+soldando e o estado fica CONFORME, com o motivo explicado).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 from src.body_regions import RegioesCorpo, calcular_regioes, pontos_do_rosto_visiveis
-from src.config import Config, ConfigEPI
+from src.config import Config, ConfigArco, ConfigEPI
 from src.tipos import DeteccaoEPI, Estado, Pessoa, Rosto, centro, fracao_dentro
 
 # Cores padronizadas do projeto, no formato BGR do OpenCV
@@ -55,6 +59,8 @@ class AvaliacaoPessoa:
     regioes: RegioesCorpo
     epis: dict[str, AvaliacaoEPI] = field(default_factory=dict)
     mascara_levantada: bool = False
+    arco_ativo: bool = False             # RD03: arco aceso perto das mãos (agora ou há menos de manter_aceso_s)
+    arco_maos: float | None = None       # fração estourada perto dos punhos neste quadro (None: punhos não visíveis)
 
     @property
     def cor(self) -> str:
@@ -113,8 +119,9 @@ def _associar(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[DeteccaoEPI],
     return associacao
 
 
-def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[DeteccaoEPI], cfg: ConfigEPI) -> None:
-    """Aplica a regra da máscara (RF07) a todas as pessoas do frame."""
+def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[DeteccaoEPI], cfg: ConfigEPI,
+                      arco: ConfigArco | None = None) -> None:
+    """Aplica a regra da máscara (RF07) a todas as pessoas do frame (e a da solda ativa, RD03)."""
     associacao = _associar(avaliacoes, [d for d in deteccoes if d.epi == "mascara"], cfg.cobertura_min)
     # Contradição "máscara sobre o rosto + rosto nítido" (configurável em epis.mascara do config.yaml)
     checar_contradicao = bool(cfg.extras.get("contradicao_rosto_visivel", True))
@@ -135,8 +142,9 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
                 aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, det.conf,
                                                     "máscara na altura do rosto, mas rosto visível", det.caixa)
                 continue
-            if aval.mascara_levantada and levantada_falta:
-                aval.epis["mascara"] = AvaliacaoEPI(Estado.NAO_CONFORME, det.conf, "máscara levantada", det.caixa)
+            if aval.mascara_levantada and (levantada_falta or aval.arco_ativo):
+                motivo = "máscara levantada com o arco aceso" if aval.arco_ativo else "máscara levantada"
+                aval.epis["mascara"] = AvaliacaoEPI(Estado.NAO_CONFORME, det.conf, motivo, det.caixa)
                 continue
             aval.epis["mascara"] = AvaliacaoEPI(Estado.CONFORME, det.conf, "máscara na região da cabeça", det.caixa)
         elif reg.cabeca is None:
@@ -144,10 +152,18 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
         elif reg.fallback and not reg.rosto_por_detector:
             aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, motivo="sem pose: rosto não verificável")
         elif reg.rosto_visivel:
-            aval.epis["mascara"] = AvaliacaoEPI(Estado.NAO_CONFORME, motivo="rosto visível sem máscara")
+            motivo = "rosto visível sem máscara, arco aceso" if aval.arco_ativo else "rosto visível sem máscara"
+            aval.epis["mascara"] = AvaliacaoEPI(Estado.NAO_CONFORME, motivo=motivo)
         else:
             motivo = "de costas" if reg.orientacao == "costas" else "rosto não visível"
             aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, motivo=motivo)
+    if arco is not None and arco.exigir_mascara_somente_com_arco:
+        for aval in avaliacoes:   # RD03: sem arco aceso, a pessoa não está soldando e a máscara não é cobrada
+            atual = aval.epis.get("mascara")
+            if atual is not None and atual.estado == Estado.NAO_CONFORME and not aval.arco_ativo:
+                aval.epis["mascara"] = AvaliacaoEPI(Estado.CONFORME, atual.conf,
+                                                    f"{atual.motivo}, mas sem arco aceso (máscara não exigida agora)",
+                                                    atual.caixa)
 
 
 # Regras implementadas por EPI. Os demais EPIs entram aqui quando forem implementados (trabalho futuro).
@@ -155,14 +171,20 @@ REGRAS = {"mascara": _avaliar_mascaras}
 
 
 def avaliar_frame(pessoas: list[Pessoa], deteccoes: list[DeteccaoEPI], config: Config,
-                  rostos: list[Rosto] | None = None) -> list[AvaliacaoPessoa]:
+                  rostos: list[Rosto] | None = None, arco_ativo: list[bool] | None = None,
+                  arco_maos: list[float | None] | None = None) -> list[AvaliacaoPessoa]:
     """Avalia todos os EPIs ativos de todas as pessoas de um frame.
 
     `rostos`: saída do detector de rostos (None se ele não estiver disponível; aí vale a pose).
+    `arco_ativo` / `arco_maos`: solda ativa de cada pessoa, na mesma ordem de `pessoas` (RD03; calculada pelo
+    Pipeline, que lembra o arco por alguns segundos).
     """
     avaliacoes = [AvaliacaoPessoa(p, calcular_regioes(p, config.deteccao.conf_keypoint, rostos)) for p in pessoas]
+    for i, aval in enumerate(avaliacoes):
+        aval.arco_ativo = bool(arco_ativo[i]) if arco_ativo else False
+        aval.arco_maos = arco_maos[i] if arco_maos else None
     for nome in config.epis_ativos:
         regra = REGRAS.get(nome)
         if regra is not None:
-            regra(avaliacoes, deteccoes, config.epis[nome])
+            regra(avaliacoes, deteccoes, config.epis[nome], config.arco)
     return avaliacoes

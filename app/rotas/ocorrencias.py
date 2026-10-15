@@ -33,7 +33,7 @@ def ocorrencia_json(oc: Ocorrencia, nome_posto: str, validador: str | None = Non
         "data_hora": oc.data_hora.isoformat(), "data_hora_local": para_local(oc.data_hora).strftime("%d/%m/%Y %H:%M"),
         "turno": oc.turno, "track_id": oc.track_id, "epis_faltantes": oc.epis_faltantes,
         "epis_indeterminados": oc.epis_indeterminados, "situacao": oc.situacao,
-        "mascara_levantada": oc.mascara_levantada, "confianca_media": oc.confianca_media,
+        "mascara_levantada": oc.mascara_levantada, "arco_ativo": oc.arco_ativo, "confianca_media": oc.confianca_media,
         "fracao_nao_conforme": oc.fracao_nao_conforme, "validacao": oc.validacao, "origem": oc.origem,
         "validado_por": validador,
         "validado_em": para_local(oc.validado_em).strftime("%d/%m/%Y %H:%M") if oc.validado_em else None,

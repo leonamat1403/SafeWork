@@ -5,12 +5,13 @@ Usado pela linha de comando (src/run.py) e pelo sistema web da Fase 2 (app/). Sa
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 
 import cv2
 import numpy as np
 
-from src.arc_filter import frame_saturado
+from src.arc_filter import fracao_perto_das_maos, frame_saturado
 from src.compliance import CORES_BGR, AvaliacaoPessoa, avaliar_frame
 from src.config import Config
 from src.tipos import DeteccaoEPI, Rosto
@@ -34,17 +35,41 @@ class Pipeline:
         self.ultimas_avaliacoes: list[AvaliacaoPessoa] = []
         self.ultimas_deteccoes: list[DeteccaoEPI] = []
         self.ultimos_rostos: list[Rosto] | None = None
+        self._arco_ate: dict[int, float] = {}   # RD03: track_id -> até quando a pessoa conta como "soldando"
 
-    def processar(self, frame: np.ndarray) -> ResultadoFrame:
+    def processar(self, frame: np.ndarray, t: float | None = None) -> ResultadoFrame:
+        """Processa um frame. `t` (segundos) é o tempo do vídeo ou da câmera; sem ele, usa o relógio do computador."""
         saturado, fracao = frame_saturado(frame, self.config.arco)
         if saturado:
             # RF14: frame estourado pelo arco não muda nenhum estado; repete o último resultado válido
             return ResultadoFrame(self.ultimas_avaliacoes, self.ultimas_deteccoes, True, fracao, self.ultimos_rostos)
         pessoas, deteccoes, rostos = self.detector.detectar(frame)
-        self.ultimas_avaliacoes = avaliar_frame(pessoas, deteccoes, self.config, rostos)
+        arco_ativo, arco_maos = self._solda_ativa(frame, pessoas, time.monotonic() if t is None else t)
+        self.ultimas_avaliacoes = avaliar_frame(pessoas, deteccoes, self.config, rostos, arco_ativo, arco_maos)
         self.ultimas_deteccoes = deteccoes
         self.ultimos_rostos = rostos
         return ResultadoFrame(self.ultimas_avaliacoes, deteccoes, False, fracao, rostos)
+
+    def _solda_ativa(self, frame: np.ndarray, pessoas: list, t: float) -> tuple[list[bool] | None, list | None]:
+        """RD03: arco aceso perto das mãos de cada pessoa. O arco pisca; por isso a pessoa continua "soldando" por
+        `manter_aceso_s` depois da última vez em que o brilho foi visto."""
+        cfg = self.config.arco
+        if not cfg.detectar_solda_ativa:
+            return None, None
+        ativos, fracoes = [], []
+        for pessoa in pessoas:
+            fracao = fracao_perto_das_maos(frame, pessoa, cfg, self.config.deteccao.conf_keypoint)
+            visto = fracao is not None and fracao >= cfg.fracao_min_maos
+            if pessoa.track_id is None:
+                ativos.append(visto)
+            else:
+                if visto:
+                    self._arco_ate[pessoa.track_id] = t + cfg.manter_aceso_s
+                ativos.append(t <= self._arco_ate.get(pessoa.track_id, float("-inf")))
+            fracoes.append(fracao)
+        for track_id in [k for k, ate in self._arco_ate.items() if ate < t - 60]:   # esquece quem sumiu
+            del self._arco_ate[track_id]
+        return ativos, fracoes
 
 
 LARGURA_REFERENCIA = 1280   # até esta largura, texto e linhas têm o tamanho original; acima, crescem junto

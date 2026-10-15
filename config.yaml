@@ -43,12 +43,19 @@ deteccao:
   pular_frames: 1            # processa 1 a cada N frames (aumente se o FPS ficar baixo)
   conf_rosto: 0.6            # confiança mínima do detector de rostos
   tamanho_recorte_rosto: 224 # o rosto é procurado só no recorte da cabeça de cada pessoa, ampliado para este lado
+  votacao_quadros: 5         # RD01: a tela ao vivo mostra o estado que mais apareceu nos últimos 5 quadros da pessoa
+                             #       (só a exibição; as ocorrências seguem a regra de 4 s / 75%). 1 = desliga
 
 # --- Filtro do arco elétrico (RF14) ----------------------------------------------------------------------
 arco:
   limiar_brilho: 245         # brilho (0–255) a partir do qual um pixel conta como "estourado"
   fracao_max_saturada: 0.15  # acima de 15% de pixels estourados, o frame é ignorado
-  exigir_mascara_somente_com_arco: false   # RD03 (Fase 2)
+  # RD03 – solda ativa: o brilho do arco perto dos punhos indica que a pessoa está soldando.
+  detectar_solda_ativa: true # procura o arco perto das mãos (aparece no painel, na ocorrência e na calibração)
+  fracao_min_maos: 0.03      # 3% de pixels estourados em volta de um punho = arco aceso (ajuste na tela Calibração)
+  raio_maos: 0.12            # tamanho da região em volta do punho: 12% da altura da pessoa para cada lado
+  manter_aceso_s: 2          # o arco pisca: continua "aceso" por 2 s depois da última vez que foi visto
+  exigir_mascara_somente_com_arco: false   # true = sem arco aceso, a falta de máscara não conta (soldador parado)
 
 # --- Ocorrências (Etapa 1.4) -----------------------------------------------------------------------------
 ocorrencias: {cooldown_s: 60, retencao_dias: 30}           # retencao_dias: Fase 2 (apaga imagens e registros antigos)

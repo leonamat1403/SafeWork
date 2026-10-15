@@ -81,6 +81,7 @@ class RegistradorOcorrencias:
             situacao=dict(detectada.situacao),
             fracao_nao_conforme={epi: round(v, 3) for epi, v in detectada.fracao_nao_conforme.items()},
             mascara_levantada=detectada.mascara_levantada,
+            arco_ativo=detectada.arco_ativo,
             caminho_imagem=caminhos.imagem if caminhos else None,
             caminho_thumb=caminhos.thumb if caminhos else None,
             origem=origem,

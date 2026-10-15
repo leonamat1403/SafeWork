@@ -88,11 +88,10 @@ window.EPI = (() => {
     return el("span", { classe: "validacao " + info.classe }, icone(info.icone), info.texto);
   }
 
-  const NOMES_EPI = { mascara: "Máscara de solda", luvas: "Luvas", protecao_corpo: "Proteção do corpo",
-    calcado: "Calçado", capacete: "Capacete" };
-  const ICONES_EPI = { luvas: "bi-hand-index-thumb", protecao_corpo: "bi-person-badge", capacete: "bi-cone-striped" };
+  // O sistema verifica só a máscara de solda (decisão de 15/10/2026: os outros EPIs foram descartados)
+  const NOMES_EPI = { mascara: "Máscara de solda" };
   const nomeEpi = (epi) => NOMES_EPI[epi] || epi;
-  const iconeEpi = (epi) => (epi === "mascara" ? iconeMascara() : icone(ICONES_EPI[epi] || "bi-shield"));
+  const iconeEpi = (epi) => (epi === "mascara" ? iconeMascara() : icone("bi-shield"));
 
   /** "Sem máscara", "Máscara levantada"... */
   function faltaTexto(epis, levantada = false) {
@@ -100,6 +99,10 @@ window.EPI = (() => {
       : "Sem " + nomeEpi(epi).toLowerCase()));
     return partes.join(" · ") || "Falta de EPI";
   }
+
+  /** RD03: a pessoa estava soldando (arco aceso perto das mãos) – prioridade alta. */
+  const marcaArco = () => el("span", { classe: "marca-arco", title: "Arco aceso perto das mãos: a pessoa estava soldando" },
+    icone("bi-lightning-charge-fill"), "Arco aceso");
 
   const numero = (n, casas = 0) => Number(n).toLocaleString("pt-BR",
     { minimumFractionDigits: casas, maximumFractionDigits: casas });
@@ -182,6 +185,6 @@ window.EPI = (() => {
 
   const movimentoReduzido = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  return { api, ErroApi, el, icone, iconeMascara, iconeEpi, nomeEpi, faltaTexto, selo, seloValidacao, ESTADOS,
+  return { api, ErroApi, el, icone, iconeMascara, iconeEpi, nomeEpi, faltaTexto, selo, seloValidacao, marcaArco, ESTADOS,
     ESTADO_DA_COR, numero, pct, aviso, mostrarStatusCamera, atualizarPendentes, postoSelecionado, movimentoReduzido };
 })();
