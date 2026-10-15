@@ -208,6 +208,24 @@ a.numero-cartao:hover { border-color: var(--acao); }
 .grafico summary { color: var(--acao); cursor: pointer; }
 .grafico-vazio { color: var(--grafite); margin: .5rem 0 0; }
 
+/* ---------- T06: configurações ---------- */
+.abas { border-bottom-color: var(--linha); flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
+.abas .nav-link { color: var(--grafite); font-weight: 700; white-space: nowrap; }
+.abas .nav-link.active { color: var(--aco); border-color: var(--linha) var(--linha) var(--branco); }
+.tab-content > .aba-conteudo { margin-top: 0; border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.ajustes-grade { display: grid; gap: 1rem 1.5rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+.ajuste output { display: inline-block; font-weight: 500; }
+.bloco-ajustes { border-top: 1px solid var(--linha); padding-top: 1rem; margin-bottom: 1.25rem; }
+.bloco-ajustes:first-child { border-top: 0; padding-top: 0; }
+.bloco-ajustes > legend { margin-bottom: .75rem; }
+.turno-linha { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-end; }
+.turno-linha + .turno-linha { margin-top: .5rem; }
+.turno-linha input[type="text"] { width: 6rem; }
+.turno-linha input[type="time"] { width: 8.5rem; }
+.zona-quadro { position: relative; max-width: 60rem; background: #11181E; border-radius: .5rem; overflow: hidden; }
+.zona-quadro img { display: block; width: 100%; height: auto; min-height: 12rem; }
+.zona-quadro canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+
 /* ---------- T07: calibração ---------- */
 .calibracao { display: grid; gap: 1rem; grid-template-areas: "video" "valores"; }
 .calibracao > .cartao { margin-top: 0; min-width: 0; }

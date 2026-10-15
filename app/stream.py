@@ -32,6 +32,7 @@ from src.detector import Detector, ErroModelo
 from src.occurrences import GerenciadorOcorrencias
 from src.pipeline import Pipeline, ResultadoFrame, desenhar
 from src.votacao import VotacaoTemporal
+from src.zona import desenhar_zona
 from src.tipos import Estado
 from src.video import ErroFonte, FonteVideo, ocultar_senha
 
@@ -135,9 +136,11 @@ class TrabalhadorCamera(threading.Thread):
 
     def __init__(self, camera_id: int, nome: str, origem: str, config: Config, registrador: RegistradorOcorrencias,
                  fabrica: sessionmaker[Session], borrador_ao_vivo: Borrador | None,
-                 criar_detector: Callable[[Config], object], criar_fonte: Callable[[str], object]) -> None:
+                 criar_detector: Callable[[Config], object], criar_fonte: Callable[[str], object],
+                 zona: list | None = None) -> None:
         super().__init__(name=f"camera-{camera_id}", daemon=True)
         self.camera_id, self.nome, self.origem, self.config = camera_id, nome, origem, config
+        self.zona = [tuple(p) for p in zona] if zona else None   # RD06: zona de interesse do posto
         self.registrador, self.fabrica, self.borrador_ao_vivo = registrador, fabrica, borrador_ao_vivo
         self.criar_detector, self.criar_fonte = criar_detector, criar_fonte
         self.parar_evento = threading.Event()
@@ -152,6 +155,7 @@ class TrabalhadorCamera(threading.Thread):
         self.saturado = False
         self.fracao_saturada = 0.0
         self.pessoas: list[dict] = []
+        self.fora_da_zona = 0                                # RD06: pessoas vistas fora da zona (não avaliadas)
         self.ultimas: deque[dict] = deque(maxlen=5)
         self._metrica_id: int | None = None
         self._cordao: dict[int, list[int]] = {}              # nº do trecho de 10 s -> quadros [V, C, I, N]
@@ -196,7 +200,7 @@ class TrabalhadorCamera(threading.Thread):
 
     def _calibrar(self, frame: np.ndarray, resultado: ResultadoFrame, base) -> None:
         def desenho(img: np.ndarray) -> np.ndarray:
-            return desenhar_calibracao(img, frame, resultado, self.config, self.nome)
+            return desenhar_zona(desenhar_calibracao(img, frame, resultado, self.config, self.nome), self.zona)
         imagem = base.com_desenho(desenho).pixels if isinstance(base, ImagemBorrada) else desenho(base)
         dados = {**dados_calibracao(frame, resultado, self.config), "fps": round(self.fps, 1)}
         quadro = jpeg(imagem)
@@ -209,6 +213,7 @@ class TrabalhadorCamera(threading.Thread):
                 "camera_id": self.camera_id, "nome": self.nome, "online": self.online, "pausada": self.pausada,
                 "erro": self.erro, "fps": round(self.fps, 1), "saturado": self.saturado,
                 "fracao_saturada": round(self.fracao_saturada, 3), "pessoas": list(self.pessoas),
+                "fora_da_zona": self.fora_da_zona, "tem_zona": bool(self.zona),
                 "ultimas_ocorrencias": list(self.ultimas), "sem_espaco": self.registrador.sem_espaco,
             }
 
@@ -226,14 +231,14 @@ class TrabalhadorCamera(threading.Thread):
         """Imagem sobre a qual o stream é desenhado: borrada (se configurado, F2-D20) ou o próprio quadro."""
         if self.borrador_ao_vivo is None:
             return frame
-        pessoas = [a.pessoa for a in resultado.avaliacoes]
+        pessoas = [a.pessoa for a in resultado.avaliacoes] + resultado.fora_da_zona   # fora da zona: borradas também
         rostos = [r.caixa for r in (resultado.rostos or [])]
         return self.borrador_ao_vivo.borrar(frame, pessoas, rostos)
 
     def _desenhar(self, base: np.ndarray | ImagemBorrada, resultado: ResultadoFrame) -> np.ndarray:
         """Quadro do stream: caixas, rótulos e FPS por cima da base."""
         def desenho(img: np.ndarray) -> np.ndarray:
-            return desenhar(img, resultado, [f"{self.nome} | {self.fps:.1f} FPS"])
+            return desenhar_zona(desenhar(img, resultado, [f"{self.nome} | {self.fps:.1f} FPS"]), self.zona)
         return base.com_desenho(desenho).pixels if isinstance(base, ImagemBorrada) else desenho(base)
 
     def _registrar(self, ocorrencias, frame: np.ndarray, resultado: ResultadoFrame) -> None:
@@ -325,7 +330,7 @@ class TrabalhadorCamera(threading.Thread):
             self._publicar(quadro_aviso("MODELO NAO CARREGADO", "veja o aviso no painel"), erro=str(erro))
             log.error("Câmera %s: %s", self.nome, erro)
             return
-        pipeline, gerenciador = Pipeline(self.config, detector), GerenciadorOcorrencias(self.config)
+        pipeline, gerenciador = Pipeline(self.config, detector, self.zona), GerenciadorOcorrencias(self.config)
         pular = max(1, self.config.deteccao.pular_frames)
         votacao, exibicao = VotacaoTemporal(self.config.deteccao.votacao_quadros), []
         fonte, espera, n = None, 1.0, 0
@@ -371,7 +376,8 @@ class TrabalhadorCamera(threading.Thread):
                 with self._trava:
                     self._quadro, self._resultado = frame, tela
                 self._publicar(quadro, online=True, saturado=resultado.saturado,
-                               fracao_saturada=resultado.fracao_saturada, pessoas=status_das_pessoas(tela))
+                               fracao_saturada=resultado.fracao_saturada, pessoas=status_das_pessoas(tela),
+                               fora_da_zona=len(tela.fora_da_zona))
                 if agora - ultima_metrica >= INTERVALO_METRICAS_S:
                     self._salvar_metricas()
                     ultima_metrica = agora
@@ -397,32 +403,61 @@ class GerenciadorCameras:
         self.registrador, self.borrador_ao_vivo = registrador, borrador_ao_vivo
         self.criar_detector, self.criar_fonte = criar_detector, criar_fonte
         self._trabalhadores: dict[int, TrabalhadorCamera] = {}
+        self._trava = threading.Lock()   # duas mudanças de configuração ao mesmo tempo não se atropelam
+
+    def _cameras_ativas(self, camera_id: int | None = None) -> list[tuple]:
+        with self.fabrica() as sessao:
+            consulta = select(Camera).where(Camera.ativa.is_(True)).order_by(Camera.id)
+            if camera_id is not None:
+                consulta = consulta.where(Camera.id == camera_id)
+            return [(c.id, c.nome_posto, c.tipo, c.origem, list(c.epis), c.roi_poligono)
+                    for c in sessao.scalars(consulta)]
+
+    def _ligar(self, camera_id: int, nome: str, tipo: str, origem: str, epis: list, zona: list | None,
+               anterior: TrabalhadorCamera | None = None) -> None:
+        trabalhador = TrabalhadorCamera(
+            camera_id, nome, origem_da_camera(tipo, origem, self.ajustes), config_da_camera(self.config_base, epis),
+            self.registrador, self.fabrica, self.borrador_ao_vivo, self.criar_detector, self.criar_fonte, zona=zona)
+        if anterior is not None:   # religada por uma mudança de configuração: o turno continua de onde estava
+            trabalhador._cordao, trabalhador.ultimas = anterior._cordao, anterior.ultimas
+            trabalhador.pausada = anterior.pausada
+        self._trabalhadores[camera_id] = trabalhador
+        trabalhador.start()
 
     def iniciar(self) -> None:
-        with self.fabrica() as sessao:
-            cameras = sessao.scalars(select(Camera).where(Camera.ativa.is_(True)).order_by(Camera.id)).all()
-            dados = [(c.id, c.nome_posto, c.tipo, c.origem, list(c.epis)) for c in cameras]
-        for camera_id, nome, tipo, origem, epis in dados:
-            trabalhador = TrabalhadorCamera(
-                camera_id, nome, origem_da_camera(tipo, origem, self.ajustes),
-                config_da_camera(self.config_base, epis), self.registrador, self.fabrica, self.borrador_ao_vivo,
-                self.criar_detector, self.criar_fonte)
-            self._trabalhadores[camera_id] = trabalhador
-            trabalhador.start()
+        with self._trava:
+            dados = self._cameras_ativas()
+            for camera in dados:
+                self._ligar(*camera)
         log.info("%d câmera(s) ativa(s) iniciada(s)", len(dados))
 
+    def reiniciar(self, camera_id: int | None = None) -> None:
+        """Aplica mudanças de configuração sem reiniciar o sistema: para a câmera (ou todas, com None) e liga de novo
+        com o que está no banco. Uma câmera desativada fica parada; uma ativada passa a rodar."""
+        with self._trava:
+            alvos = list(self._trabalhadores) if camera_id is None else [camera_id]
+            antigos = {i: self._trabalhadores.pop(i) for i in alvos if i in self._trabalhadores}
+            for trabalhador in antigos.values():
+                trabalhador.parar()
+            for trabalhador in antigos.values():
+                trabalhador.join(10)
+            for camera in self._cameras_ativas(camera_id):
+                self._ligar(*camera, anterior=antigos.get(camera[0]))
+        log.info("Câmera(s) religada(s) com a nova configuração: %s", "todas" if camera_id is None else camera_id)
+
     def parar(self, espera_s: float = 10) -> None:
-        for trabalhador in self._trabalhadores.values():
-            trabalhador.parar()
-        for trabalhador in self._trabalhadores.values():
-            trabalhador.join(espera_s)
-        self._trabalhadores.clear()
+        with self._trava:
+            for trabalhador in self._trabalhadores.values():
+                trabalhador.parar()
+            for trabalhador in self._trabalhadores.values():
+                trabalhador.join(espera_s)
+            self._trabalhadores.clear()
 
     def obter(self, camera_id: int) -> TrabalhadorCamera | None:
         return self._trabalhadores.get(camera_id)
 
     def ids(self) -> list[int]:
-        return list(self._trabalhadores)
+        return sorted(self._trabalhadores)
 
 
 async def gerar_mjpeg(trabalhador: TrabalhadorCamera, desconectado: Callable[[], object],

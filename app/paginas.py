@@ -144,6 +144,17 @@ def pagina_usuarios(request: Request) -> Response:
     return _pagina(request, "usuarios.html", usuario, "usuarios")
 
 
+@rotas.get("/configuracoes")
+def pagina_configuracoes(request: Request) -> Response:
+    """T06 (RD05, RD06): postos e câmeras, máscara por posto, sistema e zona de interesse."""
+    usuario = _usuario_ou_redirecionar(request)
+    if isinstance(usuario, RedirectResponse):
+        return usuario
+    if not usuario.admin:
+        return _so_admin(request, usuario, "As configurações do sistema são feitas pelo administrador.")
+    return _pagina(request, "configuracoes.html", usuario, "configuracoes")
+
+
 @rotas.get("/calibracao")
 def pagina_calibracao(request: Request, camera_id: int | None = None) -> Response:
     """T07 (RD02): o administrador confere no próprio posto os números que as regras usam."""

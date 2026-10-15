@@ -37,7 +37,8 @@
          {% if ativa == 'painel' %}aria-current="page"{% endif %}><i class="bi bi-bar-chart" aria-hidden="true"></i> Painel</a>
       {% if usuario.admin %}
       <p class="rotulo">Administração</p>
-      <span class="lateral-link desativado" aria-disabled="true"><i class="bi bi-sliders" aria-hidden="true"></i> Configurações <small>em breve</small></span>
+      <a class="lateral-link {% if ativa == 'configuracoes' %}ativa{% endif %}" href="/configuracoes"
+         {% if ativa == 'configuracoes' %}aria-current="page"{% endif %}><i class="bi bi-sliders" aria-hidden="true"></i> Configurações</a>
       <a class="lateral-link {% if ativa == 'calibracao' %}ativa{% endif %}" href="/calibracao"
          {% if ativa == 'calibracao' %}aria-current="page"{% endif %}><i class="bi bi-bounding-box" aria-hidden="true"></i> Calibração</a>
       <a class="lateral-link {% if ativa == 'usuarios' %}ativa{% endif %}" href="/usuarios"

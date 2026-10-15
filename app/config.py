@@ -49,6 +49,7 @@ class Ajustes:
     uploads_max_idade_s: int
     upload_tamanho_max_mb: int = 200
     borrar_ao_vivo: bool = True          # F2-D20: o vídeo ao vivo também sai com as cabeças borradas
+    telegram_ativo: bool = True          # RD09: alerta pelo Telegram ligado (só funciona com o token no .env)
     host: str = "127.0.0.1"              # 0.0.0.0 para outros computadores/celulares da rede acessarem
     porta: int = 8000
     modo_desenvolvimento: bool = False   # liga a documentação interativa /docs (só para testes)

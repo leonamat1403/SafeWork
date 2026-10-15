@@ -73,7 +73,7 @@
     const pessoas = dados.pessoas || [];
     $("qtd-pessoas").textContent = dados.online && !dados.pausada ? String(pessoas.length) : "";
     // Só refaz quando algo visível mudou (a confiança muda a cada quadro e não aparece aqui)
-    const chave = JSON.stringify([dados.online, dados.pausada, dados.saturado, pessoas.map((p) =>
+    const chave = JSON.stringify([dados.online, dados.pausada, dados.saturado, dados.fora_da_zona, pessoas.map((p) =>
       [p.track_id, p.cor, p.mascara_levantada, p.arco_ativo, Object.entries(p.epis).map(([n, e]) => [n, e.estado, e.motivo])])]);
     if (chave === chavePessoas) return;
     chavePessoas = chave;
@@ -90,10 +90,15 @@
       lista.replaceChildren(el("p", { classe: "text-secondary mb-0", texto: "Arco aberto: quadro ignorado na avaliação." }));
       resumo = "";
     } else if (!pessoas.length) {
-      lista.replaceChildren(el("p", { classe: "text-secondary mb-0", texto: "Ninguém no quadro agora." }));
-      resumo = "Ninguém no quadro.";
+      const fora = dados.fora_da_zona || 0;
+      const texto = fora ? `Ninguém dentro da zona do posto (${fora} ${fora === 1 ? "pessoa" : "pessoas"} fora da zona, sem avaliação).`
+        : "Ninguém no quadro agora.";
+      lista.replaceChildren(el("p", { classe: "text-secondary mb-0", texto }));
+      resumo = fora ? "Ninguém dentro da zona do posto." : "Ninguém no quadro.";
     } else {
       lista.replaceChildren(...pessoas.map(cartaoPessoa));
+      if (dados.fora_da_zona) lista.append(el("p", { classe: "small text-secondary mt-2 mb-0",
+        texto: `+ ${dados.fora_da_zona} fora da zona do posto (sem avaliação)` }));
       const conta = { CONFORME: 0, NAO_CONFORME: 0, INDETERMINADO: 0 };
       pessoas.forEach((p) => { conta[ESTADO_DA_COR[p.cor] || "INDETERMINADO"] += 1; });
       resumo = `${pessoas.length} ${pessoas.length === 1 ? "pessoa" : "pessoas"}: ` + [

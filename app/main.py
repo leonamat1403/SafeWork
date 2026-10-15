@@ -28,7 +28,8 @@ from app.database import aplicar_migracoes, criar_engine, criar_fabrica_sessoes
 from app.models import Camera, ConfigEpiCamera
 from app.privacy import Borrador, DetectorRostosQuadro
 from app.registro import RegistradorOcorrencias
-from app.rotas import acesso, cameras, ocorrencias, painel, uploads, usuarios
+from app.rotas import acesso, cameras, configuracoes, ocorrencias, painel, uploads, usuarios
+from app import sistema
 from app.scheduler import iniciar_agendador
 from app.storage import StorageDisco
 from app.stream import GerenciadorCameras
@@ -51,8 +52,8 @@ POLITICA_CONTEUDO = ("default-src 'self'; script-src 'self'; style-src 'self'; f
 class Contexto:
     """Tudo o que as rotas usam (request.app.state.ctx)."""
 
-    ajustes: Ajustes
-    config_base: Config
+    ajustes: Ajustes                 # em uso: .env + config.yaml + aba Sistema (config_sistema)
+    config_base: Config              # em uso: config.yaml + aba Sistema
     engine: Engine
     fabrica: sessionmaker[Session]
     storage: StorageDisco
@@ -61,6 +62,8 @@ class Contexto:
     cameras: GerenciadorCameras
     uploads: FilaUploads
     tentativas: ControleTentativas
+    config_yaml: Config | None = None     # como veio do config.yaml (base para reaplicar a aba Sistema)
+    ajustes_yaml: Ajustes | None = None
     agendador: object | None = None
 
 
@@ -98,27 +101,29 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
         aplicar_migracoes(ajustes.database_url)
         engine = criar_engine(ajustes.database_url)
         fabrica = criar_fabrica_sessoes(engine)
-        config_base = carregar_config(ajustes.config_yaml)
+        config_yaml = carregar_config(ajustes.config_yaml)
         criar_admin_inicial(fabrica, ajustes)
-        criar_camera_padrao(fabrica, config_base)
+        criar_camera_padrao(fabrica, config_yaml)
+        # O que o ADMIN mudou na aba Sistema (RD05) vale por cima do config.yaml
+        config_base, em_uso = sistema.aplicar(config_yaml, ajustes, sistema.ler_banco(fabrica))
         storage = StorageDisco(ajustes.data_dir, ajustes.espaco_minimo_mb)
         borrador = Borrador(DetectorRostosQuadro(config_base.modelos.rosto, config_base.deteccao.conf_rosto),
                             config_base.deteccao.conf_keypoint)
-        registrador = RegistradorOcorrencias(fabrica, storage, borrador, ajustes.turnos)
+        registrador = RegistradorOcorrencias(fabrica, storage, borrador, em_uso.turnos)
         # Ao vivo, só as cabeças da pose e os rostos já achados (sem rodar o detector de rostos de novo: CPU)
         borrador_ao_vivo = Borrador(None, config_base.deteccao.conf_keypoint) if ajustes.borrar_ao_vivo else None
         ctx = Contexto(
-            ajustes=ajustes, config_base=config_base, engine=engine, fabrica=fabrica, storage=storage,
+            ajustes=em_uso, config_base=config_base, engine=engine, fabrica=fabrica, storage=storage,
             borrador=borrador, registrador=registrador,
-            cameras=GerenciadorCameras(ajustes, config_base, fabrica, registrador, borrador_ao_vivo, criar_detector,
+            cameras=GerenciadorCameras(em_uso, config_base, fabrica, registrador, borrador_ao_vivo, criar_detector,
                                        criar_fonte),
-            uploads=FilaUploads(ajustes, config_base, fabrica, registrador, criar_detector),
-            tentativas=ControleTentativas())
+            uploads=FilaUploads(em_uso, config_base, fabrica, registrador, criar_detector),
+            tentativas=ControleTentativas(), config_yaml=config_yaml, ajustes_yaml=ajustes)
         app.state.ctx = ctx
         ctx.cameras.iniciar()
         ctx.uploads.iniciar()
         if iniciar_rotinas:
-            ctx.agendador = iniciar_agendador(ajustes, fabrica, storage)
+            ctx.agendador = iniciar_agendador(em_uso, fabrica, storage)
         log.info("Sistema iniciado (versão %s) em http://%s:%d", VERSAO, ajustes.host, ajustes.porta)
         try:
             yield
@@ -160,7 +165,7 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
             return get_swagger_ui_html(openapi_url="/openapi.json", title="Verificador de EPIs – API",
                                        swagger_ui_parameters={"withCredentials": True, "persistAuthorization": True})
 
-    for modulo in (acesso, cameras, uploads, ocorrencias, painel, usuarios, paginas):
+    for modulo in (acesso, cameras, configuracoes, uploads, ocorrencias, painel, usuarios, paginas):
         app.include_router(modulo.rotas)
     app.mount("/static", StaticFiles(directory=PASTA_ESTATICOS), name="static")
     return app

@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block titulo %}Configurações{% endblock %}
+{% block conteudo %}
+<h1 class="titulo-pagina mb-3">Configurações</h1>
+<p class="text-secondary">Toda alteração vale na hora, sem reiniciar o sistema (a câmera do posto é religada em
+  alguns segundos), e fica registrada na auditoria.</p>
+
+<ul class="nav nav-tabs abas" role="tablist">
+  <li class="nav-item" role="presentation"><button class="nav-link active" id="aba-postos" data-bs-toggle="tab"
+      data-bs-target="#painel-postos" type="button" role="tab" aria-controls="painel-postos" aria-selected="true"
+      data-aba="postos">Postos e câmeras</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" id="aba-mascara" data-bs-toggle="tab"
+      data-bs-target="#painel-mascara" type="button" role="tab" aria-controls="painel-mascara" aria-selected="false"
+      data-aba="epis">Máscara por posto</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" id="aba-zona" data-bs-toggle="tab"
+      data-bs-target="#painel-zona" type="button" role="tab" aria-controls="painel-zona" aria-selected="false"
+      data-aba="zona">Zona de interesse</button></li>
+  <li class="nav-item" role="presentation"><button class="nav-link" id="aba-sistema" data-bs-toggle="tab"
+      data-bs-target="#painel-sistema" type="button" role="tab" aria-controls="painel-sistema" aria-selected="false"
+      data-aba="sistema">Sistema</button></li>
+</ul>
+
+<div class="tab-content">
+  <!-- ======================================================================= Postos e câmeras -->
+  <section class="tab-pane fade show active cartao aba-conteudo" id="painel-postos" role="tabpanel" aria-labelledby="aba-postos">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h2 class="rotulo">Postos e câmeras</h2>
+      <button type="button" class="btn btn-primary" id="novo-posto"><i class="bi bi-plus-lg" aria-hidden="true"></i> Novo posto</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table tabela align-middle mb-2">
+        <thead><tr><th scope="col">Posto</th><th scope="col">Processo</th><th scope="col">Câmera</th>
+          <th scope="col">Endereço</th><th scope="col">Situação</th><th scope="col" class="text-end">Ocorrências</th>
+          <th scope="col"><span class="visually-hidden">Ações</span></th></tr></thead>
+        <tbody id="linhas-postos"></tbody>
+      </table>
+    </div>
+    <p class="text-secondary small mb-0"><i class="bi bi-key" aria-hidden="true"></i> O usuário e a senha das câmeras IP
+      ficam no arquivo <code>.env</code> (RTSP_USUARIO e RTSP_SENHA), nunca aqui. Um posto com ocorrências não pode ser
+      removido: desative-o para manter o histórico.</p>
+  </section>
+
+  <!-- ======================================================================= Máscara por posto -->
+  <section class="tab-pane fade cartao aba-conteudo" id="painel-mascara" role="tabpanel" aria-labelledby="aba-mascara">
+    <form id="form-mascara" novalidate>
+      <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
+        <div><label class="form-label rotulo" for="m-posto">Posto</label>
+          <select class="form-select" id="m-posto"></select></div>
+        <a class="mb-2" id="m-calibrar" href="/calibracao">Conferir na Calibração <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+      </div>
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="m-exigido">
+        <label class="form-check-label" for="m-exigido"><strong>Exigir máscara de solda neste posto</strong></label>
+      </div>
+      <div class="ajustes-grade">
+        <div class="ajuste">
+          <label class="form-label" for="m-conf">Confiança mínima da detecção</label>
+          <input type="range" class="form-range" id="m-conf" min="0.05" max="0.95" step="0.01" aria-describedby="m-conf-ajuda">
+          <output class="numero" for="m-conf" id="m-conf-valor"></output>
+          <div class="form-text" id="m-conf-ajuda">Abaixo disso, uma "máscara" encontrada pelo modelo não conta. Mais alto: menos
+            enganos, mas pode deixar de ver máscaras de verdade.</div>
+        </div>
+        <div class="ajuste">
+          <label class="form-label" for="m-tempo">Tempo em falta para registrar</label>
+          <input type="range" class="form-range" id="m-tempo" min="1" max="30" step="0.5" aria-describedby="m-tempo-ajuda">
+          <output class="numero" for="m-tempo" id="m-tempo-valor"></output>
+          <div class="form-text" id="m-tempo-ajuda">A falta precisa durar este tempo para virar ocorrência (levantar a máscara por
+            um instante para olhar o cordão não gera).</div>
+        </div>
+        <div class="ajuste">
+          <label class="form-label" for="m-fracao">Parte desse tempo com a falta</label>
+          <input type="range" class="form-range" id="m-fracao" min="0.5" max="1" step="0.01" aria-describedby="m-fracao-ajuda">
+          <output class="numero" for="m-fracao" id="m-fracao-valor"></output>
+          <div class="form-text" id="m-fracao-ajuda">Tolera quadros errados no meio (ex.: 75% = 3 de cada 4 quadros sem máscara).</div>
+        </div>
+        <div class="ajuste">
+          <label class="form-label" for="m-cobertura">Cobertura mínima da cabeça</label>
+          <input type="range" class="form-range" id="m-cobertura" min="0.1" max="0.9" step="0.01" aria-describedby="m-cobertura-ajuda">
+          <output class="numero" for="m-cobertura" id="m-cobertura-valor"></output>
+          <div class="form-text" id="m-cobertura-ajuda">Quanto da caixa da máscara precisa estar na região da cabeça para
+            contar como "da pessoa" (e não uma máscara na bancada).</div>
+        </div>
+      </div>
+      <div class="form-check form-switch my-3">
+        <input class="form-check-input" type="checkbox" role="switch" id="m-levantada">
+        <label class="form-check-label" for="m-levantada">Máscara levantada conta como falta</label>
+      </div>
+      <button type="submit" class="btn btn-primary">Salvar alterações</button>
+    </form>
+  </section>
+
+  <!-- ======================================================================= Zona de interesse -->
+  <section class="tab-pane fade cartao aba-conteudo" id="painel-zona" role="tabpanel" aria-labelledby="aba-zona">
+    <div class="d-flex flex-wrap align-items-end gap-3 mb-2">
+      <div><label class="form-label rotulo" for="z-posto">Posto</label>
+        <select class="form-select" id="z-posto"></select></div>
+      <p class="text-secondary small mb-2" id="z-situacao" aria-live="polite"></p>
+    </div>
+    <p>Clique na foto para marcar os cantos do posto ou da cabine de solda. Só quem <strong>pisa dentro da zona</strong>
+      (o meio da base da caixa da pessoa) é avaliado; quem passa fora dela continua com o rosto borrado, mas não gera
+      ocorrência. Sem zona, a imagem toda vale.</p>
+    <div class="zona-quadro" id="z-quadro">
+      <img id="z-foto" alt="Foto atual do posto, com as cabeças borradas, para desenhar a zona">
+      <canvas id="z-desenho" aria-label="Desenho da zona de interesse" role="img"></canvas>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      <button type="button" class="btn btn-outline-secondary" id="z-desfazer"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Desfazer ponto</button>
+      <button type="button" class="btn btn-outline-secondary" id="z-limpar"><i class="bi bi-eraser" aria-hidden="true"></i> Limpar</button>
+      <button type="button" class="btn btn-outline-secondary" id="z-foto-nova"><i class="bi bi-camera" aria-hidden="true"></i> Foto nova</button>
+      <button type="button" class="btn btn-primary ms-auto" id="z-salvar">Salvar zona</button>
+    </div>
+  </section>
+
+  <!-- ======================================================================= Sistema -->
+  <section class="tab-pane fade cartao aba-conteudo" id="painel-sistema" role="tabpanel" aria-labelledby="aba-sistema">
+    <form id="form-sistema" novalidate>
+      <fieldset class="bloco-ajustes">
+        <legend class="rotulo">Ocorrências e imagens</legend>
+        <div class="ajustes-grade">
+          <div><label class="form-label" for="s-cooldown">Intervalo mínimo entre ocorrências da mesma pessoa (s)</label>
+            <input type="number" class="form-control" id="s-cooldown" min="0" max="3600" step="1">
+            <div class="form-text" data-padrao="cooldown_s"></div></div>
+          <div><label class="form-label" for="s-retencao">Guardar imagens e registros por (dias)</label>
+            <input type="number" class="form-control" id="s-retencao" min="1" max="3650" step="1">
+            <div class="form-text" data-padrao="retencao_dias"></div></div>
+          <div><label class="form-label" for="s-imgsz">Tamanho da imagem no detector de máscara</label>
+            <select class="form-select" id="s-imgsz"><option value="480">480</option><option value="640">640</option>
+              <option value="800">800</option><option value="960">960</option><option value="1280">1280</option></select>
+            <div class="form-text" data-padrao="imgsz"></div></div>
+        </div>
+      </fieldset>
+      <fieldset class="bloco-ajustes">
+        <legend class="rotulo">Arco elétrico</legend>
+        <div class="ajustes-grade">
+          <div class="ajuste"><label class="form-label" for="s-brilho">Brilho de um pixel "estourado"</label>
+            <input type="range" class="form-range" id="s-brilho" min="200" max="255" step="1">
+            <output class="numero" for="s-brilho" id="s-brilho-valor"></output>
+            <div class="form-text" data-padrao="limiar_brilho"></div></div>
+          <div class="ajuste"><label class="form-label" for="s-saturada">Ignorar o quadro acima de (pixels estourados)</label>
+            <input type="range" class="form-range" id="s-saturada" min="0.05" max="0.5" step="0.01">
+            <output class="numero" for="s-saturada" id="s-saturada-valor"></output>
+            <div class="form-text" data-padrao="fracao_max_saturada"></div></div>
+          <div class="ajuste"><label class="form-label" for="s-maos">Arco aceso: pixels estourados perto das mãos</label>
+            <input type="range" class="form-range" id="s-maos" min="0.005" max="0.5" step="0.005">
+            <output class="numero" for="s-maos" id="s-maos-valor"></output>
+            <div class="form-text" data-padrao="fracao_min_maos"></div></div>
+        </div>
+        <div class="form-check form-switch mt-2">
+          <input class="form-check-input" type="checkbox" role="switch" id="s-detectar">
+          <label class="form-check-label" for="s-detectar">Detectar solda ativa (arco aceso perto das mãos)</label></div>
+        <div class="form-check form-switch mt-1">
+          <input class="form-check-input" type="checkbox" role="switch" id="s-somente-arco">
+          <label class="form-check-label" for="s-somente-arco">Cobrar a máscara só com o arco aceso (soldador parado não gera ocorrência)</label></div>
+      </fieldset>
+      <fieldset class="bloco-ajustes">
+        <legend class="rotulo">Turnos (horário de Brasília)</legend>
+        <div id="s-turnos"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="s-mais-turno"><i class="bi bi-plus-lg" aria-hidden="true"></i> Turno</button>
+      </fieldset>
+      <fieldset class="bloco-ajustes">
+        <legend class="rotulo">Alerta pelo Telegram</legend>
+        <p class="mb-2" id="s-telegram"></p>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="s-telegram-ativo">
+          <label class="form-check-label" for="s-telegram-ativo">Enviar um alerta a cada ocorrência (com a foto borrada)</label></div>
+        <p class="text-secondary small mt-2 mb-0">É a única informação que sai deste computador. O token fica no arquivo
+          <code>.env</code> e nunca aparece inteiro na tela.</p>
+      </fieldset>
+      <fieldset class="bloco-ajustes">
+        <legend class="rotulo">Espaço em disco</legend>
+        <div class="medidor" id="s-disco"><div class="medidor-valor"></div></div>
+        <p class="mt-2 mb-0" id="s-disco-texto"></p>
+      </fieldset>
+      <button type="submit" class="btn btn-primary">Salvar alterações</button>
+    </form>
+  </section>
+</div>
+
+<!-- Novo / editar posto -->
+<div class="modal fade" id="modal-posto" tabindex="-1" aria-labelledby="posto-titulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" id="form-posto" novalidate>
+      <div class="modal-header">
+        <h2 class="modal-title rotulo fs-6" id="posto-titulo">Novo posto</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label" for="p-nome">Nome do posto</label>
+          <input class="form-control" id="p-nome" maxlength="100" required placeholder="ex.: MIG 01 – Linha 3"></div>
+        <div class="mb-3"><label class="form-label" for="p-processo">Processo de solda</label>
+          <select class="form-select" id="p-processo">
+            <option value="MIG_MAG">MIG/MAG</option><option value="TIG">TIG</option>
+            <option value="ELETRODO">Eletrodo revestido</option><option value="CORTE">Corte</option>
+            <option value="OUTRO">Outro</option></select></div>
+        <fieldset class="mb-3"><legend class="form-label fs-6">Câmera</legend>
+          <div class="form-check"><input class="form-check-input" type="radio" name="p-tipo" id="p-tipo-webcam" value="webcam" checked>
+            <label class="form-check-label" for="p-tipo-webcam">Webcam ligada neste computador</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="p-tipo" id="p-tipo-rtsp" value="rtsp">
+            <label class="form-check-label" for="p-tipo-rtsp">Câmera IP (RTSP)</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="p-tipo" id="p-tipo-arquivo" value="arquivo">
+            <label class="form-check-label" for="p-tipo-arquivo">Arquivo de vídeo (para testes)</label></div>
+        </fieldset>
+        <div class="mb-3"><label class="form-label" for="p-origem">Endereço</label>
+          <input class="form-control" id="p-origem" required spellcheck="false" autocomplete="off" aria-describedby="p-origem-ajuda">
+          <div class="form-text" id="p-origem-ajuda"></div></div>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="p-ativa" checked>
+          <label class="form-check-label" for="p-ativa">Posto ativo (a câmera fica ligada)</label></div>
+        <div class="alert alert-danger d-flex gap-2 mt-3 mb-0" id="erro-posto" role="alert" hidden>
+          <i class="bi bi-x-octagon-fill" aria-hidden="true"></i><span></span></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="salvar-posto">Salvar posto</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/js/configuracoes.js?v={{ v }}"></script>{% endblock %}

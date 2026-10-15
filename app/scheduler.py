@@ -96,6 +96,12 @@ def _protegida(nome: str, funcao, *args, **kwargs) -> None:
         log.exception("Falha na rotina %s", nome)
 
 
+def mudar_retencao(agendador: BackgroundScheduler, fabrica_sessoes: sessionmaker[Session], storage: Storage,
+                   dias: int) -> None:
+    """Novo prazo de retenção definido na tela de Configurações (vale a partir da próxima execução, às 03:00)."""
+    agendador.modify_job("retencao", args=["retenção", apagar_ocorrencias_antigas, fabrica_sessoes, storage, dias])
+
+
 def iniciar_agendador(ajustes: Ajustes, fabrica_sessoes: sessionmaker[Session], storage: Storage) -> BackgroundScheduler:
     """Agenda as rotinas e inicia o agendador em segundo plano (pare com agendador.shutdown())."""
     agendador = BackgroundScheduler(timezone=FUSO)

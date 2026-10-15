@@ -36,7 +36,7 @@ class RegistradorOcorrencias:
 
     def imagem_anotada(self, frame: np.ndarray, resultado: ResultadoFrame) -> ImagemBorrada:
         """Cópia BORRADA do frame com as caixas e os rótulos desenhados por cima (o que vai para o disco)."""
-        pessoas = [a.pessoa for a in resultado.avaliacoes]
+        pessoas = [a.pessoa for a in resultado.avaliacoes] + resultado.fora_da_zona   # fora da zona: borradas também
         rostos = [r.caixa for r in (resultado.rostos or [])]
         borrada = self.borrador.borrar(frame, pessoas, rostos)
         return borrada.com_desenho(lambda img: desenhar(img, resultado, []))

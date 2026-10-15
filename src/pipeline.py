@@ -6,7 +6,7 @@ Usado pela linha de comando (src/run.py) e pelo sistema web da Fase 2 (app/). Sa
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
@@ -14,7 +14,8 @@ import numpy as np
 from src.arc_filter import fracao_perto_das_maos, frame_saturado
 from src.compliance import CORES_BGR, AvaliacaoPessoa, avaliar_frame
 from src.config import Config
-from src.tipos import DeteccaoEPI, Rosto
+from src.tipos import DeteccaoEPI, Pessoa, Rosto
+from src.zona import separar_por_zona
 
 
 @dataclass
@@ -24,17 +25,20 @@ class ResultadoFrame:
     saturado: bool
     fracao_saturada: float
     rostos: list[Rosto] | None = None
+    fora_da_zona: list[Pessoa] = field(default_factory=list)   # RD06: não avaliadas, mas BORRADAS nas imagens
 
 
 class Pipeline:
     """Filtro do arco -> modelos -> regras. Guarda o último resultado válido para os frames ignorados."""
 
-    def __init__(self, config: Config, detector) -> None:
+    def __init__(self, config: Config, detector, zona: list[tuple[float, float]] | None = None) -> None:
         self.config = config
         self.detector = detector
+        self.zona = zona                          # RD06: polígono do posto (frações da imagem); None = imagem toda
         self.ultimas_avaliacoes: list[AvaliacaoPessoa] = []
         self.ultimas_deteccoes: list[DeteccaoEPI] = []
         self.ultimos_rostos: list[Rosto] | None = None
+        self.ultimas_fora: list[Pessoa] = []
         self._arco_ate: dict[int, float] = {}   # RD03: track_id -> até quando a pessoa conta como "soldando"
 
     def processar(self, frame: np.ndarray, t: float | None = None) -> ResultadoFrame:
@@ -42,13 +46,15 @@ class Pipeline:
         saturado, fracao = frame_saturado(frame, self.config.arco)
         if saturado:
             # RF14: frame estourado pelo arco não muda nenhum estado; repete o último resultado válido
-            return ResultadoFrame(self.ultimas_avaliacoes, self.ultimas_deteccoes, True, fracao, self.ultimos_rostos)
+            return ResultadoFrame(self.ultimas_avaliacoes, self.ultimas_deteccoes, True, fracao, self.ultimos_rostos,
+                                  self.ultimas_fora)
         pessoas, deteccoes, rostos = self.detector.detectar(frame)
+        pessoas, self.ultimas_fora = separar_por_zona(pessoas, self.zona, frame.shape[1], frame.shape[0])
         arco_ativo, arco_maos = self._solda_ativa(frame, pessoas, time.monotonic() if t is None else t)
         self.ultimas_avaliacoes = avaliar_frame(pessoas, deteccoes, self.config, rostos, arco_ativo, arco_maos)
         self.ultimas_deteccoes = deteccoes
         self.ultimos_rostos = rostos
-        return ResultadoFrame(self.ultimas_avaliacoes, deteccoes, False, fracao, rostos)
+        return ResultadoFrame(self.ultimas_avaliacoes, deteccoes, False, fracao, rostos, self.ultimas_fora)
 
     def _solda_ativa(self, frame: np.ndarray, pessoas: list, t: float) -> tuple[list[bool] | None, list | None]:
         """RD03: arco aceso perto das mãos de cada pessoa. O arco pisca; por isso a pessoa continua "soldando" por
