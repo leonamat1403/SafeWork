@@ -24,7 +24,7 @@ from tests.test_fase2_web import (admin_pronto, bcrypt_rapido, cliente, criar_su
                                   esperar, registrar_ocorrencias)
 
 UTC = timezone.utc
-PAGINAS = ["/ao-vivo", "/upload", "/ocorrencias", "/usuarios"]
+PAGINAS = ["/ao-vivo", "/upload", "/ocorrencias", "/usuarios", "/calibracao"]
 
 
 class Referencias(HTMLParser):

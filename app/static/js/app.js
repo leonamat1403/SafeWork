@@ -125,7 +125,8 @@ window.EPI = (() => {
   // ---------------------------------------------------------------- topo: posto e status da câmera
   const seletor = document.getElementById("seletor-posto");
   const statusCamera = document.getElementById("status-camera");
-  const naTelaAoVivo = location.pathname === "/ao-vivo";
+  // Telas de um posto só (Ao vivo, Calibração): trocar o posto recarrega a tela com o posto escolhido
+  const naTelaAoVivo = ["/ao-vivo", "/calibracao"].includes(location.pathname);
 
   function postoSelecionado() { return seletor ? Number(seletor.value) : null; }
 
@@ -160,7 +161,7 @@ window.EPI = (() => {
     }
     seletor.addEventListener("change", () => {
       guardarPosto();
-      if (naTelaAoVivo) location.href = "/ao-vivo?camera_id=" + encodeURIComponent(seletor.value);
+      if (naTelaAoVivo) location.href = location.pathname + "?camera_id=" + encodeURIComponent(seletor.value);
       else atualizarTopo();
     });
   }

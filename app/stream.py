@@ -21,6 +21,7 @@ import numpy as np
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.calibracao import dados_calibracao, desenhar_calibracao
 from app.config import RAIZ, Ajustes, config_da_camera
 from app.models import Camera, MetricaSessao
 from app.privacy import Borrador, ImagemBorrada
@@ -50,6 +51,7 @@ HORAS_CORDAO = 12              # guarda no máximo 12 h de trechos na memória
 GRAVIDADE_CORDAO = {"V": 0, "C": 1, "I": 2, "N": 3}
 CODIGO_ESTADO = {Estado.CONFORME: "C", Estado.INDETERMINADO: "I", Estado.NAO_CONFORME: "N"}
 FRACAO_PESSOAS_CORDAO = 0.25   # com gente em menos de 1/4 dos quadros do trecho, ele conta como "ninguém no quadro"
+CALIBRACAO_ATIVA_S = 5         # RD02: o quadro de calibração só é desenhado enquanto alguém olha a tela T07
 
 
 def jpeg(img: np.ndarray, largura_max: int = LARGURA_STREAM, qualidade: int = QUALIDADE_STREAM) -> bytes:
@@ -155,6 +157,9 @@ class TrabalhadorCamera(threading.Thread):
         self._cordao: dict[int, list[int]] = {}              # nº do trecho de 10 s -> quadros [V, C, I, N]
         self._contagem = {"frames": 0, "ignorados": 0, "pessoas": 0, Estado.CONFORME: 0, Estado.NAO_CONFORME: 0,
                           Estado.INDETERMINADO: 0}
+        self._calibracao_ate = 0.0                           # RD02: até quando desenhar o quadro de calibração
+        self._jpeg_calibracao: bytes | None = None
+        self._dados_calibracao: dict | None = None
 
     # ---------------------------------------------------------------- leitura pelas rotas (outras threads)
     @property
@@ -168,6 +173,35 @@ class TrabalhadorCamera(threading.Thread):
             if self._quadro is None or self._resultado is None:
                 return None
             return self._quadro.copy(), self._resultado
+
+    # ---------------------------------------------------------------- calibração (RD02, tela T07)
+    def pedir_calibracao(self) -> None:
+        """Liga o desenho de calibração por alguns segundos (a tela T07 renova o pedido enquanto está aberta)."""
+        self._calibracao_ate = time.monotonic() + CALIBRACAO_ATIVA_S
+
+    @property
+    def jpeg_calibracao(self) -> bytes:
+        """Quadro com o desenho técnico; com a câmera pausada ou fora do ar, o mesmo aviso do ao vivo."""
+        self.pedir_calibracao()
+        with self._trava:
+            if self._jpeg_calibracao is None or self.pausada or not self.online:
+                return self._jpeg
+            return self._jpeg_calibracao
+
+    def dados_calibracao(self) -> dict | None:
+        """Números do último quadro calibrado (None enquanto o primeiro não fica pronto)."""
+        self.pedir_calibracao()
+        with self._trava:
+            return self._dados_calibracao
+
+    def _calibrar(self, frame: np.ndarray, resultado: ResultadoFrame, base) -> None:
+        def desenho(img: np.ndarray) -> np.ndarray:
+            return desenhar_calibracao(img, frame, resultado, self.config, self.nome)
+        imagem = base.com_desenho(desenho).pixels if isinstance(base, ImagemBorrada) else desenho(base)
+        dados = {**dados_calibracao(frame, resultado, self.config), "fps": round(self.fps, 1)}
+        quadro = jpeg(imagem)
+        with self._trava:
+            self._jpeg_calibracao, self._dados_calibracao = quadro, dados
 
     def status(self) -> dict:
         with self._trava:
@@ -188,14 +222,19 @@ class TrabalhadorCamera(threading.Thread):
             for chave, valor in estado.items():
                 setattr(self, chave, valor)
 
-    def _desenhar(self, frame: np.ndarray, resultado: ResultadoFrame) -> np.ndarray:
-        """Quadro do stream: borrado (se configurado, F2-D20) e com caixas, rótulos e FPS."""
-        if self.borrador_ao_vivo is not None:
-            pessoas = [a.pessoa for a in resultado.avaliacoes]
-            rostos = [r.caixa for r in (resultado.rostos or [])]
-            base: np.ndarray | ImagemBorrada = self.borrador_ao_vivo.borrar(frame, pessoas, rostos)
-            return base.com_desenho(lambda img: desenhar(img, resultado, [f"{self.nome} | {self.fps:.1f} FPS"])).pixels
-        return desenhar(frame, resultado, [f"{self.nome} | {self.fps:.1f} FPS"])
+    def _base(self, frame: np.ndarray, resultado: ResultadoFrame) -> np.ndarray | ImagemBorrada:
+        """Imagem sobre a qual o stream é desenhado: borrada (se configurado, F2-D20) ou o próprio quadro."""
+        if self.borrador_ao_vivo is None:
+            return frame
+        pessoas = [a.pessoa for a in resultado.avaliacoes]
+        rostos = [r.caixa for r in (resultado.rostos or [])]
+        return self.borrador_ao_vivo.borrar(frame, pessoas, rostos)
+
+    def _desenhar(self, base: np.ndarray | ImagemBorrada, resultado: ResultadoFrame) -> np.ndarray:
+        """Quadro do stream: caixas, rótulos e FPS por cima da base."""
+        def desenho(img: np.ndarray) -> np.ndarray:
+            return desenhar(img, resultado, [f"{self.nome} | {self.fps:.1f} FPS"])
+        return base.com_desenho(desenho).pixels if isinstance(base, ImagemBorrada) else desenho(base)
 
     def _registrar(self, ocorrencias, frame: np.ndarray, resultado: ResultadoFrame) -> None:
         for oc in ocorrencias:
@@ -325,7 +364,10 @@ class TrabalhadorCamera(threading.Thread):
                 agora = time.monotonic()
                 if agora - inicio_fps >= 2:
                     self.fps, inicio_fps, frames_fps = frames_fps / (agora - inicio_fps), agora, 0
-                quadro = jpeg(self._desenhar(frame, tela))
+                base = self._base(frame, resultado)
+                quadro = jpeg(self._desenhar(base, tela))
+                if time.monotonic() < self._calibracao_ate:   # RD02: alguém está com a tela de calibração aberta
+                    self._calibrar(frame, resultado, base)
                 with self._trava:
                     self._quadro, self._resultado = frame, tela
                 self._publicar(quadro, online=True, saturado=resultado.saturado,
@@ -385,14 +427,15 @@ class GerenciadorCameras:
 
 async def gerar_mjpeg(trabalhador: TrabalhadorCamera, desconectado: Callable[[], object],
                       quadros_por_segundo: float = QUADROS_POR_SEGUNDO_MJPEG,
-                      max_quadros: int | None = None) -> AsyncIterator[bytes]:
+                      max_quadros: int | None = None, calibracao: bool = False) -> AsyncIterator[bytes]:
     """Partes do stream MJPEG (multipart/x-mixed-replace): o navegador troca a imagem a cada parte recebida.
 
     Cada navegador recebe o último quadro pronto; vários supervisores olhando não aumentam o custo da detecção.
+    Com `calibracao`, envia o quadro com o desenho técnico da tela T07 (RD02).
     """
     anterior, enviados = None, 0
     while not await desconectado():
-        quadro = trabalhador.ultimo_jpeg
+        quadro = trabalhador.jpeg_calibracao if calibracao else trabalhador.ultimo_jpeg
         if quadro is not anterior:
             yield (b"--quadro\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(quadro)).encode()
                    + b"\r\n\r\n" + quadro + b"\r\n")

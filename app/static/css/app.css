@@ -186,6 +186,34 @@ body { min-height: 100vh; background: var(--chapa); color: var(--aco); }
 .amostra-v { background: var(--vazio); }
 .amostra-off { background: var(--trilho); border: 1px solid var(--linha); }
 
+/* ---------- T07: calibração ---------- */
+.calibracao { display: grid; gap: 1rem; grid-template-areas: "video" "valores"; }
+.calibracao > .cartao { margin-top: 0; min-width: 0; }
+.area-valores { grid-area: valores; }
+@media (min-width: 1200px) {
+  .calibracao { grid-template-columns: minmax(0, 2fr) minmax(19rem, 1fr); align-items: start;
+    grid-template-areas: "video valores"; }
+}
+.medidor { position: relative; height: .8rem; background: var(--trilho); border-radius: .4rem; }
+.medidor-valor { height: 100%; width: 0; border-radius: .4rem; background: var(--grafite); }
+/* acima do limite = arco: única outra tela em que a fita amarela e aço aparece */
+.medidor.acima .medidor-valor { background: repeating-linear-gradient(-45deg, var(--indeterminado) 0 8px, var(--aco) 8px 16px); }
+.medidor-limite { position: absolute; top: -.3rem; bottom: -.3rem; width: 3px; margin-left: -1px; background: var(--aco); }
+.legenda-calibracao li { display: flex; align-items: center; gap: .5rem; font-size: .9rem; }
+.legenda-calibracao li + li { margin-top: .25rem; }
+.legenda-calibracao .amostra { width: 1rem; height: .7rem; border-radius: .15rem; border: 1px solid var(--grafite); flex-shrink: 0; }
+.amostra[data-cor="ciano"] { background: #00FFFF; }
+.amostra[data-cor="amarelo"] { background: #FFFF00; }
+.amostra[data-cor="magenta"] { background: #FF00FF; }
+.amostra[data-cor="branco"] { background: #FFFFFF; }
+.amostra[data-cor="laranja"] { background: #FF8C00; }
+.calibra-pessoa { border: 1px solid var(--linha); border-radius: .4rem; padding: .7rem .85rem; }
+.calibra-pessoa + .calibra-pessoa { margin-top: .6rem; }
+.calibra-pessoa dl { display: grid; grid-template-columns: auto 1fr; gap: .25rem .75rem; margin: .6rem 0 0; font-size: .9rem; }
+.calibra-pessoa dt { font-weight: 400; color: var(--grafite); }
+.calibra-pessoa dd { margin: 0; }
+.limite { color: var(--grafite); font-size: .8rem; }
+
 /* ---------- T03: área de envio ---------- */
 .area-envio { border: 2px dashed #A9B4BF; border-radius: .6rem; background: var(--branco); padding: 2.2rem 1rem;
   text-align: center; transition: border-color .15s, background .15s; }

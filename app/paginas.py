@@ -1,5 +1,5 @@
-"""Páginas HTML (Jinja2) da Etapa 2.4: login, troca de senha, Ao vivo (T02), Analisar arquivo (T03), Ocorrências (T04)
-e Usuários (T08). Os dados vêm da API (JavaScript em static/js); as páginas só montam o esqueleto.
+"""Páginas HTML (Jinja2): login, troca de senha, Ao vivo (T02), Analisar arquivo (T03), Ocorrências (T04), Usuários
+(T08) e, na Etapa 2.5, Calibração (T07). Os dados vêm da API (JavaScript em static/js); as páginas só montam o esqueleto.
 
 Sem login, qualquer página leva ao /login (e volta para onde estava depois de entrar). A API continua respondendo
 401 (docs/wireframes_fase2.md, seção 5).
@@ -118,14 +118,31 @@ def pagina_ocorrencias(request: Request) -> Response:
                    turnos=sorted(request.app.state.ctx.ajustes.turnos))
 
 
+def _so_admin(request: Request, usuario: UsuarioSessao, mensagem: str) -> HTMLResponse:
+    """Página 403 para o SUPERVISOR que abrir uma tela de administração pelo endereço."""
+    resposta = _pagina(request, "erro.html", usuario, "", titulo="Página só para administradores", mensagem=mensagem)
+    resposta.status_code = 403
+    return resposta
+
+
 @rotas.get("/usuarios")
 def pagina_usuarios(request: Request) -> Response:
     usuario = _usuario_ou_redirecionar(request)
     if isinstance(usuario, RedirectResponse):
         return usuario
     if not usuario.admin:
-        resposta = _pagina(request, "erro.html", usuario, "", titulo="Página só para administradores",
-                           mensagem="A gestão de usuários é feita pelo administrador do sistema.")
-        resposta.status_code = 403
-        return resposta
+        return _so_admin(request, usuario, "A gestão de usuários é feita pelo administrador do sistema.")
     return _pagina(request, "usuarios.html", usuario, "usuarios")
+
+
+@rotas.get("/calibracao")
+def pagina_calibracao(request: Request, camera_id: int | None = None) -> Response:
+    """T07 (RD02): o administrador confere no próprio posto os números que as regras usam."""
+    usuario = _usuario_ou_redirecionar(request)
+    if isinstance(usuario, RedirectResponse):
+        return usuario
+    if not usuario.admin:
+        return _so_admin(request, usuario, "A calibração dos postos é feita pelo administrador do sistema.")
+    ids = request.app.state.ctx.cameras.ids()
+    selecionada = camera_id if camera_id in ids else (ids[0] if ids else None)
+    return _pagina(request, "calibracao.html", usuario, "calibracao", camera_id=selecionada)

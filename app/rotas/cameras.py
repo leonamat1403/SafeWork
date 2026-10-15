@@ -47,6 +47,27 @@ def stream(camera_id: int, request: Request, max_quadros: int | None = Query(Non
                              media_type="multipart/x-mixed-replace; boundary=quadro", headers=SEM_CACHE)
 
 
+@rotas.get("/cameras/{camera_id}/calibracao.mjpg")
+def stream_calibracao(camera_id: int, request: Request,
+                      max_quadros: int | None = Query(None, ge=1, include_in_schema=False),
+                      _: UsuarioSessao = Depends(exigir_admin)) -> StreamingResponse:
+    """Vídeo da calibração (RD02, T07): pontos do corpo, cabeça, linha dos olhos, rostos, cobertura da máscara e o
+    brilho perto das mãos. Também borrado. Só ADMIN."""
+    trabalhador = _trabalhador(request, camera_id)
+    return StreamingResponse(gerar_mjpeg(trabalhador, request.is_disconnected, max_quadros=max_quadros,
+                                         calibracao=True),
+                             media_type="multipart/x-mixed-replace; boundary=quadro", headers=SEM_CACHE)
+
+
+@rotas.get("/calibracao/{camera_id}")
+def valores_calibracao(camera_id: int, request: Request, _: UsuarioSessao = Depends(exigir_admin)) -> dict:
+    """Números de agora para a tela T07 (consultado a cada 1 s), com os limites do posto ao lado."""
+    trabalhador = _trabalhador(request, camera_id)
+    dados = trabalhador.dados_calibracao()
+    return {"camera_id": camera_id, "nome": trabalhador.nome, "online": trabalhador.online,
+            "pausada": trabalhador.pausada, "aguardando": dados is None, "pessoas": [], **(dados or {})}
+
+
 @rotas.get("/status")
 def status_ao_vivo(request: Request, camera_id: int | None = None,
                    _: UsuarioSessao = Depends(usuario_liberado)) -> dict:

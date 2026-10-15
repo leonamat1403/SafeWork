@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Calibração{% endblock %}
+{% block dados %}data-camera-id="{{ camera_id or '' }}"{% endblock %}
+{% block conteudo %}
+{% if not camera_id %}
+<div class="cartao">
+  <h1 class="titulo-pagina mb-2">Calibração</h1>
+  <p class="mb-0">Nenhuma câmera ativa para calibrar. Ative um posto em Configurações.</p>
+</div>
+{% else %}
+<div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-3">
+  <h1 class="titulo-pagina">Calibração <small>{% for c in cameras if c.id == camera_id %}· {{ c.nome }}{% endfor %}</small></h1>
+  <a href="/configuracoes?camera_id={{ camera_id }}&amp;aba=epis">Ajustar limites em Configurações <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+</div>
+<p class="text-secondary">Os números que as regras usam, no próprio posto. Peça para alguém ficar no lugar do soldador
+  (de frente, de lado, com a máscara abaixada e levantada) e compare cada valor com o limite ao lado.</p>
+
+<div class="calibracao">
+  <div class="area-video">
+    <div class="quadro-video">
+      <img id="video" alt="Vídeo de calibração do posto, com as cabeças borradas e o desenho técnico de cada pessoa">
+    </div>
+    <section class="cartao mt-3" aria-labelledby="titulo-arco">
+      <h2 class="rotulo mb-2" id="titulo-arco">Pixels estourados no quadro (filtro do arco)</h2>
+      <div class="medidor" id="medidor-quadro"><div class="medidor-valor"></div><div class="medidor-limite"></div></div>
+      <p class="mb-0 mt-2" id="texto-quadro" aria-live="polite">Carregando…</p>
+    </section>
+    <section class="cartao legenda-calibracao" aria-labelledby="titulo-legenda">
+      <h2 class="rotulo mb-2" id="titulo-legenda">O que está desenhado</h2>
+      <ul class="list-unstyled mb-0">
+        <li><i class="amostra" data-cor="ciano"></i>região da cabeça e linha dos olhos (a máscara precisa cobrir a região)</li>
+        <li><i class="amostra" data-cor="amarelo"></i>pontos do corpo encontrados pela pose</li>
+        <li><i class="amostra" data-cor="magenta"></i>rosto descoberto encontrado pelo detector de rostos</li>
+        <li><i class="amostra" data-cor="branco"></i>máscara detectada, com a confiança</li>
+        <li><i class="amostra" data-cor="laranja"></i>região das mãos e o brilho dela (fica vermelha com o arco aceso)</li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="cartao area-valores" aria-labelledby="titulo-valores">
+    <h2 class="rotulo mb-2" id="titulo-valores">Valores agora</h2>
+    <div id="valores"><p class="text-secondary mb-0">Carregando…</p></div>
+  </section>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/js/calibracao.js?v={{ v }}"></script>{% endblock %}

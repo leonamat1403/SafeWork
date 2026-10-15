@@ -109,22 +109,22 @@ def desenhar(frame: np.ndarray, resultado: ResultadoFrame, linhas_hud: list[str]
         x1, y1, x2, y2 = map(int, aval.pessoa.caixa)
         cv2.rectangle(img, (x1, y1), (x2, y2), cor, grossa)
         _texto_com_fundo(img, aval.rotulo, x1, y1, cor, fator=f)
-        if debug:
+        if debug:   # traços crescem com a imagem (num 4K reduzido para a tela, 1 px some)
             if aval.regioes.cabeca is not None:
                 cx1, cy1, cx2, cy2 = map(int, aval.regioes.cabeca)
-                cv2.rectangle(img, (cx1, cy1), (cx2, cy2), (255, 255, 0), 1)
+                cv2.rectangle(img, (cx1, cy1), (cx2, cy2), (255, 255, 0), fina)
             if aval.regioes.linha_olhos_y is not None and aval.regioes.cabeca is not None:
                 y = int(aval.regioes.linha_olhos_y)
-                cv2.line(img, (int(aval.regioes.cabeca[0]), y), (int(aval.regioes.cabeca[2]), y), (255, 255, 0), 1)
+                cv2.line(img, (int(aval.regioes.cabeca[0]), y), (int(aval.regioes.cabeca[2]), y), (255, 255, 0), fina)
             for kp in aval.pessoa.keypoints:
                 if kp.conf >= 0.5:
-                    cv2.circle(img, (int(kp.x), int(kp.y)), 3, (0, 255, 255), -1)
+                    cv2.circle(img, (int(kp.x), int(kp.y)), max(3, round(3 * f)), (0, 255, 255), -1)
     if debug and resultado.rostos:
         for rosto in resultado.rostos:   # rostos descobertos encontrados pelo YuNet (magenta)
             x1, y1, x2, y2 = map(int, rosto.caixa)
-            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), 2)
-            cv2.putText(img, f"rosto {rosto.conf:.2f}", (x1, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
-                        (255, 0, 255), 1, cv2.LINE_AA)
+            cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 255), max(2, round(2 * f)))
+            cv2.putText(img, f"rosto {rosto.conf:.2f}", (x1, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.4 * f,
+                        (255, 0, 255), fina, cv2.LINE_AA)
 
     y = round(22 * f)
     for linha in linhas_hud:
