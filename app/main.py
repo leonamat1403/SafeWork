@@ -28,8 +28,9 @@ from app.database import aplicar_migracoes, criar_engine, criar_fabrica_sessoes
 from app.models import Camera, ConfigEpiCamera
 from app.privacy import Borrador, DetectorRostosQuadro
 from app.registro import RegistradorOcorrencias
-from app.rotas import acesso, cameras, configuracoes, ocorrencias, painel, uploads, usuarios
+from app.rotas import acesso, cameras, configuracoes, ocorrencias, painel, relatorios, uploads, usuarios
 from app import sistema
+from app.notificador import Enviar, Notificador, enviar_http
 from app.scheduler import iniciar_agendador
 from app.storage import StorageDisco
 from app.stream import GerenciadorCameras
@@ -62,6 +63,7 @@ class Contexto:
     cameras: GerenciadorCameras
     uploads: FilaUploads
     tentativas: ControleTentativas
+    notificador: Notificador | None = None   # RD09: alerta pelo Telegram
     config_yaml: Config | None = None     # como veio do config.yaml (base para reaplicar a aba Sistema)
     ajustes_yaml: Ajustes | None = None
     agendador: object | None = None
@@ -89,8 +91,10 @@ def _chave_da_sessao(ajustes: Ajustes) -> str:
 
 
 def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config], object] = Detector,
-              criar_fonte: Callable[[str], object] = FonteVideo, iniciar_rotinas: bool = True) -> FastAPI:
-    """Monta o sistema. Os parâmetros permitem trocar o detector e a câmera por simulações nos testes."""
+              criar_fonte: Callable[[str], object] = FonteVideo, iniciar_rotinas: bool = True,
+              enviar_telegram: Enviar = enviar_http) -> FastAPI:
+    """Monta o sistema. Os parâmetros permitem trocar o detector, a câmera e o envio ao Telegram por simulações nos
+    testes (os testes nunca usam a rede)."""
     ajustes = ajustes or carregar_ajustes()
     chave = _chave_da_sessao(ajustes)
 
@@ -110,6 +114,8 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
         borrador = Borrador(DetectorRostosQuadro(config_base.modelos.rosto, config_base.deteccao.conf_rosto),
                             config_base.deteccao.conf_keypoint)
         registrador = RegistradorOcorrencias(fabrica, storage, borrador, em_uso.turnos)
+        notificador = Notificador(em_uso, storage, fabrica, enviar_telegram)
+        registrador.notificador = notificador
         # Ao vivo, só as cabeças da pose e os rostos já achados (sem rodar o detector de rostos de novo: CPU)
         borrador_ao_vivo = Borrador(None, config_base.deteccao.conf_keypoint) if ajustes.borrar_ao_vivo else None
         ctx = Contexto(
@@ -118,8 +124,9 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
             cameras=GerenciadorCameras(em_uso, config_base, fabrica, registrador, borrador_ao_vivo, criar_detector,
                                        criar_fonte),
             uploads=FilaUploads(em_uso, config_base, fabrica, registrador, criar_detector),
-            tentativas=ControleTentativas(), config_yaml=config_yaml, ajustes_yaml=ajustes)
+            tentativas=ControleTentativas(), notificador=notificador, config_yaml=config_yaml, ajustes_yaml=ajustes)
         app.state.ctx = ctx
+        notificador.iniciar()
         ctx.cameras.iniciar()
         ctx.uploads.iniciar()
         if iniciar_rotinas:
@@ -132,6 +139,7 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
                 ctx.agendador.shutdown(wait=False)
             ctx.uploads.parar()
             ctx.cameras.parar()
+            notificador.parar()
             engine.dispose()
             log.info("Sistema encerrado.")
 
@@ -165,7 +173,7 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
             return get_swagger_ui_html(openapi_url="/openapi.json", title="Verificador de EPIs – API",
                                        swagger_ui_parameters={"withCredentials": True, "persistAuthorization": True})
 
-    for modulo in (acesso, cameras, configuracoes, uploads, ocorrencias, painel, usuarios, paginas):
+    for modulo in (acesso, cameras, configuracoes, uploads, ocorrencias, painel, relatorios, usuarios, paginas):
         app.include_router(modulo.rotas)
     app.mount("/static", StaticFiles(directory=PASTA_ESTATICOS), name="static")
     return app

@@ -267,6 +267,18 @@ def ver_sistema(request: Request, _: UsuarioSessao = Depends(exigir_admin)) -> d
     }
 
 
+@rotas.post("/config/telegram/teste", dependencies=[Depends(exigir_csrf)])
+def testar_telegram(request: Request, admin: UsuarioSessao = Depends(exigir_admin)) -> dict:
+    """Manda uma mensagem de teste (sem foto) para conferir o token e a conversa do .env."""
+    ctx = request.app.state.ctx
+    try:
+        ctx.notificador.testar()
+    except Exception as erro:
+        raise _erro(f"Mensagem não enviada: {erro}.", status.HTTP_502_BAD_GATEWAY) from erro
+    auditar(ctx.fabrica, admin.id, "alterar_config", {"alvo": "telegram", "acao": "teste"})
+    return {"enviado": True}
+
+
 @rotas.put("/config/sistema", dependencies=[Depends(exigir_csrf)])
 def salvar_sistema(novos: dict, request: Request, admin: UsuarioSessao = Depends(exigir_admin)) -> dict:
     """Muda só os campos enviados. As câmeras são religadas com os valores novos."""

@@ -131,6 +131,8 @@ def atualizar_contexto(ctx) -> None:
     config, ajustes = aplicar(ctx.config_yaml, ctx.ajustes_yaml, ler_banco(ctx.fabrica))
     ctx.config_base, ctx.ajustes = config, ajustes
     ctx.registrador.turnos = ajustes.turnos
+    if ctx.notificador is not None:
+        ctx.notificador.ajustes = ajustes
     ctx.uploads.config_base, ctx.uploads.ajustes = config, ajustes
     ctx.cameras.config_base, ctx.cameras.ajustes = config, ajustes
     if ctx.agendador is not None:

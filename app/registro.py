@@ -33,6 +33,7 @@ class RegistradorOcorrencias:
         self.borrador = borrador
         self.turnos = turnos
         self.sem_espaco = False   # vira True quando o disco enche (o status ao vivo mostra o alerta)
+        self.notificador = None   # RD09: alerta pelo Telegram (app/notificador.py), ligado pelo main
 
     def imagem_anotada(self, frame: np.ndarray, resultado: ResultadoFrame) -> ImagemBorrada:
         """Cópia BORRADA do frame com as caixas e os rótulos desenhados por cima (o que vai para o disco)."""
@@ -96,4 +97,6 @@ class RegistradorOcorrencias:
                 self.storage.apagar(caminhos.thumb)
             raise
         log.info("Ocorrência registrada: câmera %d, %s (%s)", camera_id, detectada.descricao(), uuid)
+        if self.notificador is not None:
+            self.notificador.avisar(registro)   # só entra na fila: o envio não atrasa a câmera
         return registro

@@ -1,7 +1,15 @@
 {% extends "base.html" %}
 {% block titulo %}Painel{% endblock %}
 {% block conteudo %}
-<h1 class="titulo-pagina mb-3">Painel</h1>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+  <h1 class="titulo-pagina">Painel</h1>
+  <div class="d-flex align-items-end gap-2" role="group" aria-label="Relatório mensal em PDF">
+    <div><label class="form-label rotulo" for="pdf-mes">Relatório do mês (PDF)</label>
+      <input type="month" class="form-control form-control-sm" id="pdf-mes"></div>
+    <a class="btn btn-sm btn-outline-primary" id="baixar-pdf" href="/api/relatorios/mensal.pdf" download>
+      <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Baixar PDF</a>
+  </div>
+</div>
 
 <form class="cartao" id="filtros" aria-label="Filtros do painel">
   <div class="d-flex flex-wrap gap-2 mb-2" role="group" aria-label="Períodos prontos">

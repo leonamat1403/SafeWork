@@ -67,9 +67,16 @@ def ajustes_de_teste(tmp_path, **extra):
     return carregar_ajustes(ambiente=ambiente)
 
 
+TELEGRAM_ENVIADOS: list = []   # o que teria ido para o Telegram (os testes nunca usam a rede)
+
+
+def telegram_falso(token, metodo, campos, foto=None):
+    TELEGRAM_ENVIADOS.append((metodo, campos, foto))
+
+
 def montar(tmp_path, fonte=FonteFalsa, **extra) -> TestClient:
     sistema = criar_app(ajustes_de_teste(tmp_path, **extra), criar_detector=lambda config: DetectorFalso(),
-                        criar_fonte=fonte, iniciar_rotinas=False)
+                        criar_fonte=fonte, iniciar_rotinas=False, enviar_telegram=telegram_falso)
     return TestClient(sistema)
 
 

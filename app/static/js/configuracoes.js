@@ -317,9 +317,18 @@
         : "Não configurado: coloque TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no arquivo .env e reinicie o sistema.";
       $("s-telegram-ativo").checked = t.configurado && v.telegram_ativo;
       $("s-telegram-ativo").disabled = !t.configurado;
+      $("s-telegram-teste").disabled = !t.configurado;
       mostrarDisco(d.disco);
     } catch (falha) { aviso(falha.message, "erro"); }
   }
+
+  $("s-telegram-teste").addEventListener("click", async () => {
+    $("s-telegram-teste").disabled = true;
+    try {
+      await api("/api/config/telegram/teste", { method: "POST" });
+      aviso("Mensagem de teste enviada. Confira no Telegram.");
+    } catch (falha) { aviso(falha.message, "erro"); } finally { $("s-telegram-teste").disabled = false; }
+  });
 
   $("form-sistema").addEventListener("submit", async (evento) => {
     evento.preventDefault();

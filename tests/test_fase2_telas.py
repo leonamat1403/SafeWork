@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+from app import VERSAO
 from app.models import Auditoria, Usuario
 from app.paginas import destino_seguro
 from app.rotas.usuarios import ALFABETO_TEMPORARIA
@@ -114,7 +115,7 @@ def test_ao_vivo_mostra_o_posto_e_o_token_csrf(cliente):
     assert f'<meta name="csrf-token" content="{token}">' in html
     assert 'data-camera-id="1"' in html and "Webcam 0" in html and 'id="cordao"' in html
     assert 'id="botao-pausar"' in html                          # só o ADMIN vê "Pausar posto"
-    assert 'href="/usuarios"' in html and "v2.4" in html
+    assert 'href="/usuarios"' in html and f"v{VERSAO}" in html
     assert cliente.get("/ao-vivo?camera_id=99").status_code == 200   # posto inexistente: mostra o primeiro
 
 
@@ -134,7 +135,7 @@ def test_telas_de_upload_e_ocorrencias(cliente):
     upload = cliente.get("/upload").text
     assert 'data-tamanho-max-mb="200"' in upload and 'accept=".jpg,.jpeg,.png,.mp4' in upload
     ocorrencias = cliente.get("/ocorrencias").text
-    assert re.search(r'<button[^>]*disabled[^>]*>\s*<i[^>]*></i> Exportar CSV', ocorrencias)   # Etapa 2.5
+    assert re.search(r'<a[^>]*id="exportar"[^>]*href="/api/ocorrencias/exportar.csv"', ocorrencias)   # RD10
     for turno in ("1", "2", "3"):
         assert f'<option value="{turno}">' in ocorrencias
     assert 'id="botao-excluir"' in ocorrencias                                    # ADMIN exclui

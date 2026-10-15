@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Ajustes
 from app.models import Auditoria, Ocorrencia
+from app.relatorios import guardar_relatorio_do_mes_passado
 from app.storage import ErroArmazenamento, Storage
 from app.tempo import FUSO, agora_utc, para_local
 
@@ -115,10 +116,14 @@ def iniciar_agendador(ajustes: Ajustes, fabrica_sessoes: sessionmaker[Session], 
     agendador.add_job(_protegida, CronTrigger(hour=3, minute=0, timezone=FUSO), id="retencao",
                       args=["retenção", apagar_ocorrencias_antigas, fabrica_sessoes, storage, ajustes.retencao_dias],
                       **opcoes)
+    agendador.add_job(_protegida, CronTrigger(day=1, hour=6, minute=0, timezone=FUSO), id="relatorio",
+                      args=["relatório mensal", guardar_relatorio_do_mes_passado, fabrica_sessoes,
+                            ajustes.data_dir / "relatorios", ajustes.turnos], **opcoes)   # RD10
     agendador.add_job(_protegida, IntervalTrigger(minutes=15), id="uploads",
                       args=["limpeza de uploads", limpar_uploads, ajustes.data_dir / "uploads_temp",
                             ajustes.uploads_max_idade_s], **opcoes)
     agendador.start()
-    log.info("Rotinas agendadas: backup 02:00, retenção 03:00 (%d dias), uploads a cada 15 min",
+    log.info("Rotinas agendadas: backup 02:00, retenção 03:00 (%d dias), relatório mensal dia 1º 06:00, "
+             "uploads a cada 15 min",
              ajustes.retencao_dias)
     return agendador

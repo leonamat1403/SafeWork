@@ -28,3 +28,8 @@ itsdangerous==2.2.0        # cookie de sessão assinado
 bcrypt==5.0.0              # hash das senhas
 jinja2==3.1.6              # telas (Etapa 2.4)
 httpx2==2.13.1             # cliente de testes do FastAPI (pytest)
+
+# --- Fase 2: desejáveis (Etapa 2.5) ----------------------------------------------------------------------
+reportlab==4.2.5           # relatório mensal em PDF (RD10)
+chardet==7.6.0             # dependência do reportlab
+# Chart.js 4.4.7 (gráficos do Painel) não é pacote Python: fica em app/static/vendor/chartjs (sem CDN)

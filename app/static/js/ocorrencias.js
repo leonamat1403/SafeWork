@@ -133,6 +133,9 @@
       $("anterior").disabled = pagina <= 1;
       $("proxima").disabled = pagina >= paginas;
       if (manterModal && uuidAberto) atual = itens.findIndex((oc) => oc.uuid === uuidAberto);
+      const exportar = new URLSearchParams(params);
+      exportar.delete("pagina");
+      $("exportar").href = "/api/ocorrencias/exportar.csv?" + exportar.toString();   // RD10: mesmos filtros da tela
       gravarEndereco();
     } catch (falha) {
       aviso(falha.message, "erro");

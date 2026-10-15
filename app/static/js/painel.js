@@ -205,6 +205,17 @@
       : "";
   }
 
+  // ---------------------------------------------------------------- relatório mensal em PDF (RD10)
+  function linkPdf() {
+    const pdf = new URLSearchParams();
+    if ($("pdf-mes").value) pdf.set("mes", $("pdf-mes").value);
+    if ($("f-posto").value) pdf.set("camera_id", $("f-posto").value);
+    $("baixar-pdf").href = "/api/relatorios/mensal.pdf?" + pdf.toString();
+  }
+  $("pdf-mes").value = $("pdf-mes").max = hoje().slice(0, 7);
+  $("pdf-mes").addEventListener("change", linkPdf);
+  $("f-posto").addEventListener("change", linkPdf);
+
   // ---------------------------------------------------------------- carregar
   async function carregar() {
     const painel = $("painel");
@@ -214,6 +225,7 @@
       $("f-inicio").value = d.periodo.inicio;
       $("f-fim").value = d.periodo.fim;
       history.replaceState(null, "", "/dashboard?" + filtros().toString());
+      linkPdf();
       numeros(d);
       porDia(d);
       estados(d);

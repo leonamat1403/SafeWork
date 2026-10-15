@@ -79,11 +79,12 @@ def test_limpeza_de_uploads_apaga_so_os_antigos(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == ["novo.mp4"]
 
 
-def test_agendador_registra_as_tres_rotinas(fabrica, storage, data_dir, url_banco):
+def test_agendador_registra_as_rotinas(fabrica, storage, data_dir, url_banco):
     ajustes = carregar_ajustes(ambiente={"DATA_DIR": str(data_dir), "DATABASE_URL": url_banco})
     agendador = iniciar_agendador(ajustes, fabrica, storage)
     try:
-        assert {j.id for j in agendador.get_jobs()} == {"backup", "retencao", "uploads"}
+        assert {j.id for j in agendador.get_jobs()} == {"backup", "retencao", "uploads", "relatorio"}
         assert str(agendador.get_job("retencao").trigger.timezone) == "America/Sao_Paulo"
+        assert str(agendador.get_job("relatorio").trigger) == "cron[day='1', hour='6', minute='0']"   # RD10
     finally:
         agendador.shutdown(wait=False)
