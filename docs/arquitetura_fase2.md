@@ -1,4 +1,4 @@
-# Arquitetura do sistema completo – Fase 2 (Etapa 2.1, atualizada até a 2.4)
+# Arquitetura do sistema completo – Fase 2 (Etapa 2.1, atualizada até a 2.5)
 
 **Data:** 14/10/2026. A Fase 1 foi validada para a **máscara de solda** (`docs/relatorio_validacao_fase1.md`).
 Esta etapa define **como** o sistema completo vai funcionar: componentes, modelo de dados, rotas e a integração com o
@@ -153,7 +153,7 @@ Perfis: **A** = só ADMIN; **A/S** = ADMIN e SUPERVISOR.
 | `GET /ao-vivo` | T02 Monitoramento ao vivo | A/S |
 | `GET /upload` | T03 Análise por upload | A/S |
 | `GET /ocorrencias` | T04 Ocorrências | A/S |
-| `GET /dashboard` | T05 Dashboard (RD04) | A/S |
+| `GET /dashboard` | T05 Painel (RD04) | A/S |
 | `GET /configuracoes` | T06 Configurações (RD05, RD06) | A |
 | `GET /calibracao` | T07 Calibração (RD02) | A |
 | `GET /usuarios` | T08 Usuários | A |
@@ -177,13 +177,14 @@ Perfis: **A** = só ADMIN; **A/S** = ADMIN e SUPERVISOR.
 | `GET /api/ocorrencias/{uuid}` | detalhes para o modal | A/S |
 | `POST /api/ocorrencias/{uuid}/validacao` | Confirmada / Falso positivo (auditado) | A/S |
 | `DELETE /api/ocorrencias/{uuid}` | exclusão manual (auditada) | A |
-| `GET /api/ocorrencias/exportar.csv` | exportação com os mesmos filtros (RD10, auditada) – **Etapa 2.5** (o botão já aparece, desativado) | A/S |
+| `GET /api/ocorrencias/exportar.csv` | exportação CSV com os mesmos filtros da tela (RD10, auditada) | A/S |
+| `GET /api/relatorios/mensal.pdf?mes=AAAA-MM&camera_id=` | relatório mensal em PDF, sem imagens (RD10, auditado) | A/S |
 | `GET /midia/{uuid}?tipo=imagem\|thumb` | imagem ou miniatura da ocorrência, só com login (RF24) | A/S |
-| `GET /api/dashboard` | números e séries dos gráficos (RD04) | A/S |
-| `GET, POST, PUT, DELETE /api/cameras[/{id}]` | cadastro de câmeras/postos (RD05) | A |
-| `GET, PUT /api/cameras/{id}/epis` | EPIs exigidos, confiança, persistência por posto (RF13) | A |
+| `GET /api/dashboard?inicio&fim&camera_id` | números e séries dos gráficos (RD04) | A/S |
+| `GET /api/config/cameras` · `POST /api/cameras` · `PUT, DELETE /api/cameras/{id}` | cadastro de postos/câmeras (RD05); remover só sem ocorrências | A |
+| `GET, PUT /api/cameras/{id}/epis` | máscara do posto: exigir, confiança, persistência, cobertura, levantada = falta (RF13) | A |
 | `PUT /api/cameras/{id}/roi` | zona de interesse (RD06) | A |
-| `GET, PUT /api/config/sistema` | cooldown, retenção, imgsz, arco, turnos, Telegram, uso de disco (RD05) | A |
+| `GET, PUT /api/config/sistema` · `POST /api/config/telegram/teste` | cooldown, retenção, imgsz, arco e solda ativa, turnos, Telegram (token mascarado), uso de disco (RD05); mensagem de teste (RD09) | A |
 | `GET /api/cameras/{id}/calibracao.mjpg` · `GET /api/calibracao/{id}` | stream com pontos e regiões do corpo e valores numéricos (RD02) | A |
 | `GET, POST /api/usuarios` · `POST /api/usuarios/{id}/desativar` · `/reativar` · `/senha` | gestão de usuários (T08): criar, desativar/reativar, senha temporária (mostrada uma vez); tudo auditado | A |
 
@@ -267,7 +268,11 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 - filtros, paginação e CSV com os mesmos filtros;
 - telas (Etapa 2.4, `tests/test_fase2_telas.py`): redirecionamento para o login e de volta, troca obrigatória de
   senha, menu de administração só para o ADMIN, nenhuma página com script/estilo dentro do HTML (CSP), todos os
-  arquivos carregados existem e são locais, gestão de usuários, resumo das ocorrências e o cordão do turno.
+  arquivos carregados existem e são locais, gestão de usuários, resumo das ocorrências e o cordão do turno;
+- desejáveis (Etapa 2.5): votação temporal e solda ativa (`test_fase2_deteccao.py`), calibração
+  (`test_fase2_calibracao.py`), painel (`test_fase2_painel.py`), configurações e zona de interesse – inclusive que
+  quem está fora da zona continua borrado (`test_fase2_configuracoes.py`), Telegram simulado, CSV e PDF
+  (`test_fase2_relatorios.py`). Os testes nunca usam a rede.
 
 ## 12. Próximas etapas (como no prompt)
 
@@ -276,7 +281,7 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 | 2.2 ✅ | `database.py`/`models.py` + Alembic + `storage.py` + `privacy.py` + `scheduler.py` + registro de ocorrências no banco + testes (e a refatoração F2-D2). Demonstração: `ferramentas/demo_registro.py` |
 | 2.3 ✅ | Backend FastAPI: autenticação, streaming ao vivo, upload, `/midia/{uuid}`, API de status e de ocorrências. Teste pela documentação interativa `/docs` (modo desenvolvimento) |
 | 2.4 ✅ | Wireframes T01–T08 + mapa de navegação (`docs/wireframes_fase2.md`, aprovados) → telas T01, T02, T03, T04 e T08 |
-| 2.5 | Desejáveis, na ordem: RD01, RD02 (T07), RD03, RD04 (T05), RD05 + RD06 (T06), RD07, RD08, depois os demais |
+| 2.5 ✅ | Desejáveis: RD01, RD02 (T07), RD03, RD04 (T05), RD05 + RD06 (T06), RD09, RD10. RD07 e RD08 não foram feitos (F2-D28) |
 | 2.6 | README completo, revisão LGPD, aviso de monitoramento e termo de autorização (RF30) |
 | 2.7 | Material acadêmico: metodologia, resultados, limitações, planilha antes x depois, roteiro da palestra |
 
@@ -311,3 +316,12 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 | F2-D25 | Telas sem nenhum script ou estilo dentro do HTML (CSP `script-src 'self'`, sem `unsafe-inline`); dados da API entram sempre como texto (`textContent`); CSS e JS com `?v=` que muda quando os arquivos mudam | um dado vindo do banco nunca vira código na página (XSS); o navegador não usa um arquivo velho do cache depois de uma atualização |
 | F2-D26 | Não existe "excluir usuário" (só desativar); ninguém desativa a si mesmo e sempre sobra um ADMIN ativo; a senha temporária gerada pelo ADMIN aparece **uma única vez** e obriga a troca no próximo acesso | o histórico de validações e a auditoria apontam para o usuário; o sistema não pode ficar sem administrador; o ADMIN não fica sabendo a senha definitiva de ninguém |
 | F2-D27 | Bootstrap, ícones e fontes ficam no próprio sistema (`app/static/vendor/`), sem CDN | a rede da fábrica pode não ter internet, e nada sai do computador |
+| F2-D28 | **Só a máscara de solda** no sistema todo (15/10/2026): as telas não mostram outros EPIs; RD07 (mosaico para luvas e calçado) e RD08 (classificador de luvas) **não foram implementados** e ficam como trabalho futuro | os dois só servem para luvas e calçado, que saíram do escopo; o RD08 ainda exigiria treinar um classificador com fotos de luvas que o projeto não tem |
+| F2-D29 | RD01: a votação (maioria dos últimos 5 quadros válidos da pessoa; empate = o mais recente) vale **só para a exibição** (caixas, rótulos, painel e vídeo do upload). As ocorrências continuam com 4 s / 75% | a regra das ocorrências já é uma votação no tempo e foi a validada na Fase 1; mudar a tela não pode mudar os números |
+| F2-D30 | RD03: arco aceso = pelo menos 3% de pixels estourados num quadrado em volta de um punho (lado = 24% da altura da pessoa); a pessoa continua "soldando" por 2 s. Máscara levantada com arco aceso é sempre falta; `exigir_mascara_somente_com_arco` (padrão **false**) faz a falta só contar com o arco aceso. A ocorrência guarda `arco_ativo` | o brilho do arco fica concentrado na tocha (nas mãos); o arco pisca, então sem a memória de 2 s o estado ficaria trocando; o padrão mantém a regra validada |
+| F2-D31 | RD06: a pessoa está na zona quando o ponto onde pisa (meio da base da caixa) cai no polígono; o polígono é guardado em frações da imagem. Quem fica fora não é avaliado, mas **continua borrado**. Trocar a câmera do posto apaga a zona | o chão define o posto melhor que a cabeça (quem passa ao fundo fica de fora); frações continuam valendo se a resolução mudar; privacidade não depende da zona |
+| F2-D32 | RD05: cada mudança religa só a câmera afetada (a aba Sistema religa todas), mantendo o cordão do turno, as últimas ocorrências e a pausa. Ajustes do sistema ficam em `config_sistema` por cima do config.yaml; um valor inválido no banco é ignorado com aviso no log | "vale sem reiniciar" (prompt) sem perder o turno; o sistema nunca deixa de iniciar por causa de um ajuste |
+| F2-D33 | Painel: conformidade = conformes ÷ (conformes + não conformes) de `metricas_sessao`, com os indeterminados à parte; "por tipo de EPI" virou sem máscara × máscara levantada; Chart.js 4.4.7 local, com a tabela "Ver dados" em cada gráfico e cores das séries validadas para daltonismo | indeterminado não é falta nem acerto; a mesma conta (app/estatisticas.py) vale para o painel e o PDF |
+| F2-D34 | RD09: o alerta do Telegram leva a **mesma imagem borrada** gravada no disco e um texto sem identificação; fila com thread própria; só com token no .env e ligado na tela; uploads não alertam. É a única saída de dados do sistema | exceção documentada ao "nada vai para a nuvem"; rede lenta não pode atrasar a câmera |
+| F2-D35 | RD10: CSV com `;`, vírgula decimal e BOM (Excel em português), células que começam com = + - @ viram texto; PDF mensal com ReportLab, sem imagens, também guardado em data/relatorios no dia 1º | abre direto no Excel; evita fórmulas maliciosas num nome de posto; o relatório pode circular por e-mail sem expor ninguém |
+| F2-D36 | RD02: o quadro de calibração só é desenhado enquanto a tela T07 está aberta (5 s depois do último pedido) | o desenho técnico custa CPU; ninguém olhando, nada é feito |

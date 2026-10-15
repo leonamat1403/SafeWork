@@ -338,6 +338,8 @@ avaliado: "ARCO DETECTADO – quadro ignorado" ou "CÂMERA OFFLINE". Em nenhum o
 └─────────────────┴─────────────────────────────────────────────────────────────────────────────────┘
 ```
 - "Conformidade" vem de `metricas_sessao` (tempo avaliado), não das ocorrências.
+- Implementação (Etapa 2.5): como o sistema verifica só a máscara (F2-D28), "por EPI" virou **sem máscara ×
+  máscara levantada** (barras empilhadas por turno), e a conformidade é a da máscara (F2-D33).
 - Todo gráfico tem a tabela de dados abaixo, num "Ver dados" (acessibilidade). Clique numa barra → T04 filtrada.
 
 ### T06 – Configurações (`/configuracoes`) · só ADMIN · RD05/RD06 · Etapa 2.5
@@ -366,6 +368,8 @@ avaliado: "ARCO DETECTADO – quadro ignorado" ou "CÂMERA OFFLINE". Em nenhum o
 │                        [ Desfazer ponto ] [ Limpar ] [ Salvar zona ]                             │
 └─────────────────┴─────────────────────────────────────────────────────────────────────────────────┘
 ```
+- Implementação (Etapa 2.5): a aba "EPIs por posto" virou **"Máscara por posto"** (os outros EPIs foram
+  descartados, F2-D28), e a aba Sistema ganhou a solda ativa (RD03) e a mensagem de teste do Telegram.
 - Toda alteração vale **sem reiniciar** e fica na auditoria. Botão `Salvar alterações` por aba; ao salvar, toast
   `Configurações do posto MIG 01 salvas.`
 

@@ -263,6 +263,8 @@ a.numero-cartao:hover { border-color: var(--acao); }
   border-radius: .4rem; background: #11181E; }
 
 /* ---------- Tabelas ---------- */
+/* textos só para leitor de tela (position: absolute) ficam presos na área de rolagem da tabela, não na página */
+.table-responsive { position: relative; }
 .tabela thead th { font-family: var(--fonte-titulo); font-weight: 600; font-size: .78rem; text-transform: uppercase;
   letter-spacing: .08em; color: var(--grafite); border-bottom-width: 2px; white-space: nowrap; }
 .tabela tbody tr.clicavel { cursor: pointer; }

@@ -7,8 +7,8 @@ as não conformidades (NR-6).
 > **Fase 1 – validação da detecção:** concluída e validada para a **máscara de solda**
 > (`docs/relatorio_validacao_fase1.md`). Execução por linha de comando, com janela do OpenCV.
 > **Fase 2 – sistema completo:** em andamento (`docs/arquitetura_fase2.md`). Etapas 2.2 (banco, imagens borradas,
-> rotinas), 2.3 (servidor web) e 2.4 (telas: login, ao vivo, analisar arquivo, ocorrências e usuários) prontas
-> (seção "Fase 2" abaixo).
+> rotinas), 2.3 (servidor web), 2.4 (telas) e 2.5 (painel, configurações, calibração, zona de interesse, solda ativa,
+> Telegram, CSV e PDF) prontas (seção "Fase 2" abaixo). O sistema verifica **só a máscara de solda**.
 
 ## Como funciona (resumo)
 
@@ -106,6 +106,16 @@ Arquitetura: `docs/arquitetura_fase2.md`. O código novo fica em `app/` e **impo
 | Visual: Bootstrap 5.3.8, Bootstrap Icons 1.13.2 e fontes **locais** (funciona sem internet) | `app/static/css/app.css`, `app/static/vendor/` |
 | "Cordão do turno" (estado de cada 10 s do turno) e gestão de usuários | `app/stream.py`, `app/rotas/cameras.py`, `app/rotas/usuarios.py` |
 
+| Etapa 2.5 – desejáveis (só máscara; RD07 e RD08 ficaram como trabalho futuro) | Arquivo |
+|---|---|
+| RD01 – tela estável: maioria dos últimos 5 quadros de cada pessoa (só a exibição) | `src/votacao.py` |
+| RD02 – Calibração (T07): desenho técnico e os números ao lado dos limites | `app/calibracao.py`, `/calibracao` |
+| RD03 – solda ativa: arco aceso perto das mãos (ocorrência marcada "Arco aceso") | `src/arc_filter.py`, `src/compliance.py` |
+| RD04 – Painel (T05) com Chart.js local | `app/estatisticas.py`, `app/rotas/painel.py`, `/dashboard` |
+| RD05 + RD06 – Configurações (T06): postos, máscara por posto, sistema e zona de interesse | `app/rotas/configuracoes.py`, `app/sistema.py`, `src/zona.py` |
+| RD09 – alerta pelo Telegram com a foto borrada (opcional) | `app/notificador.py` |
+| RD10 – exportação CSV (Ocorrências) e relatório mensal em PDF (Painel) | `app/rotas/ocorrencias.py`, `app/relatorios.py` |
+
 **Rodar o sistema web:**
 
 ```powershell
@@ -120,6 +130,15 @@ python -m app                   # Ctrl+C para encerrar
    (Confirmar falta / Marcar falso positivo; ← → passam de uma para outra).
 4. **Analisar arquivo:** arraste uma foto ou um vídeo; o resultado sai borrado e pode virar ocorrência.
 5. **Usuários** (só administrador): criar supervisor, desativar/reativar, gerar senha temporária.
+6. **Painel:** ocorrências por dia, turno e posto, conformidade da máscara e o relatório do mês em PDF.
+7. **Configurações** (só administrador): postos e câmeras, regras da máscara por posto, zona de interesse (desenhada
+   sobre a foto do posto) e ajustes do sistema. Tudo vale na hora, sem reiniciar.
+8. **Calibração** (só administrador): ponha alguém no lugar do soldador e compare os números com os limites.
+
+**Alerta pelo Telegram (opcional, RD09):** é a **única** informação que sai do computador. Para ligar, crie um bot
+com o @BotFather, coloque `TELEGRAM_TOKEN` e `TELEGRAM_CHAT_ID` no `.env`, reinicie o sistema e use
+"Enviar mensagem de teste" em Configurações > Sistema. Cada ocorrência ao vivo manda a foto **já borrada** e o tipo
+de falta; nada identifica a pessoa.
 
 Com `MODO_DESENVOLVIMENTO=true`, a documentação da API fica em http://127.0.0.1:8000/docs (a API continua exigindo
 login).
@@ -170,9 +189,9 @@ Resultados dos testes de campo (v3, v4 e v5): `docs/resultados_testes_campo.md`.
 
 ## Licenças de software
 
-As telas usam **Bootstrap** e **Bootstrap Icons** (licença MIT) e as fontes **Barlow Semi Condensed**, **Atkinson
-Hyperlegible** e **IBM Plex Mono** (SIL Open Font License 1.1), todas guardadas em `app/static/vendor/` com as
-licenças junto.
+As telas usam **Bootstrap**, **Bootstrap Icons** e **Chart.js** (licença MIT) e as fontes **Barlow Semi Condensed**,
+**Atkinson Hyperlegible** e **IBM Plex Mono** (SIL Open Font License 1.1), todas guardadas em `app/static/vendor/` com
+as licenças junto. O relatório em PDF usa o **ReportLab** (licença BSD).
 
 O Ultralytics YOLO é distribuído sob **AGPL-3.0**: adequado a este projeto acadêmico; um uso interno contínuo pela
 empresa deve considerar essa licença.
