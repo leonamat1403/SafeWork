@@ -11,6 +11,10 @@ __pycache__/
 # Pesos de modelos (baixados/treinados à parte, não versionar)
 models/*.pt
 models/*.onnx
+# Exceção: o modelo de máscara VALIDADO (v5, 6,5 MB) vai no repositório para testar em outro computador
+# (decisão de 15/10/2026). Os modelos de pose e de rosto são baixados com: python -m src.run --baixar-modelos
+!models/epi_solda_best.pt
+!models/LEIA-ME.md
 
 # Saídas de treino do Ultralytics
 runs/

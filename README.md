@@ -37,8 +37,8 @@ py -3.12 -m venv .venv
 pip install -r requirements.txt
 ```
 
-Modelos (pasta `models/`, fora do git):
-- `epi_solda_best.pt`: gerado pelo notebook de treinamento (`notebooks/colab` ou `notebooks/kaggle`);
+Modelos (pasta `models/`, ver `models/LEIA-ME.md`):
+- `epi_solda_best.pt` (máscara, v5 validada): **vem no repositório**;
 - modelos de pose e o detector de rostos (YuNet): `python -m src.run --baixar-modelos`. Em rede com proxy, rode em outra rede e copie a pasta `models/`.
 
 ## Uso
