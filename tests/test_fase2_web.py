@@ -160,8 +160,11 @@ def test_senha_errada_e_bloqueio_apos_5_tentativas(cliente):
         assert cliente.post("/login", data={"login": "admin", "senha": "errada"}).status_code == 401
     assert cliente.post("/login", data={"login": "admin", "senha": SENHA_INICIAL}).status_code == 429
     assert cliente.post("/login", data={"login": "ninguem", "senha": "x"}).status_code == 401
+    assert cliente.post("/login", data={"login": "minha-senha-secreta", "senha": "x"}).status_code == 401
     with ctx(cliente).fabrica() as s:
-        assert s.query(Auditoria).filter_by(acao="login_falhou").count() == 6
+        falhas = [a.detalhes for a in s.query(Auditoria).filter_by(acao="login_falhou")]
+    assert len(falhas) == 7 and falhas[0] == {"login": "admin"}
+    assert falhas[-1] == {"login_desconhecido": True} and "minha-senha-secreta" not in str(falhas)
 
 
 def test_primeiro_acesso_exige_troca_de_senha(cliente):

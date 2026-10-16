@@ -1,4 +1,4 @@
-# Arquitetura do sistema completo – Fase 2 (Etapa 2.1, atualizada até a 2.5)
+# Arquitetura do sistema completo – Fase 2 (Etapa 2.1, atualizada até a 2.6)
 
 **Data:** 14/10/2026. A Fase 1 foi validada para a **máscara de solda** (`docs/relatorio_validacao_fase1.md`).
 Esta etapa define **como** o sistema completo vai funcionar: componentes, modelo de dados, rotas e a integração com o
@@ -282,7 +282,7 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 | 2.3 ✅ | Backend FastAPI: autenticação, streaming ao vivo, upload, `/midia/{uuid}`, API de status e de ocorrências. Teste pela documentação interativa `/docs` (modo desenvolvimento) |
 | 2.4 ✅ | Wireframes T01–T08 + mapa de navegação (`docs/wireframes_fase2.md`, aprovados) → telas T01, T02, T03, T04 e T08 |
 | 2.5 ✅ | Desejáveis: RD01, RD02 (T07), RD03, RD04 (T05), RD05 + RD06 (T06), RD09, RD10. RD07 e RD08 não foram feitos (F2-D28) |
-| 2.6 | README completo, revisão LGPD, aviso de monitoramento e termo de autorização (RF30) |
+| 2.6 ✅ | README completo, revisão LGPD (`docs/revisao_lgpd.md`), aviso de monitoramento e termo de autorização (RF30, `docs/modelos/`), comando de primeira configuração |
 | 2.7 | Material acadêmico: metodologia, resultados, limitações, planilha antes x depois, roteiro da palestra |
 
 ## 13. Decisões da Fase 2
@@ -325,3 +325,6 @@ Com `TestClient` do FastAPI, um `DATA_DIR` temporário e um detector **simulado*
 | F2-D34 | RD09: o alerta do Telegram leva a **mesma imagem borrada** gravada no disco e um texto sem identificação; fila com thread própria; só com token no .env e ligado na tela; uploads não alertam. É a única saída de dados do sistema | exceção documentada ao "nada vai para a nuvem"; rede lenta não pode atrasar a câmera |
 | F2-D35 | RD10: CSV com `;`, vírgula decimal e BOM (Excel em português), células que começam com = + - @ viram texto; PDF mensal com ReportLab, sem imagens, também guardado em data/relatorios no dia 1º | abre direto no Excel; evita fórmulas maliciosas num nome de posto; o relatório pode circular por e-mail sem expor ninguém |
 | F2-D36 | RD02: o quadro de calibração só é desenhado enquanto a tela T07 está aberta (5 s depois do último pedido) | o desenho técnico custa CPU; ninguém olhando, nada é feito |
+| F2-D37 | Login errado: a auditoria guarda o login só quando ele é de um usuário que existe; senão, só "login desconhecido" | quem digita a senha no campo "Usuário" por engano não deixa a senha gravada no banco (revisão LGPD) |
+| F2-D38 | O modelo de máscara validado (`models/epi_solda_best.pt`, v5, 6,5 MB) vai no repositório; os outros pesos continuam fora e os de pose e rosto são baixados com `--baixar-modelos` | instalar e testar em outro computador sem copiar arquivos à mão (pedido de 15/10/2026) |
+| F2-D39 | Primeira configuração por comando (`python -m app --configurar`): cria o `.env`, gera a SECRET_KEY e pede a senha do administrador sem mostrá-la; sem `.env`, o sistema explica o que falta em vez de mostrar o erro técnico | o primeiro uso real travou na falta do `.env` |

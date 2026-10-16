@@ -26,7 +26,10 @@ def login(request: Request, login: str = Form(...), senha: str = Form(...)) -> d
     senha_ok = conferir_senha(senha, usuario.senha_hash if usuario else hash_ficticio())
     if usuario is None or not usuario.ativo or not senha_ok:
         ctx.tentativas.registrar_falha(login)
-        auditar(ctx.fabrica, usuario.id if usuario else None, "login_falhou", {"login": login[:50]})
+        # O texto digitado só vai para a auditoria se for o login de um usuário que existe: quem digita a senha no
+        # campo "Usuário" por engano não deixa a senha gravada no banco (revisão LGPD, docs/revisao_lgpd.md)
+        auditar(ctx.fabrica, usuario.id if usuario else None, "login_falhou",
+                {"login": usuario.login} if usuario else {"login_desconhecido": True})
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Login ou senha incorretos.")
     ctx.tentativas.zerar(login)
     token = iniciar_sessao(request, usuario)
