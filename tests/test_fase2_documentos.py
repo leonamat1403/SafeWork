@@ -22,6 +22,14 @@ def test_modelos_de_documentos_do_rf30():
     assert (RAIZ / "docs" / "revisao_lgpd.md").exists()
 
 
+def test_material_academico_da_etapa_2_7():
+    pasta = RAIZ / "docs" / "academico"
+    for nome in ("texto_base.md", "planilha_antes_depois.xlsx", "roteiro_palestra.md"):
+        assert (pasta / nome).exists(), nome
+    texto = (pasta / "texto_base.md").read_text(encoding="utf-8")
+    assert all(secao in texto for secao in ("## Metodologia", "## Resultados", "## Limitações"))
+
+
 def test_gerar_aviso_para_imprimir(tmp_path):
     especificacao = importlib.util.spec_from_file_location("gerar_aviso", RAIZ / "ferramentas" / "gerar_aviso.py")
     modulo = importlib.util.module_from_spec(especificacao)

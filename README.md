@@ -1,4 +1,4 @@
-﻿# Verificador de EPIs de Solda com Visão Computacional
+# Verificador de EPIs de Solda com Visão Computacional
 
 Projeto extensionista de Ciência da Computação da **FSG** (Caxias do Sul – RS), em parceria com a **Marcopolo**.
 Uma câmera instalada no posto de solda verifica se o soldador está usando a **máscara de solda** e registra as
@@ -7,7 +7,7 @@ faltas (NR-6), com as imagens **sempre borradas** e sem identificar ninguém.
 | Fase | Situação | Documento |
 |---|---|---|
 | Fase 1 – validação da detecção (linha de comando) | ✅ validada para a máscara de solda: mAP 0,945, recall de campo 82%, 0% de falsos positivos, 12,5 FPS em CPU | `docs/relatorio_validacao_fase1.md` |
-| Fase 2 – sistema web completo | ✅ etapas 2.1 a 2.6 | `docs/arquitetura_fase2.md` |
+| Fase 2 – sistema web completo | ✅ etapas 2.1 a 2.7 | `docs/arquitetura_fase2.md` |
 
 O sistema verifica **só a máscara de solda** (decisão de escopo; luvas, avental, calçado e capacete ficaram como
 trabalho futuro).
@@ -355,6 +355,9 @@ SafeWork/
 | `docs/wireframes_fase2.md` | desenho das telas e mapa de navegação |
 | `docs/revisao_lgpd.md` | revisão de privacidade e pendências da empresa |
 | `docs/modelos/` | aviso de monitoramento e termo de autorização |
+| `docs/academico/texto_base.md` | texto-base de Metodologia, Resultados e Limitações |
+| `docs/academico/planilha_antes_depois.xlsx` | planilha do piloto: antes x depois, semana a semana |
+| `docs/academico/roteiro_palestra.md` | palestra de 15 minutos sobre riscos da soldagem e uso dos EPIs |
 
 ---
 
