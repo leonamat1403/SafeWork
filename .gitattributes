@@ -1,0 +1,11 @@
+# Arquivos binários: o Git não converte fim de linha (evita corromper PDFs, modelos e fontes)
+*.pdf binary
+*.pt binary
+*.onnx binary
+*.xlsx binary
+*.png binary
+*.jpg binary
+*.svg text eol=lf
+*.woff binary
+*.woff2 binary
+*.ipynb text
