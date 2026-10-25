@@ -43,6 +43,7 @@ class Pessoa:
 
     @property
     def altura(self) -> float:
+        """Altura da caixa da pessoa em pixels (serve de escala: perto da câmera é grande, longe é pequena)."""
         return self.caixa[3] - self.caixa[1]
 
 

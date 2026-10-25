@@ -6,11 +6,14 @@
   const { api, el, icone, aviso, numero } = EPI;
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(location.search);
+  // Textos amigáveis dos códigos que a API devolve (processo de solda e tipo de fonte de vídeo)
   const PROCESSOS = { MIG_MAG: "MIG/MAG", TIG: "TIG", ELETRODO: "Eletrodo", CORTE: "Corte", OUTRO: "Outro" };
   const TIPOS = { webcam: "Webcam", rtsp: "Câmera IP", arquivo: "Arquivo de vídeo" };
+  // Lista de postos já carregada de /api/config/cameras (inclui os desativados); as três abas usam esta mesma lista
   let postos = [];
 
   // ---------------------------------------------------------------- abas (lembradas no endereço: ?aba=)
+  // Nome da aba no endereço (?aba=) -> id do botão da aba
   const ABAS = { postos: "aba-postos", epis: "aba-mascara", zona: "aba-zona", sistema: "aba-sistema" };
   document.querySelectorAll('[data-bs-toggle="tab"]').forEach((botao) => botao.addEventListener("shown.bs.tab", () => {
     const novos = new URLSearchParams(location.search);
@@ -19,8 +22,10 @@
     if (botao.dataset.aba === "zona") carregarZona();
   }));
 
+  /** Objeto do posto selecionado na lista `seletor` (id do <select>), ou undefined. */
   function postoEscolhido(seletor) { return postos.find((p) => p.id === Number($(seletor).value)); }
 
+  /** Preenche um <select> de postos, mantendo a escolha atual (ou a `preferido`, vinda do endereço) se ela ainda existir. */
   function preencherSeletor(id, preferido) {
     const seletor = $(id);
     const atual = seletor.value || preferido;
@@ -30,6 +35,7 @@
   }
 
   // ================================================================ Postos e câmeras
+  /** Linha da tabela de postos. Posto com ocorrências não pode ser removido (só desativado), para o histórico não se perder. */
   function linhaPosto(p) {
     const editar = el("button", { type: "button", classe: "btn btn-sm btn-outline-secondary" }, icone("bi-pencil me-1"), "Editar");
     editar.addEventListener("click", () => abrirPosto(p));
@@ -53,6 +59,7 @@
         editar, calibrar, remover)));
   }
 
+  /** Recarrega os postos da API e atualiza a tabela e os seletores das abas Máscara e Zona. */
   async function carregarPostos() {
     try {
       postos = await api("/api/config/cameras");
@@ -64,14 +71,17 @@
 
   // ---- modal novo/editar
   const modalPosto = bootstrap.Modal.getOrCreateInstance($("modal-posto"));
+  // Exemplo e ajuda do campo "origem" conforme o tipo de câmera. Segurança: usuário e senha da câmera IP ficam no .env, nunca aqui
   const AJUDA_ORIGEM = {
     webcam: ["0", "Número da webcam neste computador: 0 para a primeira, 1 para a segunda."],
     rtsp: ["rtsp://10.0.3.21:554/stream1", "Endereço RTSP da câmera, SEM usuário e senha (eles ficam no .env)."],
     arquivo: ["testes_campo/videos/teste.mp4", "Caminho de um vídeo na pasta do projeto (o vídeo repete sem parar)."],
   };
+  // Posto em edição no modal; null = cadastrando um novo
   let editando = null;
 
   const tipoEscolhido = () => document.querySelector('input[name="p-tipo"]:checked').value;
+  /** Troca o exemplo e a ajuda do campo de origem conforme o tipo de câmera escolhido. */
   function ajudaOrigem() {
     const [exemplo, ajuda] = AJUDA_ORIGEM[tipoEscolhido()];
     $("p-origem").placeholder = exemplo;
@@ -79,11 +89,13 @@
   }
   document.querySelectorAll('input[name="p-tipo"]').forEach((r) => r.addEventListener("change", ajudaOrigem));
 
+  /** Mostra (ou esconde, se vazio) o erro do modal de posto. */
   function erroPosto(texto) {
     $("erro-posto").querySelector("span").textContent = texto || "";
     $("erro-posto").hidden = !texto;
   }
 
+  /** Abre o modal para editar o posto `p` ou, com null, cadastrar um novo. */
   function abrirPosto(p) {
     editando = p;
     erroPosto("");
@@ -99,6 +111,7 @@
   $("novo-posto").addEventListener("click", () => abrirPosto(null));
   $("modal-posto").addEventListener("shown.bs.modal", () => $("p-nome").focus());
 
+  // Salvar: PUT se está editando, POST se é novo; o servidor religa a câmera e registra na auditoria
   $("form-posto").addEventListener("submit", async (evento) => {
     evento.preventDefault();
     erroPosto("");
@@ -120,6 +133,7 @@
     }
   });
 
+  /** Remove o posto de vez, depois de confirmar (o botão só fica ativo se o posto não tem ocorrências). */
   async function removerPosto(p) {
     if (!confirm(`Remover o posto ${p.nome_posto}? Esta ação não pode ser desfeita.`)) return;
     try {
@@ -130,14 +144,17 @@
   }
 
   // ================================================================ Máscara por posto
+  // Como cada controle deslizante mostra o valor ao lado (id do controle -> formatação)
   const formatos = {
     "m-conf": (v) => numero(v, 2), "m-tempo": (v) => numero(v, 1) + " s", "m-fracao": (v) => numero(v * 100) + "%",
     "m-cobertura": (v) => numero(v, 2), "s-brilho": (v) => numero(v), "s-saturada": (v) => numero(v * 100) + "%",
     "s-maos": (v) => numero(v * 100, 1) + "%",
   };
+  /** Escreve ao lado do controle `id` o valor atual formatado. */
   function mostrarValor(id) { $(id + "-valor").textContent = formatos[id](Number($(id).value)); }
   Object.keys(formatos).forEach((id) => $(id).addEventListener("input", () => mostrarValor(id)));
 
+  /** Carrega os limites da máscara do posto escolhido (RD05) nos campos da aba. */
   async function carregarMascara() {
     const p = postoEscolhido("m-posto");
     if (!p) return;
@@ -156,6 +173,7 @@
   }
   $("m-posto").addEventListener("change", carregarMascara);
 
+  // Salva os limites do posto escolhido (PUT /api/cameras/{id}/epis)
   $("form-mascara").addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const p = postoEscolhido("m-posto");
@@ -170,9 +188,12 @@
   });
 
   // ================================================================ Zona de interesse (RD06)
+  // A foto do posto fica embaixo e o canvas por cima; os pontos da zona são guardados em fração (0 a 1) da imagem, não em pixels
   const foto = $("z-foto"), tela = $("z-desenho");
+  // Vértices do polígono da zona, em frações [x, y] da imagem (independe do tamanho em que a foto aparece)
   let pontos = [];
 
+  /** Redesenha o polígono (com 3 pontos ou mais vira área preenchida) e as bolinhas dos vértices; o 1º ponto é maior. */
   function desenharZona() {
     const escala = window.devicePixelRatio || 1;
     tela.width = Math.max(1, Math.round(tela.clientWidth * escala));
@@ -201,11 +222,13 @@
     });
   }
 
+  /** Texto de situação: sem zona, pontos insuficientes (mínimo 3) ou quantidade de pontos da zona. */
   function situacaoZona() {
     $("z-situacao").textContent = pontos.length === 0 ? "Sem zona: a imagem toda vale."
       : pontos.length < 3 ? `${pontos.length} ponto(s): marque pelo menos 3.` : `Zona com ${pontos.length} pontos.`;
   }
 
+  /** Carrega a zona do posto escolhido e pede uma foto nova da câmera (?t= evita usar a foto em cache). */
   function carregarZona() {
     const p = postoEscolhido("z-posto");
     if (!p) return;
@@ -223,10 +246,12 @@
   foto.addEventListener("error", () => {
     if (foto.getAttribute("src")) $("z-situacao").textContent = "A câmera ainda não tem imagem (ligando ou fora do ar). Tente \"Foto nova\" em instantes.";
   });
+  // A foto muda de tamanho com a janela: o desenho acompanha
   new ResizeObserver(desenharZona).observe($("z-quadro"));
   $("z-posto").addEventListener("change", carregarZona);
   $("z-foto-nova").addEventListener("click", carregarZona);
 
+  // Cada clique na foto acrescenta um vértice (limite de 30), convertido para fração da imagem com 4 casas
   tela.addEventListener("click", (evento) => {
     if (pontos.length >= 30) { aviso("A zona aceita até 30 pontos.", "erro"); return; }
     const caixa = tela.getBoundingClientRect();
@@ -238,6 +263,7 @@
   $("z-desfazer").addEventListener("click", () => { pontos.pop(); situacaoZona(); desenharZona(); });
   $("z-limpar").addEventListener("click", () => { pontos = []; situacaoZona(); desenharZona(); });
 
+  // Salva a zona; sem pontos (null) a imagem inteira passa a valer. Fora da zona ninguém é avaliado
   $("z-salvar").addEventListener("click", async () => {
     const p = postoEscolhido("z-posto");
     if (!p) return;
@@ -251,8 +277,10 @@
   });
 
   // ================================================================ Sistema
+  // Valores padrão do config.yaml, mostrados como dica ao lado de cada campo
   let padrao = {};
 
+  /** Linha editável de um turno (nome, início e fim) com botão de remover. */
   function linhaTurno(nome = "", inicio = "06:00", fim = "14:00") {
     const remover = el("button", { type: "button", classe: "btn btn-sm btn-outline-secondary", "aria-label": "Remover turno" },
       icone("bi-x-lg"));
@@ -272,11 +300,13 @@
     $("s-turnos").append(linhaTurno(String($("s-turnos").children.length + 1)));
   });
 
+  /** Escreve a dica "No config.yaml: ..." no elemento marcado com data-padrao=chave. */
   function textoPadrao(chave, valor) {
     const campo = document.querySelector(`[data-padrao="${chave}"]`);
     if (campo) campo.textContent = `No config.yaml: ${valor}`;
   }
 
+  /** Medidor de espaço em disco; fica em alerta quando o livre chega perto do mínimo (abaixo dele, ocorrências saem sem imagem). */
   function mostrarDisco(d) {
     const usado = d.usado_bytes, total = d.total_bytes, livre = d.livre_bytes;
     const gb = (b) => numero(b / 1024 ** 3, 1) + " GB";
@@ -287,6 +317,7 @@
       + `Abaixo de ${numero(d.minimo_mb)} MB livres, as ocorrências passam a ser registradas sem imagem.`;
   }
 
+  /** Carrega os valores do sistema (limites do arco, turnos, retenção, Telegram, disco) nos campos da aba. */
   async function carregarSistema() {
     try {
       const d = await api("/api/config/sistema");
@@ -322,6 +353,7 @@
     } catch (falha) { aviso(falha.message, "erro"); }
   }
 
+  // Envia uma mensagem de teste pelo Telegram (token e conversa ficam só no .env do servidor)
   $("s-telegram-teste").addEventListener("click", async () => {
     $("s-telegram-teste").disabled = true;
     try {
@@ -330,6 +362,7 @@
     } catch (falha) { aviso(falha.message, "erro"); } finally { $("s-telegram-teste").disabled = false; }
   });
 
+  // Salva as configurações do sistema; o servidor valida, religa as câmeras e registra a alteração na auditoria
   $("form-sistema").addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const turnos = {};
@@ -356,6 +389,7 @@
   // ---------------------------------------------------------------- início
   (async () => {
     await carregarPostos();
+    // A aba da zona só carrega ao ser aberta (ela baixa uma foto da câmera)
     await Promise.all([carregarMascara(), carregarSistema()]);
     const aba = ABAS[params.get("aba")];
     if (aba) bootstrap.Tab.getOrCreateInstance($(aba)).show();

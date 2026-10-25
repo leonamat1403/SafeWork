@@ -31,6 +31,7 @@ class FonteVideo:
     """Webcam (número), arquivo de vídeo ou stream de rede (RTSP/HTTP), com reconexão automática (RNF03)."""
 
     def __init__(self, fonte: str) -> None:
+        """Descobre o tipo da fonte (webcam, rede ou arquivo) e já a abre; levanta ErroFonte se não for possível."""
         self.fonte = fonte
         if fonte.isdigit():
             self.tipo = "webcam"
@@ -47,6 +48,7 @@ class FonteVideo:
                             "Confira se a câmera está conectada e não está em uso por outro programa.")
 
     def _abrir(self) -> cv2.VideoCapture:
+        """Cria o VideoCapture do OpenCV conforme o tipo da fonte (também usado para reconectar)."""
         if self.tipo == "webcam":
             api = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY   # DirectShow abre webcams mais rápido no Windows
             return cv2.VideoCapture(int(self.fonte), api)
@@ -54,6 +56,7 @@ class FonteVideo:
 
     @property
     def fps(self) -> float:
+        """Quadros por segundo informados pela fonte (0.0 quando ela não informa, comum em câmeras de rede)."""
         return self.cap.get(cv2.CAP_PROP_FPS) or 0.0
 
     def _tempo(self) -> float:
@@ -88,4 +91,5 @@ class FonteVideo:
             espera = min(espera * 2, 30)
 
     def fechar(self) -> None:
+        """Libera a câmera, o arquivo ou a conexão de rede."""
         self.cap.release()

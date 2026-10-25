@@ -1,7 +1,10 @@
 {% extends "base_simples.html" %}
+{# T01 – Login. Script: login.js. O formulário leva em data-proximo a página que o usuário queria abrir. #}
 {% block titulo %}Entrar{% endblock %}
 {% block conteudo %}
+{# Ids usados pelo login.js: form-login, login, senha, mostrar-senha (olho), botao-entrar e erro-login (aviso de erro). #}
 <form class="login-cartao" id="form-login" data-proximo="{{ proximo }}" novalidate>
+  {# Aparece quando o servidor devolveu o usuário ao login por sessão expirada (?expirou=1). #}
   {% if expirou %}
   <div class="alert alert-warning d-flex gap-2 align-items-start" role="status">
     <i class="bi bi-question-diamond-fill" aria-hidden="true"></i>

@@ -27,7 +27,9 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
+# Permite importar módulos do projeto mesmo rodando o script de dentro de ferramentas/.
 sys.path.insert(0, str(RAIZ))
+# Impede o ultralytics de tentar baixar arquivos da internet.
 os.environ.setdefault("YOLO_OFFLINE", "true")
 
 import cv2  # noqa: E402
@@ -48,6 +50,7 @@ def phash(imagem: np.ndarray) -> int:
 
 
 def distancia_hamming(a: int, b: int) -> int:
+    """Quantos bits diferem entre dois hashes (0 = idênticos; quanto menor, mais parecidas as imagens)."""
     return bin(a ^ b).count("1")
 
 
@@ -76,6 +79,7 @@ def quadros_de_teste(pasta: Path, intervalo_s: float = 1.0) -> list[tuple[str, f
 
 
 def imagens_dos_datasets(pastas: list[Path]) -> list[Path]:
+    """Lista, em ordem, as imagens (pela extensão) das pastas e subpastas dos datasets."""
     return sorted(p for pasta in pastas for p in pasta.rglob("*") if p.suffix.lower() in EXTENSOES_IMAGEM)
 
 
@@ -101,6 +105,7 @@ def centralizar(*conjuntos: np.ndarray) -> list[np.ndarray]:
 
 
 def ler(caminho: Path) -> np.ndarray | None:
+    """Lê a imagem e reduz para no máximo 640 px de lado; None se o arquivo não for uma imagem legível."""
     imagem = cv2.imread(str(caminho))
     if imagem is not None:
         escala = 640 / max(imagem.shape[:2])
@@ -133,6 +138,10 @@ def folha_de_pares(pares: list[dict], saida: Path, lado: int = 260) -> None:
 
 
 def main() -> None:
+    """Compara as imagens dos datasets com os quadros dos vídeos de teste.
+
+    Grava pares.csv, suspeitas.txt e folha_pares.jpg na pasta de saída.
+    """
     parser = argparse.ArgumentParser(description="Confere se imagens de treino vieram dos vídeos de teste.")
     parser.add_argument("--datasets", nargs="+", type=Path, required=True, help="pastas dos datasets (YOLOv8)")
     parser.add_argument("--videos", type=Path, default=RAIZ / "testes_campo", help="pasta dos vídeos de teste")
@@ -156,6 +165,7 @@ def main() -> None:
     hashes_dataset = [phash(im) for im in imagens]
 
     cache = args.saida / "cache_embeddings.npz"  # evita recalcular tudo a cada execução
+    # A chave muda se mudarem os quadros ou a lista de imagens; nesse caso o cache é descartado.
     chave = np.array([f"{len(quadros)}"] + [str(c) for c in validos])
     if cache.exists() and np.array_equal(np.load(cache)["chave"], chave):
         dados = np.load(cache)
@@ -169,11 +179,14 @@ def main() -> None:
     pares = []
     for i, caminho in enumerate(validos):
         j = int(np.argmax(semelhanca[i]))
+        # Menor distância de hash contra QUALQUER quadro de teste (não só o mais parecido pelo embedding).
         hamming = min(distancia_hamming(hashes_dataset[i], h) for h in hashes_teste)
         pares.append({"imagem": str(caminho), "video": quadros[j][0], "segundo": quadros[j][1],
                       "hamming": hamming, "semelhanca": float(semelhanca[i, j]), "i": i, "j": j})
+    # Do par mais parecido para o menos parecido.
     pares.sort(key=lambda p: (-p["semelhanca"]))
 
+    # utf-8-sig (com BOM) e separador ';' para o Excel em português abrir o arquivo direto.
     with open(args.saida / "pares.csv", "w", newline="", encoding="utf-8-sig") as arq:
         escritor = csv.writer(arq, delimiter=";")
         escritor.writerow(["imagem", "video_teste", "segundo", "distancia_hash", "semelhanca"])
@@ -184,6 +197,7 @@ def main() -> None:
     suspeitas = [p for p in pares if p["hamming"] <= args.max_hamming]
     (args.saida / "suspeitas.txt").write_text("".join(f"{p['imagem']}\n" for p in suspeitas), encoding="utf-8")
 
+    # A folha mostra todas as suspeitas e completa com os pares mais parecidos até o total de --pares.
     destaque = suspeitas + [p for p in pares if p not in suspeitas][:max(0, args.pares - len(suspeitas))]
     for p in destaque:
         p["img_dataset"], p["img_teste"] = imagens[p["i"]], quadros[p["j"]][2]

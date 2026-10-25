@@ -28,19 +28,23 @@ from app.tempo import agora_utc, hoje_local, para_local
 log = logging.getLogger("epi_solda.relatorios")
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro",
          "novembro", "dezembro"]
+# Cores do relatório: aço (títulos e cabeçalhos), grafite (textos), linha das tabelas e azul das barras.
 ACO, GRAFITE, LINHA, SERIE = (colors.HexColor(c) for c in ("#1E2933", "#4A5661", "#D5DBE1", "#2A78D6"))
 
 
 def ultimo_dia(mes: date) -> date:
+    """Último dia do mês de `mes`: vai ao dia 28, soma 4 dias (sempre cai no mês seguinte), vai ao dia 1º, volta 1."""
     proximo = (mes.replace(day=28) + timedelta(days=4)).replace(day=1)
     return proximo - timedelta(days=1)
 
 
 def _pct(fracao: float | None) -> str:
+    """Fração (0 a 1) como porcentagem inteira, no padrão brasileiro; '—' quando não há dados (None)."""
     return "—" if fracao is None else f"{fracao * 100:.0f}%".replace(".", ",")
 
 
 def _numero(n: int) -> str:
+    """Inteiro com ponto como separador de milhar (padrão brasileiro)."""
     return f"{n:,}".replace(",", ".")
 
 
@@ -62,11 +66,13 @@ def _grafico_por_dia(por_dia: list[dict]) -> Drawing:
     grafico = VerticalBarChart()
     grafico.x, grafico.y, grafico.width, grafico.height = 1.2 * cm, 1 * cm, 15.5 * cm, 4 * cm
     grafico.data = [[d["total"] for d in por_dia]]
+    # O rótulo de cada barra é só o dia do mês (de AAAA-MM-DD fica DD).
     grafico.categoryAxis.categoryNames = [d["dia"][8:10] for d in por_dia]
     grafico.categoryAxis.labels.fontSize = 6
     grafico.categoryAxis.labels.fontName = "Helvetica"
     grafico.categoryAxis.strokeColor = LINHA
     grafico.valueAxis.valueMin = 0
+    # O `+ [1]` evita máximo zero (e passo zero no eixo) quando o mês não teve ocorrências.
     maximo = max([d["total"] for d in por_dia] + [1])
     grafico.valueAxis.valueStep = max(1, round(maximo / 4))
     grafico.valueAxis.labels.fontSize = 7
@@ -87,7 +93,7 @@ def gerar_relatorio_mensal(fabrica: sessionmaker[Session], turnos: dict[str, str
     """PDF do mês de `mes` (qualquer dia dele), de todos os postos ou de um só."""
     inicio, fim = mes.replace(day=1), ultimo_dia(mes)
     dados = resumo_do_periodo(fabrica, turnos, inicio, fim, camera_id)
-    c = dados["cartoes"]
+    c = dados["cartoes"]  # totais e taxas do mês
     estilos = getSampleStyleSheet()
     titulo = ParagraphStyle("titulo", parent=estilos["Title"], alignment=TA_LEFT, textColor=ACO, fontSize=18,
                             spaceAfter=2)
@@ -113,6 +119,7 @@ def gerar_relatorio_mensal(fabrica: sessionmaker[Session], turnos: dict[str, str
          _numero(t["levantada"]), _numero(t["sem_mascara"] + t["levantada"])] for t in dados["por_turno"]]
     postos_linhas = [["Posto", "Ocorrências"]] + [[p["posto"], _numero(p["total"])] for p in dados["por_posto"]]
 
+    # Conteúdo do PDF, na ordem em que aparece na página (o Platypus empilha os itens).
     historia = [
         Paragraph("Relatório mensal: uso da máscara de solda", titulo),
         Paragraph(f"{MESES[inicio.month - 1].capitalize()} de {inicio.year} · {nome_posto or 'todos os postos'} · "
@@ -135,6 +142,7 @@ def gerar_relatorio_mensal(fabrica: sessionmaker[Session], turnos: dict[str, str
     gerado = para_local(agora_utc()).strftime("%d/%m/%Y %H:%M")
 
     def rodape(canvas, documento) -> None:
+        """Rodapé de cada página: data de geração, versão do sistema e número da página."""
         canvas.saveState()
         canvas.setFont("Helvetica", 7)
         canvas.setFillColor(GRAFITE)
@@ -142,6 +150,7 @@ def gerar_relatorio_mensal(fabrica: sessionmaker[Session], turnos: dict[str, str
         canvas.drawRightString(A4[0] - 2 * cm, 1.2 * cm, f"página {documento.page}")
         canvas.restoreState()
 
+    # O PDF é montado em memória e devolvido como bytes (quem chama envia ou grava).
     saida = BytesIO()
     documento = SimpleDocTemplate(saida, pagesize=A4, leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.8 * cm,
                                   bottomMargin=2 * cm, title=f"Relatório mensal {inicio:%m/%Y}",
@@ -152,6 +161,7 @@ def gerar_relatorio_mensal(fabrica: sessionmaker[Session], turnos: dict[str, str
 
 def guardar_relatorio_do_mes_passado(fabrica: sessionmaker[Session], pasta: Path, turnos: dict[str, str]) -> Path:
     """Rotina do dia 1º: guarda em data/relatorios o PDF do mês que terminou (todos os postos)."""
+    # Dia 1º deste mês menos um dia = último dia do mês anterior.
     mes = hoje_local().replace(day=1) - timedelta(days=1)
     caminho = pasta / f"relatorio_{mes:%Y-%m}.pdf"
     pasta.mkdir(parents=True, exist_ok=True)

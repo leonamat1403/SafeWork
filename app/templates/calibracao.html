@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{# T07 – Calibração (só administrador). Script: calibracao.js. Mostra o que o sistema mede no posto, ao lado dos limites configurados. #}
 {% block titulo %}Calibração{% endblock %}
 {% block dados %}data-camera-id="{{ camera_id or '' }}"{% endblock %}
 {% block conteudo %}
@@ -15,6 +16,8 @@
 <p class="text-secondary">Os números que as regras usam, no próprio posto. Peça para alguém ficar no lugar do soldador
   (de frente, de lado, com a máscara abaixada e levantada) e compare cada valor com o limite ao lado.</p>
 
+{# #video recebe o stream de calibração (com o desenho técnico). #medidor-quadro e #texto-quadro mostram o filtro do arco;
+   #valores recebe um cartão por pessoa a cada 1 s. As cores da legenda vêm de data-cor (definidas no CSS). #}
 <div class="calibracao">
   <div class="area-video">
     <div class="quadro-video">

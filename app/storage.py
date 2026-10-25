@@ -39,6 +39,8 @@ class ErroDiscoCheio(ErroArmazenamento):
 
 @dataclass(frozen=True)
 class CaminhosImagem:
+    """Caminhos relativos da imagem da ocorrência e da sua miniatura, como são guardados no banco."""
+
     imagem: str   # relativo a DATA_DIR, com "/" (ex.: "ocorrencias/2026/10/14/<uuid>.jpg")
     thumb: str
 
@@ -68,6 +70,7 @@ class Storage(ABC):
 
 
 def _jpeg(img: np.ndarray) -> bytes:
+    """Codifica a imagem em JPEG com a qualidade padrão do armazenamento."""
     ok, dados = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, QUALIDADE_JPEG])
     if not ok:
         raise ErroArmazenamento("Não foi possível codificar a imagem em JPEG")
@@ -86,6 +89,7 @@ class StorageDisco(Storage):
     """Imagens em pastas dentro de DATA_DIR, no disco do próprio computador (on-premises)."""
 
     def __init__(self, data_dir: Path, espaco_minimo_mb: float = 500) -> None:
+        """`data_dir` é a raiz dos dados; abaixo de `espaco_minimo_mb` livres, novas imagens são recusadas."""
         self.base = Path(data_dir).resolve()
         self.espaco_minimo_mb = espaco_minimo_mb
 
@@ -98,6 +102,7 @@ class StorageDisco(Storage):
         return destino
 
     def _gravar(self, caminho: str, dados: bytes) -> None:
+        """Grava os bytes num arquivo temporário e o renomeia, para nunca deixar uma imagem pela metade."""
         destino = self._resolver(caminho)
         destino.parent.mkdir(parents=True, exist_ok=True)
         temporario = destino.with_suffix(".tmp")
@@ -105,25 +110,28 @@ class StorageDisco(Storage):
         os.replace(temporario, destino)   # o arquivo aparece completo ou não aparece
 
     def salvar_ocorrencia(self, imagem: ImagemBorrada, uuid: str, quando: datetime) -> CaminhosImagem:
+        """Grava a imagem (até 1920 px) e a miniatura (320 px) na pasta do dia local; recusa imagem sem blur e disco cheio."""
         if not isinstance(imagem, ImagemBorrada):
             raise TypeError("O Storage só grava ImagemBorrada (RF27): passe a imagem por privacy.Borrador.borrar().")
         uuid = str(uuid_mod.UUID(uuid))   # recusa nomes que não sejam um UUID válido
         livre = self.espaco_livre_mb()
         if livre < self.espaco_minimo_mb:
             raise ErroDiscoCheio(f"Só {livre:.0f} MB livres em {self.base} (mínimo {self.espaco_minimo_mb:.0f} MB)")
-        dia = para_local(quando).strftime("%Y/%m/%d")
+        dia = para_local(quando).strftime("%Y/%m/%d")   # a pasta é o dia em Brasília, embora `quando` venha em UTC
         caminhos = CaminhosImagem(f"ocorrencias/{dia}/{uuid}.jpg", f"thumbnails/{dia}/{uuid}_thumb.jpg")
         self._gravar(caminhos.imagem, _jpeg(_reduzir(imagem.pixels, LARGURA_MAX_IMAGEM)))
         self._gravar(caminhos.thumb, _jpeg(_reduzir(imagem.pixels, LARGURA_THUMB)))
         return caminhos
 
     def ler(self, caminho: str) -> bytes:
+        """Lê o JPEG do disco; converte "arquivo não encontrado" em ErroArmazenamento."""
         try:
             return self._resolver(caminho).read_bytes()
         except FileNotFoundError as erro:
             raise ErroArmazenamento(f"Imagem não encontrada: {caminho}") from erro
 
     def apagar(self, caminho: str) -> bool:
+        """Apaga o arquivo; devolve False se ele já não existia."""
         destino = self._resolver(caminho)
         try:
             destino.unlink()
@@ -132,9 +140,11 @@ class StorageDisco(Storage):
         return True
 
     def espaco_livre_mb(self) -> float:
+        """Espaço livre, em MB, no disco da pasta de dados (cria a pasta se ainda não existir)."""
         self.base.mkdir(parents=True, exist_ok=True)
         return shutil.disk_usage(self.base).free / (1024 * 1024)
 
     def uso_mb(self) -> float:
+        """Soma o tamanho de todos os arquivos da pasta de dados, em MB."""
         total = sum(p.stat().st_size for p in self.base.rglob("*") if p.is_file())
         return total / (1024 * 1024)

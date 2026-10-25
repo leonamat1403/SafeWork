@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{# T02 – Ao vivo. Script: ao_vivo.js. data-camera-id (bloco dados, no <main>) diz qual posto mostrar; sem posto ativo só aparece o aviso. #}
 {% block titulo %}Ao vivo{% endblock %}
 {% block dados %}data-camera-id="{{ camera_id or '' }}"{% endblock %}
 {% block conteudo %}
@@ -13,6 +14,7 @@
   <span class="numero text-secondary" id="relogio" aria-live="off"></span>
 </div>
 
+{# Avisos (ids usados pelo ao_vivo.js): aviso-erro (problema na câmera ou no servidor) e aviso-disco (disco quase cheio). #}
 <div class="alert alert-danger d-flex gap-2" id="aviso-erro" role="alert" hidden>
   <i class="bi bi-x-octagon-fill" aria-hidden="true"></i><span></span>
 </div>
@@ -21,6 +23,8 @@
   <span>Disco quase cheio: as ocorrências estão sendo registradas sem imagem. Libere espaço em data/.</span>
 </div>
 
+{# Grade da tela. Vídeo MJPEG: #video (o script define o src e reconecta se cair), #faixa (aviso sobre a imagem) e
+   #botao-pausar (só administrador). #relogio no cabeçalho recebe a hora do servidor a cada 1 s. #}
 <div class="ao-vivo">
   <div class="area-video">
     <div class="quadro-video">
@@ -39,12 +43,15 @@
     </div>
   </div>
 
+  {# Pessoas agora: #pessoas (cartões), #qtd-pessoas (contagem) e #pessoas-resumo (texto só para leitor de tela, atualizado quando muda). #}
   <section class="cartao area-pessoas" aria-labelledby="titulo-pessoas">
     <h2 class="rotulo mb-2" id="titulo-pessoas">Pessoas agora <span class="numero" id="qtd-pessoas"></span></h2>
     <p class="visually-hidden" id="pessoas-resumo" aria-live="polite"></p>
     <div id="pessoas"><p class="text-secondary mb-0">Carregando…</p></div>
   </section>
 
+  {# Cordão do turno, desenhado no <canvas id="cordao"> dentro de #cordao-trilho (onde ficam os pinos das ocorrências).
+     #cordao-inicio, #cordao-fim e #cordao-resumo são preenchidos pelo script; a legenda abaixo explica as cores. #}
   <section class="cartao area-cordao" aria-labelledby="titulo-cordao">
     <div class="cordao-cabecalho">
       <h2 class="rotulo" id="titulo-cordao">Cordão do turno</h2>
@@ -64,6 +71,7 @@
     </div>
   </section>
 
+  {# Últimas ocorrências: #ultimas (lista) e #sem-ultimas (mensagem de lista vazia). #}
   <section class="cartao area-ultimas" aria-labelledby="titulo-ultimas">
     <h2 class="rotulo mb-1" id="titulo-ultimas">Últimas ocorrências</h2>
     <ul class="lista-ultimas" id="ultimas"></ul>

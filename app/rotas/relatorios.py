@@ -18,6 +18,7 @@ MES = re.compile(r"^(\d{4})-(\d{2})$")
 @rotas.get("/mensal.pdf")
 def relatorio_mensal(request: Request, mes: str | None = Query(None, description="AAAA-MM (padrão: o mês atual)"),
                      camera_id: int | None = None, usuario: UsuarioSessao = Depends(usuario_liberado)) -> Response:
+    """Gera o PDF do mês (de todos os postos ou de um só) para download. ADMIN e SUPERVISOR; fica na auditoria."""
     hoje = hoje_local()
     if mes is None:
         primeiro = hoje.replace(day=1)

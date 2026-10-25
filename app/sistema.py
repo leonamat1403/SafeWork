@@ -79,8 +79,10 @@ def validar(novos: dict[str, Any], atuais: dict[str, Any]) -> dict[str, Any]:
                 raise ErroSistema(f"{chave} deve ficar entre {minimo:g} e {maximo:g}.")
             valor = tipo(valor)
         limpos[chave] = valor
+    # O detector exige tamanho de imagem múltiplo de 32 (só confere se imgsz veio entre os campos enviados).
     if limpos.get("imgsz", 32) % 32:
         raise ErroSistema("O tamanho da imagem deve ser múltiplo de 32 (ex.: 640, 960).")
+    # Regra entre campos: confere a combinação final (o que já valia com as mudanças por cima).
     final = {**atuais, **limpos}
     if final["exigir_mascara_somente_com_arco"] and not final["detectar_solda_ativa"]:
         raise ErroSistema("Para exigir a máscara só com o arco aceso, a detecção de solda ativa precisa estar ligada.")
@@ -88,11 +90,13 @@ def validar(novos: dict[str, Any], atuais: dict[str, Any]) -> dict[str, Any]:
 
 
 def ler_banco(fabrica: sessionmaker[Session]) -> dict[str, Any]:
+    """Lê da tabela config_sistema todos os ajustes já salvos (chave -> valor)."""
     with fabrica() as sessao:
         return {linha.chave: linha.valor for linha in sessao.scalars(select(ConfigSistema))}
 
 
 def salvar(fabrica: sessionmaker[Session], valores: dict[str, Any], usuario_id: int | None) -> None:
+    """Grava os ajustes na tabela config_sistema (cria ou atualiza cada chave), anotando quem alterou."""
     with fabrica() as sessao:
         for chave, valor in valores.items():
             linha = sessao.get(ConfigSistema, chave)
@@ -112,7 +116,8 @@ def aplicar(config_yaml: Config, ajustes_yaml: Ajustes, valores: dict[str, Any])
     except ErroSistema as erro:
         log.warning("Ajustes do banco (config_sistema) ignorados: %s", erro)
         return config_yaml, ajustes_yaml
-    v = {**valores_atuais(config_yaml, ajustes_yaml), **valores}
+    v = {**valores_atuais(config_yaml, ajustes_yaml), **valores}  # o que vale + o que veio do banco
+    # As configurações são dataclasses imutáveis: `replace` devolve cópias e o config.yaml carregado não muda.
     config = replace(config_yaml,
                      ocorrencias=replace(config_yaml.ocorrencias, cooldown_s=v["cooldown_s"]),
                      deteccao=replace(config_yaml.deteccao, imgsz=v["imgsz"]),
@@ -137,4 +142,5 @@ def atualizar_contexto(ctx) -> None:
     ctx.cameras.config_base, ctx.cameras.ajustes = config, ajustes
     if ctx.agendador is not None:
         mudar_retencao(ctx.agendador, ctx.fabrica, ctx.storage, ajustes.retencao_dias)
+    # Por último, para as câmeras religarem já com os valores novos.
     ctx.cameras.reiniciar()

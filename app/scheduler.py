@@ -27,7 +27,7 @@ from app.tempo import FUSO, agora_utc, para_local
 
 log = logging.getLogger("epi_solda.rotinas")
 
-PREFIXO_BACKUP = "epi_"
+PREFIXO_BACKUP = "epi_"  # início do nome dos backups; também serve para achar os antigos
 
 
 def apagar_ocorrencias_antigas(fabrica_sessoes: sessionmaker[Session], storage: Storage, dias: int,
@@ -49,6 +49,7 @@ def apagar_ocorrencias_antigas(fabrica_sessoes: sessionmaker[Session], storage: 
                         log.warning("Retenção: não foi possível apagar %s (%s)", caminho, erro)
         for oc in antigas:
             sessao.delete(oc)
+        # usuario_id vazio = ação automática do sistema, não de uma pessoa.
         sessao.add(Auditoria(usuario_id=None, acao="retencao", data_hora=agora,
                              detalhes={"apagadas": len(antigas), "dias": dias, "anteriores_a": limite.isoformat()}))
         sessao.commit()
@@ -62,7 +63,9 @@ def fazer_backup(caminho_banco: Path, pasta_backups: Path, manter: int = 7, agor
     pasta_backups.mkdir(parents=True, exist_ok=True)
     destino = pasta_backups / f"{PREFIXO_BACKUP}{para_local(agora or agora_utc()):%Y%m%d_%H%M%S}.sqlite3"
     with closing(sqlite3.connect(caminho_banco)) as origem, closing(sqlite3.connect(destino)) as copia:
+        # API de backup do SQLite: copia de forma consistente mesmo com o banco em uso.
         origem.backup(copia)
+    # O nome leva data e hora, então a ordem alfabética é a ordem cronológica.
     copias = sorted(pasta_backups.glob(f"{PREFIXO_BACKUP}*.sqlite3"))
     for antiga in copias[:-manter]:
         antiga.unlink()
@@ -106,7 +109,10 @@ def mudar_retencao(agendador: BackgroundScheduler, fabrica_sessoes: sessionmaker
 def iniciar_agendador(ajustes: Ajustes, fabrica_sessoes: sessionmaker[Session], storage: Storage) -> BackgroundScheduler:
     """Agenda as rotinas e inicia o agendador em segundo plano (pare com agendador.shutdown())."""
     agendador = BackgroundScheduler(timezone=FUSO)
+    # max_instances=1: nunca duas execuções da mesma rotina ao mesmo tempo; coalesce: execuções perdidas viram uma só;
+    # misfire_grace_time: ainda roda se atrasar até 1 h (por exemplo, computador desligado no horário).
     opcoes = {"max_instances": 1, "coalesce": True, "misfire_grace_time": 3600}
+    # O backup por cópia de arquivo só vale para SQLite.
     if ajustes.caminho_sqlite is not None:
         agendador.add_job(_protegida, CronTrigger(hour=2, minute=0, timezone=FUSO), id="backup",
                           args=["backup", fazer_backup, ajustes.caminho_sqlite, ajustes.data_dir / "backups",

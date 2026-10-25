@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{# T06 – Configurações (só administrador). Script: configuracoes.js. Quatro abas, cada uma salva sozinha: Postos e câmeras,
+   Máscara por posto, Zona de interesse e Sistema. A aba aberta fica no endereço (?aba=, lido do data-aba de cada botão). #}
 {% block titulo %}Configurações{% endblock %}
 {% block conteudo %}
 <h1 class="titulo-pagina mb-3">Configurações</h1>
@@ -22,6 +24,7 @@
 
 <div class="tab-content">
   <!-- ======================================================================= Postos e câmeras -->
+  {# Aba Postos: o script preenche #linhas-postos; #novo-posto abre o modal "modal-posto" (no fim da página). #}
   <section class="tab-pane fade show active cartao aba-conteudo" id="painel-postos" role="tabpanel" aria-labelledby="aba-postos">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <h2 class="rotulo">Postos e câmeras</h2>
@@ -41,6 +44,8 @@
   </section>
 
   <!-- ======================================================================= Máscara por posto -->
+  {# Aba Máscara por posto: m-posto escolhe o posto; m-exigido, m-conf, m-tempo, m-fracao, m-cobertura e m-levantada são os limites
+     (os <output id="...-valor"> mostram o número escolhido nos controles deslizantes). #}
   <section class="tab-pane fade cartao aba-conteudo" id="painel-mascara" role="tabpanel" aria-labelledby="aba-mascara">
     <form id="form-mascara" novalidate>
       <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
@@ -90,6 +95,8 @@
   </section>
 
   <!-- ======================================================================= Zona de interesse -->
+  {# Aba Zona de interesse: z-posto, z-situacao, z-quadro com a foto (z-foto) e o canvas z-desenho por cima,
+     e os botões z-desfazer, z-limpar, z-foto-nova e z-salvar. #}
   <section class="tab-pane fade cartao aba-conteudo" id="painel-zona" role="tabpanel" aria-labelledby="aba-zona">
     <div class="d-flex flex-wrap align-items-end gap-3 mb-2">
       <div><label class="form-label rotulo" for="z-posto">Posto</label>
@@ -112,6 +119,8 @@
   </section>
 
   <!-- ======================================================================= Sistema -->
+  {# Aba Sistema: campos s-... (intervalos, arco, turnos em #s-turnos, Telegram, disco em #s-disco). Os elementos com data-padrao
+     recebem do script a dica "No config.yaml: ..." com o valor padrão. #}
   <section class="tab-pane fade cartao aba-conteudo" id="painel-sistema" role="tabpanel" aria-labelledby="aba-sistema">
     <form id="form-sistema" novalidate>
       <fieldset class="bloco-ajustes">
@@ -179,6 +188,8 @@
 </div>
 
 <!-- Novo / editar posto -->
+{# Modal de posto (novo ou editar): form-posto, p-nome, p-processo, rádios p-tipo-*, p-origem, p-ativa, erro-posto e salvar-posto.
+   O usuário e a senha da câmera IP ficam no .env, nunca neste formulário. #}
 <div class="modal fade" id="modal-posto" tabindex="-1" aria-labelledby="posto-titulo" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <form class="modal-content" id="form-posto" novalidate>

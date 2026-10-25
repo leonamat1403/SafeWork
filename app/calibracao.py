@@ -20,6 +20,7 @@ CIANO = (255, 255, 0)         # região da cabeça (BGR, igual ao modo --debug d
 
 
 def _arredondar(valor: float | None, casas: int = 2) -> float | None:
+    """Arredonda para `casas` decimais, preservando None (valor ausente)."""
     return None if valor is None else round(float(valor), casas)
 
 
@@ -31,9 +32,12 @@ def dados_calibracao(frame: np.ndarray, resultado: ResultadoFrame, config: Confi
         x1, y1, x2, y2 = aval.pessoa.caixa
         reg = aval.regioes
         epi = aval.epis.get("mascara")
+        # Cobertura = fração da caixa da máscara que está dentro da região da cabeça.
         cobertura = (fracao_dentro(epi.caixa, reg.cabeca) if epi is not None and epi.caixa is not None
                      and reg.cabeca is not None else None)
+        # Só procura o rosto detectado quando a região do rosto veio do detector de rosto (e não da pose).
         rosto = rosto_na_cabeca(reg.cabeca, resultado.rostos or []) if reg.rosto_por_detector else None
+        # Brilho (fração de pixels estourados) em volta de cada mão, medido no quadro ORIGINAL; indica arco aceso.
         maos = [fracao_saturada_na_regiao(frame, caixa, arco.limiar_brilho)
                 for caixa in regioes_das_maos(aval.pessoa, config.deteccao.conf_keypoint, arco.raio_maos)]
         pessoas.append({
@@ -68,8 +72,10 @@ def dados_calibracao(frame: np.ndarray, resultado: ResultadoFrame, config: Confi
 
 
 def _texto(img: np.ndarray, texto: str, x: float, y: float, cor: tuple[int, int, int], f: float) -> None:
+    """Escreve `texto` sobre um fundo cinza escuro (para ler em qualquer cena); `f` é o fator de escala do desenho."""
     escala, espessura = 0.5 * f, max(1, round(f))
     (largura, altura), base = cv2.getTextSize(texto, cv2.FONT_HERSHEY_SIMPLEX, escala, espessura)
+    # Mantém o rótulo dentro da imagem (não sai pela esquerda nem pelo topo).
     x, y = int(max(0, x)), int(max(altura + base, y))
     cv2.rectangle(img, (x, y - altura - base - 2), (x + largura + 4, y + 2), (30, 30, 30), -1)
     cv2.putText(img, texto, (x + 2, y - base), cv2.FONT_HERSHEY_SIMPLEX, escala, cor, espessura, cv2.LINE_AA)
@@ -94,6 +100,7 @@ def desenhar_calibracao(img: np.ndarray, frame: np.ndarray, resultado: Resultado
         for caixa in regioes_das_maos(aval.pessoa, config.deteccao.conf_keypoint, arco.raio_maos):
             x1, y1, x2, y2 = map(int, caixa)
             fracao = fracao_saturada_na_regiao(frame, caixa, arco.limiar_brilho)
+            # Vermelho quando o brilho já passa do mínimo que indica arco aceso; laranja caso contrário.
             cor = (0, 0, 255) if fracao >= arco.fracao_min_maos else LARANJA
             cv2.rectangle(img, (x1, y1), (x2, y2), cor, linha)
             _texto(img, f"maos {fracao:.1%}".replace(".", ","), x1, y2 + 18 * f, cor, f)

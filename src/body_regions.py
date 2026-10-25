@@ -84,6 +84,8 @@ def regiao_cabeca(pessoa: Pessoa, conf_min: float) -> Caixa | None:
     referencia = cabeca or ombros
     cx = sum(p.x for p in referencia.values()) / len(referencia)
 
+    # A distância entre as orelhas é a melhor medida da largura da cabeça; os ombros (metade da largura) servem de
+    # alternativa quando só eles aparecem. Sem nenhum dos dois, estima 35% da largura da caixa da pessoa.
     # Largura de referência: distância entre orelhas e/ou metade da largura dos ombros (o que for maior)
     candidatos = []
     if ORELHA_ESQ in cabeca and ORELHA_DIR in cabeca:
@@ -95,6 +97,8 @@ def regiao_cabeca(pessoa: Pessoa, conf_min: float) -> Caixa | None:
     largura = FATOR_LARGURA * largura_ref
     altura = FATOR_ALTURA * largura
 
+    # A região é montada de baixo para cima: a base fica nos ombros e o topo sobe `altura` (com folga para a máscara
+    # levantada), sem passar de y = 0 (borda de cima da imagem).
     # Base: linha dos ombros; sem ombros, um pouco abaixo do ponto mais baixo da cabeça
     if ombros:
         base = sum(p.y for p in ombros.values()) / len(ombros)
@@ -129,6 +133,7 @@ def calcular_regioes(pessoa: Pessoa, conf_keypoint: float, rostos: list[Rosto] |
     (detector indisponível), vêm dos pontos do rosto da pose.
     """
     if not pessoa.keypoints:
+        # Fallback (RF12): sem pose não há como saber onde está a cabeça; usa o quarto superior da caixa da pessoa
         x1, y1, x2, y2 = pessoa.caixa
         cabeca = (x1, y1, x2, y1 + FRACAO_CABECA_FALLBACK * (y2 - y1))
         rosto = rosto_na_cabeca(cabeca, rostos) if rostos is not None else None
@@ -139,6 +144,7 @@ def calcular_regioes(pessoa: Pessoa, conf_keypoint: float, rostos: list[Rosto] |
     if rostos is not None:
         rosto = rosto_na_cabeca(cabeca, rostos)
         orientacao = "frente" if rosto else orientacao_da_pessoa(pessoa, conf_keypoint)
+        # Com o detector de rostos, ele manda: sem rosto encontrado, a orientação "frente" da pose não vale
         if orientacao == "frente" and rosto is None:   # a pose "viu" um rosto que o detector não viu
             orientacao = "indefinida"
         return RegioesCorpo(cabeca=cabeca, linha_olhos_y=rosto.olhos_y if rosto else None,

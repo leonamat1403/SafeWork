@@ -32,21 +32,21 @@ class ErroAjustes(ValueError):
 class Ajustes:
     """Tudo o que o sistema web precisa saber antes de abrir o banco e as câmeras."""
 
-    data_dir: Path
-    database_url: str
-    secret_key: str
-    admin_login_inicial: str
+    data_dir: Path                  # pasta onde ficam banco, imagens, relatórios, backups e logs
+    database_url: str               # endereço do banco (SQLite por padrão)
+    secret_key: str                 # chave que assina o cookie de sessão
+    admin_login_inicial: str        # administrador criado no 1º uso
     admin_senha_inicial: str
-    rtsp_usuario: str
+    rtsp_usuario: str               # usuário/senha das câmeras de rede, guardados só no .env
     rtsp_senha: str
-    telegram_token: str
+    telegram_token: str             # alerta pelo Telegram (RD09); vazio = desligado
     telegram_chat_id: str
     config_yaml: Path
-    turnos: dict[str, str]
-    retencao_dias: int
-    espaco_minimo_mb: float
-    backups_manter: int
-    uploads_max_idade_s: int
+    turnos: dict[str, str]          # nome do turno -> horário (ex.: "manha": "06:00-14:00"), validado em app/tempo.py
+    retencao_dias: int              # dias que as ocorrências ficam guardadas antes da limpeza automática
+    espaco_minimo_mb: float         # abaixo deste espaço livre, o sistema para de gravar mídia
+    backups_manter: int             # quantos backups do banco são mantidos
+    uploads_max_idade_s: int        # idade máxima (s) dos arquivos temporários de upload
     upload_tamanho_max_mb: int = 200
     borrar_ao_vivo: bool = True          # F2-D20: o vídeo ao vivo também sai com as cabeças borradas
     telegram_ativo: bool = True          # RD09: alerta pelo Telegram ligado (só funciona com o token no .env)
@@ -69,6 +69,7 @@ def _caminho(texto: str) -> Path:
 
 
 def _url_banco(texto: str | None, data_dir: Path) -> str:
+    """Endereço do banco: sem valor no .env usa o SQLite em DATA_DIR; SQLite relativo é resolvido pela pasta do projeto."""
     if not texto:
         return f"sqlite:///{(data_dir / 'db' / 'epi.sqlite3').as_posix()}"
     prefixo = "sqlite:///"
@@ -78,6 +79,7 @@ def _url_banco(texto: str | None, data_dir: Path) -> str:
 
 
 def _inteiro(secao: dict, chave: str, onde: str, padrao: int, minimo: int) -> int:
+    """Lê um número inteiro da seção (ou usa o padrão) e recusa valores menores que `minimo` ou que não sejam número."""
     valor = secao.get(chave, padrao)
     if not isinstance(valor, (int, float)) or isinstance(valor, bool) or valor < minimo:
         raise ErroAjustes(f"{onde}.{chave} deve ser um número maior ou igual a {minimo} (valor atual: {valor!r})")
@@ -92,6 +94,7 @@ def carregar_ajustes(arquivo_env: Path | None = None, config_yaml: Path | None =
     """
     if ambiente is None:
         ambiente = {**dotenv_values(arquivo_env or RAIZ / ".env"), **os.environ}
+    # valor(): texto da variável sem espaços nas pontas; vazio ou ausente vira o padrão
     valor = lambda chave, padrao="": (ambiente.get(chave) or padrao).strip()   # noqa: E731
 
     data_dir = _caminho(valor("DATA_DIR", "./data"))
@@ -109,6 +112,7 @@ def carregar_ajustes(arquivo_env: Path | None = None, config_yaml: Path | None =
     ocorrencias = dados.get("ocorrencias") or {}
     armazenamento = dados.get("armazenamento") or {}
     privacidade = dados.get("privacidade") or {}
+    # sim(): interpreta "1", "true", "sim" e "yes" como verdadeiro
     sim = lambda texto: texto.lower() in ("1", "true", "sim", "yes")   # noqa: E731
     try:
         porta = int(valor("PORTA", "8000"))
@@ -147,6 +151,7 @@ def config_da_camera(base: Config, linhas_epi: Iterable) -> Config:
     """
     epis = dict(base.epis)
     for linha in linhas_epi:
+        # Só a máscara foi implementada: mesmo marcado como exigido na câmera, outro EPI fica desligado
         padrao = base.epis.get(linha.epi) or ConfigEPI(nome=linha.epi, ativo=False, conf=linha.conf_min)
         extras = {**padrao.extras, **(linha.parametros_extra or {})}
         cobertura = float(extras.pop("cobertura_min", padrao.cobertura_min))

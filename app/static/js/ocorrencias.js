@@ -7,12 +7,16 @@
   const $ = (id) => document.getElementById(id);
   const admin = $("conteudo").dataset.admin === "1";
   const form = $("filtros");
+  // Filtro da API -> id do campo no formulário (o nome do filtro é o mesmo parâmetro usado no endereço da página)
   const CAMPOS = { inicio: "f-inicio", fim: "f-fim", camera_id: "f-posto", epi: "f-epi", turno: "f-turno", validacao: "f-validacao" };
+  // Texto amigável da origem da ocorrência
   const ORIGENS = { ao_vivo: "Câmera ao vivo", upload: "Arquivo enviado" };
 
+  // Estado da tela: itens da página atual, página/total, índice do item aberto no modal (-1 = nenhum) e uuid dele
   let itens = [], pagina = 1, paginas = 1, atual = -1, uuidAberto = null;
 
   // ---------------------------------------------------------------- datas (dia local, AAAA-MM-DD)
+  /** Data local no formato AAAA-MM-DD, `deslocamento` dias a partir de hoje (negativo = passado). */
   function dia(deslocamento = 0) {
     const d = new Date();
     d.setDate(d.getDate() + deslocamento);
@@ -20,6 +24,7 @@
   }
 
   // ---------------------------------------------------------------- filtros <-> endereço da página
+  /** Lê os filtros do endereço da página para os campos (padrão: últimos 7 dias). Devolve o uuid de ?abrir=, se houver. */
   function lerEndereco() {
     const params = new URLSearchParams(location.search);
     const semPeriodo = !params.has("inicio") && !params.has("fim");
@@ -29,6 +34,7 @@
     return params.get("abrir");
   }
 
+  /** Monta os parâmetros de busca a partir dos campos do formulário (e da página, se não for a 1ª). */
   function paramsDosFiltros() {
     const params = new URLSearchParams();
     for (const [nome, id] of Object.entries(CAMPOS)) {
@@ -39,6 +45,7 @@
     return params;
   }
 
+  /** Grava filtros, página e ocorrência aberta no endereço sem recarregar, para o link poder ser copiado ou recarregado. */
   function gravarEndereco(abrir = uuidAberto) {
     const params = paramsDosFiltros();
     if (abrir) params.set("abrir", abrir);
@@ -47,6 +54,7 @@
   }
 
   // ---------------------------------------------------------------- postos (inclui os desativados: o histórico fica)
+  /** Preenche a lista de postos do filtro a partir de /api/cameras. */
   async function carregarPostos() {
     const valor = new URLSearchParams(location.search).get("camera_id") || "";
     try {
@@ -58,6 +66,7 @@
   }
 
   // ---------------------------------------------------------------- lista
+  /** Miniatura da ocorrência (imagem já borrada pelo servidor, por LGPD) ou um ícone se não houver imagem. */
   function miniatura(oc) {
     if (!oc.thumb_url) return el("span", { classe: "miniatura d-inline-flex align-items-center justify-content-center",
       title: "Sem imagem" }, icone("bi-image text-secondary"));
@@ -66,11 +75,13 @@
 
   const textoFalta = (oc) => faltaTexto(oc.epis_faltantes, oc.mascara_levantada);
   const textoIndeterminados = (oc) => (oc.epis_indeterminados || []).map(nomeEpi).join(", ") || "—";
+  /** Maior confiança média entre os EPIs da ocorrência, em porcentagem, ou "—" se não houver. */
   function textoConfianca(oc) {
     const valores = Object.values(oc.confianca_media || {}).filter((v) => typeof v === "number");
     return valores.length ? numero(Math.max(...valores) * 100) + "%" : "—";
   }
 
+  /** Linha da tabela (telas largas); clicar em qualquer ponto, exceto no link, abre o modal. */
   function linha(oc, indice) {
     const abrirLink = el("a", { href: "?abrir=" + encodeURIComponent(oc.uuid), classe: "numero", texto: oc.data_hora_local });
     abrirLink.addEventListener("click", (evento) => { evento.preventDefault(); abrir(indice); });
@@ -87,6 +98,7 @@
     return tr;
   }
 
+  /** Cartão da lista (telas estreitas), equivalente à linha da tabela. */
   function cartao(oc, indice) {
     const botao = el("button", { type: "button", classe: "cartao-oc" },
       miniatura(oc),
@@ -100,6 +112,7 @@
     return el("li", {}, botao);
   }
 
+  /** Escreve o resumo do período; o "acerto" é confirmadas / (confirmadas + falsos positivos). */
   function mostrarResumo(resumo) {
     const r = $("resumo");
     const forte = (n) => el("strong", { texto: numero(n) });
@@ -114,6 +127,7 @@
     r.replaceChildren(...partes);
   }
 
+  /** Busca a página de ocorrências com os filtros atuais e redesenha lista, resumo, paginação e link de exportação CSV. */
   async function carregar({ manterModal = false } = {}) {
     const params = paramsDosFiltros();
     try {
@@ -167,10 +181,12 @@
   const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
   let focoAnterior = null;
 
+  /** Par rótulo/valor (<dt>/<dd>) da lista de dados do modal. */
   function par(rotulo, ...conteudo) {
     return [el("dt", { classe: "col-5 text-secondary fw-normal", texto: rotulo }), el("dd", { classe: "col-7" }, ...conteudo)];
   }
 
+  /** Preenche o modal com os dados completos de uma ocorrência e ajusta os botões de validação. */
   function preencher(oc) {
     $("modal-titulo").textContent = `Ocorrência · ${oc.data_hora_local}`;
     const imagem = $("modal-imagem");
@@ -208,6 +224,7 @@
     });
   }
 
+  /** Busca a ocorrência pelo uuid e abre o modal (guardando o foco para devolvê-lo ao fechar). */
   async function abrirUuid(uuid) {
     uuidAberto = uuid;
     atual = itens.findIndex((oc) => oc.uuid === uuid);
@@ -224,6 +241,7 @@
     }
   }
 
+  /** Abre a ocorrência que está na posição `indice` da página atual. */
   function abrir(indice) {
     if (indice >= 0 && indice < itens.length) abrirUuid(itens[indice].uuid);
   }
@@ -235,12 +253,14 @@
     if (focoAnterior && document.contains(focoAnterior)) focoAnterior.focus();
   });
 
+  // Acessibilidade: setas esquerda/direita navegam entre as ocorrências da página enquanto o modal está aberto
   modalEl.addEventListener("keydown", (evento) => {
     if (evento.target.closest("input, select, textarea")) return;
     if (evento.key === "ArrowRight" && atual >= 0 && atual < itens.length - 1) { evento.preventDefault(); abrir(atual + 1); }
     if (evento.key === "ArrowLeft" && atual > 0) { evento.preventDefault(); abrir(atual - 1); }
   });
 
+  // Validação humana: o supervisor marca Confirmada, Falso positivo ou volta para Pendente
   modalEl.querySelectorAll("[data-validar]").forEach((botao) => botao.addEventListener("click", async () => {
     if (!uuidAberto) return;
     const valor = botao.dataset.validar;
@@ -258,6 +278,7 @@
   }));
 
   const botaoExcluir = $("botao-excluir");
+  // Exclusão definitiva: só o administrador (o servidor confere o perfil de novo) e com confirmação
   if (botaoExcluir && admin) botaoExcluir.addEventListener("click", async () => {
     if (!uuidAberto) return;
     if (!confirm("Excluir esta ocorrência? A imagem e o registro são apagados de vez (a exclusão fica na auditoria).")) return;

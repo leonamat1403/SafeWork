@@ -26,10 +26,11 @@ import cv2
 import numpy as np
 
 FRAMES_PARA_MEDIR_FPS = 30   # a webcam informa um FPS pouco confiável (às vezes -1); medimos o real
-FPS_PADRAO = 15.0
+FPS_PADRAO = 15.0  # usado quando não dá para saber o FPS real
 
 
 def abrir(fonte: str) -> cv2.VideoCapture:
+    """Abre a webcam (se `fonte` for só dígitos) ou um arquivo de vídeo; no Windows a webcam abre pelo DirectShow."""
     if fonte.isdigit():
         api = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
         return cv2.VideoCapture(int(fonte), api)
@@ -52,6 +53,7 @@ class GravadorMp4:
     """Grava .mp4; ao vivo, guarda os primeiros frames até medir o FPS real e só então cria o arquivo."""
 
     def __init__(self, caminho: Path, fps_informado: float, ao_vivo: bool) -> None:
+        """Na webcam o FPS fica None até ser medido; em arquivo usa o informado (ou o padrão, se for implausível)."""
         self.caminho = caminho
         self.fps = None if ao_vivo else (fps_valido(fps_informado) or FPS_PADRAO)
         self._pendentes: list[tuple[float, np.ndarray]] = []
@@ -59,12 +61,14 @@ class GravadorMp4:
         self.frames = 0
 
     def _criar(self, fps: float, frame: np.ndarray) -> None:
+        """Cria a pasta e o arquivo .mp4, com o tamanho do primeiro frame e o FPS definido."""
         altura, largura = frame.shape[:2]
         self.caminho.parent.mkdir(parents=True, exist_ok=True)
         self._escritor = cv2.VideoWriter(str(self.caminho), cv2.VideoWriter_fourcc(*"mp4v"), fps, (largura, altura))
         self.fps = fps
 
     def gravar(self, t: float, frame: np.ndarray) -> None:
+        """Grava um frame; enquanto o FPS não foi medido, guarda os frames na memória (`_pendentes`)."""
         if self._escritor is None:
             self._pendentes.append((t, frame))
             if self.fps is None and len(self._pendentes) < FRAMES_PARA_MEDIR_FPS:
@@ -75,6 +79,7 @@ class GravadorMp4:
         self.frames += 1
 
     def _descarregar(self) -> None:
+        """Define o FPS (medindo, se preciso), cria o arquivo e grava os frames que estavam esperando."""
         if not self._pendentes:
             return
         fps = self.fps or estimar_fps([t for t, _ in self._pendentes])
@@ -85,6 +90,7 @@ class GravadorMp4:
         self._pendentes.clear()
 
     def fechar(self) -> None:
+        """Termina a gravação (gravando antes o que ainda estava pendente) e libera o arquivo."""
         if self._escritor is None:
             self._descarregar()          # gravação curta: menos frames do que o necessário para medir o FPS
         if self._escritor is not None:
@@ -92,6 +98,10 @@ class GravadorMp4:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Captura da fonte até o vídeo acabar, a duração passar ou o usuário apertar q/ESC.
+
+    Devolve 0, ou 1 se a fonte não abriu.
+    """
     p = argparse.ArgumentParser(description="Captura frames ou vídeo da webcam/vídeo para o projeto.")
     p.add_argument("--fonte", default="0", help="webcam (0, 1, ...) ou arquivo de vídeo (padrão: webcam 0)")
     p.add_argument("--saida", required=True, help="pasta (modo frames) ou arquivo .mp4 (modo vídeo)")
@@ -111,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
     gravador = GravadorMp4(saida, cap.get(cv2.CAP_PROP_FPS), ao_vivo) if modo_video else None
 
     inicio = time.monotonic()
-    ultimo_frame_salvo = -1e9
+    ultimo_frame_salvo = -1e9  # força salvar já o primeiro frame
     salvos = 0
     try:
         while True:
@@ -127,10 +137,12 @@ def main(argv: list[str] | None = None) -> int:
             elif t - ultimo_frame_salvo >= args.intervalo_s:
                 ok_img, buffer = cv2.imencode(".jpg", frame)
                 if ok_img:
+                    # tofile em vez de imwrite: funciona também com caminhos com acentos no Windows.
                     buffer.tofile(str(saida / f"{saida.name}_{salvos:04d}.jpg"))
                     salvos += 1
                     ultimo_frame_salvo = t
             if ao_vivo:
+                # O texto é desenhado numa cópia: o frame salvo ou gravado fica sem desenho.
                 previa = frame.copy()
                 restante = max(0, args.duracao_s - t)
                 texto = f"GRAVANDO {restante:4.0f}s" if modo_video else f"fotos: {salvos} | restam {restante:4.0f}s"

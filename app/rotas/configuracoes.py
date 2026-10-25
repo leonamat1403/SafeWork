@@ -27,6 +27,7 @@ MAX_PONTOS_ZONA = 30
 
 # --------------------------------------------------------------------------------------------------- postos
 class DadosCamera(BaseModel):
+    """Corpo do cadastro/edição de um posto: nome, processo de solda, tipo de câmera e onde está o vídeo."""
     nome_posto: str
     processo_solda: Literal["MIG_MAG", "TIG", "ELETRODO", "CORTE", "OUTRO"]
     tipo: Literal["webcam", "rtsp", "arquivo"]
@@ -35,6 +36,7 @@ class DadosCamera(BaseModel):
 
 
 def _erro(mensagem: str, codigo: int = status.HTTP_400_BAD_REQUEST) -> HTTPException:
+    """Cria o erro HTTP (400 por padrão) com a mensagem que aparece para o usuário."""
     return HTTPException(codigo, mensagem)
 
 
@@ -61,10 +63,12 @@ def _validar_camera(dados: DadosCamera) -> tuple[str, str]:
 
 
 def _mascara(camera: Camera) -> ConfigEpiCamera | None:
+    """A configuração da máscara do posto, ou None se o posto ainda não tem."""
     return next((e for e in camera.epis if e.epi == "mascara"), None)
 
 
 def mascara_json(linha: ConfigEpiCamera | None) -> dict | None:
+    """Regras da máscara para as telas; cobertura_min e levantada_nao_conforme ficam em parametros_extra (JSON)."""
     if linha is None:
         return None
     extra = linha.parametros_extra or {}
@@ -74,6 +78,7 @@ def mascara_json(linha: ConfigEpiCamera | None) -> dict | None:
 
 
 def camera_json(camera: Camera, ocorrencias: int) -> dict:
+    """Posto como a aba "Postos e câmeras" mostra, com o total de ocorrências e as regras da máscara."""
     return {"id": camera.id, "nome_posto": camera.nome_posto, "processo_solda": camera.processo_solda,
             "tipo": camera.tipo, "origem": camera.origem, "ativa": camera.ativa, "zona": camera.roi_poligono,
             "ocorrencias": ocorrencias, "criado_em": para_local(camera.criado_em).strftime("%d/%m/%Y"),
@@ -81,10 +86,12 @@ def camera_json(camera: Camera, ocorrencias: int) -> dict:
 
 
 def _contagem_ocorrencias(sessao) -> dict[int, int]:
+    """Quantas ocorrências cada posto tem (id do posto -> total)."""
     return dict(sessao.execute(select(Ocorrencia.camera_id, func.count()).group_by(Ocorrencia.camera_id)).all())
 
 
 def _buscar_camera(sessao, camera_id: int) -> Camera:
+    """Busca o posto ou responde 404."""
     camera = sessao.get(Camera, camera_id)
     if camera is None:
         raise _erro("Posto não encontrado.", status.HTTP_404_NOT_FOUND)
@@ -92,6 +99,7 @@ def _buscar_camera(sessao, camera_id: int) -> Camera:
 
 
 def _nome_repetido(sessao, nome: str, outro_que: int | None = None) -> bool:
+    """True se já existe outro posto com este nome (sem diferenciar maiúsculas); outro_que ignora o próprio posto."""
     consulta = select(Camera.id).where(func.lower(Camera.nome_posto) == nome.lower())
     if outro_que is not None:
         consulta = consulta.where(Camera.id != outro_que)
@@ -108,6 +116,7 @@ def listar_postos(request: Request, _: UsuarioSessao = Depends(exigir_admin)) ->
 
 @rotas.post("/cameras", status_code=status.HTTP_201_CREATED, dependencies=[Depends(exigir_csrf)])
 def criar_posto(dados: DadosCamera, request: Request, admin: UsuarioSessao = Depends(exigir_admin)) -> dict:
+    """Cadastra um posto com as regras de EPI padrão do config.yaml e liga a câmera. Só ADMIN."""
     ctx = request.app.state.ctx
     nome, origem = _validar_camera(dados)
     with ctx.fabrica() as sessao:
@@ -127,6 +136,7 @@ def criar_posto(dados: DadosCamera, request: Request, admin: UsuarioSessao = Dep
 @rotas.put("/cameras/{camera_id}", dependencies=[Depends(exigir_csrf)])
 def editar_posto(camera_id: int, dados: DadosCamera, request: Request,
                  admin: UsuarioSessao = Depends(exigir_admin)) -> dict:
+    """Altera nome, processo, tipo, endereço ou situação do posto e religa a câmera. Só ADMIN."""
     ctx = request.app.state.ctx
     nome, origem = _validar_camera(dados)
     with ctx.fabrica() as sessao:
@@ -168,6 +178,7 @@ def remover_posto(camera_id: int, request: Request, admin: UsuarioSessao = Depen
 
 # --------------------------------------------------------------------------------------------------- máscara por posto
 class DadosMascara(BaseModel):
+    """Corpo da configuração da máscara de um posto (limites em LIMITES_MASCARA)."""
     exigido: bool
     conf_min: float
     persistencia_s: float
@@ -182,6 +193,7 @@ LIMITES_MASCARA = {"conf_min": (0.05, 0.95, "confiança mínima"), "persistencia
 
 @rotas.get("/cameras/{camera_id}/epis")
 def ver_mascara(camera_id: int, request: Request, _: UsuarioSessao = Depends(exigir_admin)) -> dict:
+    """Regras atuais da máscara no posto e os limites aceitos para cada número. Só ADMIN."""
     with request.app.state.ctx.fabrica() as sessao:
         return {"mascara": mascara_json(_mascara(_buscar_camera(sessao, camera_id))),
                 "limites": {k: [a, b] for k, (a, b, _) in LIMITES_MASCARA.items()}}
@@ -217,6 +229,7 @@ def salvar_mascara(camera_id: int, dados: DadosMascara, request: Request,
 
 # --------------------------------------------------------------------------------------------------- zona (RD06)
 class DadosZona(BaseModel):
+    """Corpo da zona de interesse: lista de pontos (x, y) ou nada para limpar a zona."""
     pontos: list[tuple[float, float]] | None = None
 
 
@@ -234,7 +247,7 @@ def salvar_zona(camera_id: int, dados: DadosZona, request: Request,
         pontos = [[round(x, 4), round(y, 4)] for x, y in pontos]
     with ctx.fabrica() as sessao:
         camera = _buscar_camera(sessao, camera_id)
-        camera.roi_poligono = pontos
+        camera.roi_poligono = pontos   # None = a imagem toda
         sessao.commit()
     auditar(ctx.fabrica, admin.id, "alterar_config", {"alvo": "zona", "id": camera_id,
                                                        "pontos": len(pontos) if pontos else 0})
@@ -249,6 +262,7 @@ def _mascarar(texto: str) -> str:
 
 
 def uso_do_disco(pasta: Path) -> dict:
+    """Bytes usados pelos dados do sistema (soma dos arquivos da pasta) e bytes livres/total do disco."""
     usado = sum(arquivo.stat().st_size for arquivo in pasta.rglob("*") if arquivo.is_file())
     total, _, livre = shutil.disk_usage(pasta)
     return {"usado_bytes": usado, "livre_bytes": livre, "total_bytes": total}
@@ -256,6 +270,7 @@ def uso_do_disco(pasta: Path) -> dict:
 
 @rotas.get("/config/sistema")
 def ver_sistema(request: Request, _: UsuarioSessao = Depends(exigir_admin)) -> dict:
+    """Ajustes atuais, valores do config.yaml, limites, Telegram (mascarado) e uso do disco. Só ADMIN."""
     ctx = request.app.state.ctx
     return {
         "valores": sistema.valores_atuais(ctx.config_base, ctx.ajustes),

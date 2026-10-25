@@ -4,6 +4,7 @@
 (() => {
   const { api, el, icone, iconeEpi, nomeEpi, faltaTexto, selo, ESTADO_DA_COR, numero, aviso } = EPI;
   const principal = document.getElementById("conteudo");
+  // Posto mostrado (vem do atributo data-camera-id do #conteudo); sem posto cadastrado não há o que atualizar
   const cameraId = principal.dataset.cameraId;
   if (!cameraId) return;
   const $ = (id) => document.getElementById(id);
@@ -11,6 +12,7 @@
   // ---------------------------------------------------------------- vídeo (reconecta sozinho se cair)
   const video = $("video");
   let videoLigado = true, religar = null;
+  /** (Re)abre o stream MJPEG do posto; o ?t= com a hora evita que o navegador reaproveite uma conexão antiga. */
   function conectarVideo() {
     clearTimeout(religar);
     video.src = `/api/cameras/${cameraId}/stream.mjpg?t=${Date.now()}`;
@@ -27,11 +29,13 @@
   conectarVideo();
 
   // ---------------------------------------------------------------- avisos e faixa de alerta
+  /** Mostra (ou esconde, se vazio) o aviso de erro da câmera. */
   function avisoErro(texto) {
     $("aviso-erro").querySelector("span").textContent = texto || "";
     $("aviso-erro").hidden = !texto;
   }
 
+  /** Faixa sobre o vídeo: "câmera offline" ou "arco detectado, quadro ignorado" (quadro estourado pelo arco não é avaliado). */
   function faixa(dados) {
     const caixa = $("faixa");
     if (!dados.online && !dados.pausada) {
@@ -49,9 +53,12 @@
   }
 
   // ---------------------------------------------------------------- pessoas agora
+  // Classe CSS do cartão conforme o estado (cor da borda); a cor nunca vem sozinha: o selo tem ícone e texto
   const CLASSE_PESSOA = { CONFORME: "pessoa-c", NAO_CONFORME: "pessoa-n", INDETERMINADO: "pessoa-i" };
+  // Guardam o que está desenhado, para não refazer a lista (e não repetir o aviso ao leitor de tela) sem mudança
   let chavePessoas = "", resumoPessoas = "";
 
+  /** Cartão de uma pessoa detectada: número do rastreio, estado geral, estado de cada EPI e marcas de máscara levantada / arco aceso. */
   function cartaoPessoa(pessoa) {
     const estado = ESTADO_DA_COR[pessoa.cor] || "INDETERMINADO";
     const cartao = el("article", { classe: "pessoa " + CLASSE_PESSOA[estado] },
@@ -69,6 +76,7 @@
     return cartao;
   }
 
+  /** Redesenha o painel "Pessoas agora" com os dados de /api/status (cada mensagem trata um caso: pausado, offline, arco aberto, zona vazia, pessoas). */
   function mostrarPessoas(dados) {
     const pessoas = dados.pessoas || [];
     $("qtd-pessoas").textContent = dados.online && !dados.pausada ? String(pessoas.length) : "";
@@ -114,6 +122,7 @@
   // ---------------------------------------------------------------- últimas ocorrências
   let chaveUltimas = null;
 
+  /** Miniatura da ocorrência; se a imagem não carregar, troca por um ícone. */
   function miniatura(url) {
     const img = el("img", { src: url, alt: "", loading: "lazy" });
     img.addEventListener("error", () => img.replaceWith(el("span", { classe: "miniatura d-inline-flex align-items-center justify-content-center" },
@@ -121,6 +130,7 @@
     return img;
   }
 
+  /** Lista das últimas ocorrências; só redesenha quando a lista mudou. */
   function mostrarUltimas(lista) {
     const chave = lista.map((o) => o.uuid).join();
     if (chave === chaveUltimas) return;
@@ -139,10 +149,13 @@
   // ---------------------------------------------------------------- cordão do turno (assinatura da T02)
   const canvas = $("cordao");
   const trilho = $("cordao-trilho");
+  // Cor de cada trecho do cordão: C conforme, I indeterminado, N não conforme, V vazio (ninguém avaliado), - futuro
   const CORES = { C: "#198754", I: "#FFC107", N: "#DC3545", V: "#B8C2CC", "-": "#E1E6EB" };
+  // Ordem de gravidade: quando vários trechos caem na mesma coluna de pixels, vale o pior
   const GRAVIDADE = { "-": 0, V: 1, C: 2, I: 3, N: 4 };
   let ultimoCordao = null, chavePinos = null;
 
+  /** Desenha o cordão do turno no canvas (um trecho a cada `passo_s` segundos). Devolve o total de trechos e a duração em segundos. */
   function desenharCordao(cordao) {
     const escala = window.devicePixelRatio || 1;
     const largura = Math.max(1, Math.round(trilho.clientWidth * escala));
@@ -207,6 +220,7 @@
     return { total, duracao: (fim - inicio) / 1000 };
   }
 
+  /** Coloca sobre o cordão um pino por ocorrência, na posição proporcional à hora em que ela aconteceu. */
   function mostrarPinos(cordao, duracao) {
     const chave = cordao.inicio + cordao.pinos.map((p) => p.uuid).join();
     if (chave === chavePinos) return;
@@ -221,6 +235,7 @@
     }
   }
 
+  /** Texto de resumo do turno (porcentagens de conforme, não conforme e indeterminado, e total de ocorrências), lido por leitor de tela. */
   function resumoCordao(cordao) {
     const conta = { C: 0, I: 0, N: 0 };
     for (const codigo of cordao.trechos) if (codigo in conta) conta[codigo] += 1;
@@ -247,11 +262,13 @@
     $("cordao-resumo").textContent = resumoCordao(cordao);
   }
 
+  // O canvas tem largura em pixels própria: redesenha quando a janela muda de tamanho
   new ResizeObserver(() => { if (ultimoCordao) desenharCordao(ultimoCordao); }).observe(trilho);
 
   // ---------------------------------------------------------------- pausar / retomar (só ADMIN)
   const botaoPausar = $("botao-pausar");
   let pausada = false;
+  /** Atualiza o botão para "Pausar posto" ou "Retomar posto" (o botão só existe para o administrador). */
   function mostrarPausa(valor) {
     pausada = valor;
     if (!botaoPausar) return;
@@ -274,6 +291,7 @@
 
   // ---------------------------------------------------------------- ciclo de 1 s
   let falhas = 0;
+  /** Ciclo da tela: consulta /api/status, atualiza todos os blocos e agenda a próxima rodada (1 s; 5 s com a aba escondida). */
   async function atualizar() {
     try {
       const dados = await api("/api/status?camera_id=" + encodeURIComponent(cameraId));
@@ -289,6 +307,7 @@
       mostrarCordao(dados.cordao);
     } catch (falha) {
       falhas += 1;
+      // Só avisa depois de 3 falhas seguidas, para não piscar por uma falha isolada de rede
       if (falhas >= 3) avisoErro("Sem resposta do sistema. Confira se o servidor está ligado; a tela tenta de novo sozinha.");
     } finally {
       setTimeout(atualizar, document.hidden ? 5000 : 1000);

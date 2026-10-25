@@ -20,10 +20,12 @@ from src.zona import separar_por_zona
 
 @dataclass
 class ResultadoFrame:
+    """Resultado do processamento de um frame: avaliações, detecções, aviso de arco e rostos encontrados."""
+
     avaliacoes: list[AvaliacaoPessoa]
     deteccoes: list[DeteccaoEPI]
-    saturado: bool
-    fracao_saturada: float
+    saturado: bool           # True: frame estourado pelo arco (RF14); os dados acima são os do último frame válido
+    fracao_saturada: float   # fração (0 a 1) de pixels muito claros no frame
     rostos: list[Rosto] | None = None
     fora_da_zona: list[Pessoa] = field(default_factory=list)   # RD06: não avaliadas, mas BORRADAS nas imagens
 
@@ -32,6 +34,7 @@ class Pipeline:
     """Filtro do arco -> modelos -> regras. Guarda o último resultado válido para os frames ignorados."""
 
     def __init__(self, config: Config, detector, zona: list[tuple[float, float]] | None = None) -> None:
+        """Guarda a configuração, o detector (modelos) e a zona opcional; começa sem nenhum resultado anterior."""
         self.config = config
         self.detector = detector
         self.zona = zona                          # RD06: polígono do posto (frações da imagem); None = imagem toda
@@ -49,6 +52,7 @@ class Pipeline:
             return ResultadoFrame(self.ultimas_avaliacoes, self.ultimas_deteccoes, True, fracao, self.ultimos_rostos,
                                   self.ultimas_fora)
         pessoas, deteccoes, rostos = self.detector.detectar(frame)
+        # RD06: quem está fora da zona não é avaliado, mas sua caixa vai junto para ser borrada na imagem
         pessoas, self.ultimas_fora = separar_por_zona(pessoas, self.zona, frame.shape[1], frame.shape[0])
         arco_ativo, arco_maos = self._solda_ativa(frame, pessoas, time.monotonic() if t is None else t)
         self.ultimas_avaliacoes = avaliar_frame(pessoas, deteccoes, self.config, rostos, arco_ativo, arco_maos)
@@ -73,6 +77,7 @@ class Pipeline:
                     self._arco_ate[pessoa.track_id] = t + cfg.manter_aceso_s
                 ativos.append(t <= self._arco_ate.get(pessoa.track_id, float("-inf")))
             fracoes.append(fracao)
+        # Limpeza: guarda o arco de cada pessoa por mais 60 s, para a memória não crescer sem limite
         for track_id in [k for k, ate in self._arco_ate.items() if ate < t - 60]:   # esquece quem sumiu
             del self._arco_ate[track_id]
         return ativos, fracoes

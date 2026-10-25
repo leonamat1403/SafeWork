@@ -4,11 +4,13 @@
 (() => {
   const { api, el, icone, aviso } = EPI;
   const $ = (id) => document.getElementById(id);
+  // Mesma regra de login do servidor: 3 a 50 caracteres, sem acento nem espaço
   const LOGIN_VALIDO = /^[A-Za-z0-9._-]{3,50}$/;
   const PERFIS = { ADMIN: "Administrador", SUPERVISOR: "Supervisor" };
   const modalNovo = bootstrap.Modal.getOrCreateInstance($("modal-novo"));
 
   // ---------------------------------------------------------------- lista
+  /** Célula "Situação": Ativo/Desativado e o aviso de que a senha inicial ainda não foi trocada. */
   function situacao(u) {
     const partes = [el("span", { classe: u.ativo ? "" : "text-secondary" },
       icone(u.ativo ? "bi-person-check me-1" : "bi-person-slash me-1"), u.ativo ? "Ativo" : "Desativado")];
@@ -16,6 +18,7 @@
     return el("td", {}, ...partes);
   }
 
+  /** Célula com os botões Redefinir senha e Desativar/Reativar (o próprio usuário não pode se desativar). */
   function acoes(u) {
     const redefinir = el("button", { type: "button", classe: "btn btn-sm btn-outline-secondary" },
       icone("bi-key me-1"), "Redefinir senha");
@@ -31,6 +34,7 @@
     return el("td", { classe: "text-end" }, el("div", { classe: "d-inline-flex flex-wrap gap-2 justify-content-end" }, redefinir, alternar));
   }
 
+  /** Busca /api/usuarios e redesenha a tabela. */
   async function carregar() {
     try {
       const usuarios = await api("/api/usuarios");
@@ -47,6 +51,7 @@
   }
 
   // ---------------------------------------------------------------- ações
+  /** Desativa o usuário (não apaga: o histórico dele continua guardado). */
   async function desativar(u) {
     if (!confirm(`Desativar ${u.nome}? A pessoa não consegue mais entrar, mas o histórico dela fica guardado.`)) return;
     try {
@@ -64,6 +69,7 @@
     } catch (falha) { aviso(falha.message, "erro"); }
   }
 
+  /** Pede ao servidor uma senha temporária; ela é mostrada só aqui e a pessoa será obrigada a trocá-la no próximo acesso. */
   async function redefinirSenha(u) {
     if (!confirm(`Gerar uma senha temporária para ${u.nome}? A senha atual deixa de funcionar.`)) return;
     try {
@@ -94,11 +100,13 @@
 
   // ---------------------------------------------------------------- novo usuário
   const form = $("form-novo");
+  /** Mostra (ou esconde, se vazio) o erro do formulário de novo usuário. */
   function erroNovo(texto) {
     $("erro-novo").querySelector("span").textContent = texto || "";
     $("erro-novo").hidden = !texto;
   }
 
+  // Validação no navegador só para dar resposta rápida; o servidor confere tudo de novo
   form.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     erroNovo("");

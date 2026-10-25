@@ -64,10 +64,12 @@ class AvaliacaoPessoa:
 
     @property
     def cor(self) -> str:
+        """Cor da caixa da pessoa (RF04): "verde", "amarelo" ou "vermelho"."""
         return cor_da_pessoa(self.epis)
 
     @property
     def rotulo(self) -> str:
+        """Texto mostrado acima da caixa da pessoa (ver `rotulo_da_pessoa`)."""
         return rotulo_da_pessoa(self)
 
 
@@ -108,7 +110,7 @@ def _associar(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[DeteccaoEPI],
             cobertura = fracao_dentro(det.caixa, aval.regioes.cabeca)
             if cobertura >= cobertura_min:
                 pares.append((cobertura, det.conf, i, j))
-    pares.sort(reverse=True)
+    pares.sort(reverse=True)   # ordena por cobertura e, no empate, por confiança da detecção
 
     associacao: dict[int, DeteccaoEPI] = {}
     usadas: set[int] = set()
@@ -127,16 +129,18 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
     checar_contradicao = bool(cfg.extras.get("contradicao_rosto_visivel", True))
     conf_rosto = float(cfg.extras.get("conf_rosto_contradicao", 0.7))
     levantada_falta = bool(cfg.extras.get("levantada_nao_conforme", False))
-    for i, aval in enumerate(avaliacoes):
+    for i, aval in enumerate(avaliacoes):   # as regras abaixo seguem a ordem da lista do cabeçalho do módulo
         reg = aval.regioes
         det = associacao.get(i)
         if det is not None:
             _, cy = centro(det.caixa)
+            # Eixo Y cresce para baixo: centro da máscara com y MENOR que o dos olhos = máscara acima dos olhos
             acima_dos_olhos = reg.linha_olhos_y is not None and cy < reg.linha_olhos_y
             aval.mascara_levantada = bool(reg.rosto_visivel and acima_dos_olhos)
             # Rosto "nítido": pelo detector de rostos, se houver; senão, >= 2 pontos do rosto da pose com conf alta
             rosto_nitido = (reg.rosto_visivel if reg.rosto_por_detector
                             else pontos_do_rosto_visiveis(aval.pessoa, conf_rosto) >= 2)
+            # Máscara abaixada cobre os olhos; se mesmo assim o rosto está nítido, a "máscara" deve ser um falso positivo
             if checar_contradicao and not acima_dos_olhos and rosto_nitido:
                 aval.mascara_levantada = False
                 aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, det.conf,
@@ -149,7 +153,7 @@ def _avaliar_mascaras(avaliacoes: list[AvaliacaoPessoa], deteccoes: list[Detecca
             aval.epis["mascara"] = AvaliacaoEPI(Estado.CONFORME, det.conf, "máscara na região da cabeça", det.caixa)
         elif reg.cabeca is None:
             aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, motivo="cabeça não visível")
-        elif reg.fallback and not reg.rosto_por_detector:
+        elif reg.fallback and not reg.rosto_por_detector:   # sem pose nem detector de rostos, não dá para afirmar nada
             aval.epis["mascara"] = AvaliacaoEPI(Estado.INDETERMINADO, motivo="sem pose: rosto não verificável")
         elif reg.rosto_visivel:
             motivo = "rosto visível sem máscara, arco aceso" if aval.arco_ativo else "rosto visível sem máscara"

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{# T04 – Ocorrências. Script: ocorrencias.js. O <main> leva data-admin (só o administrador vê o botão Excluir). #}
 {% block titulo %}Ocorrências{% endblock %}
 {% block conteudo %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
@@ -9,6 +10,8 @@
   </a>
 </div>
 
+{# Filtros. Os ids f-inicio, f-fim, f-posto, f-epi, f-turno e f-validacao são ligados pelo ocorrencias.js aos parâmetros do endereço
+   da página; f-posto é preenchido pelo script, f-turno vem da configuração do servidor. #exportar (CSV) usa os mesmos filtros. #}
 <form class="cartao" id="filtros" aria-label="Filtros">
   <div class="filtros-grade">
     <div><label class="form-label rotulo" for="f-inicio">De</label>
@@ -33,6 +36,8 @@
   </div>
 </form>
 
+{# Lista: tabela #linhas (telas largas, d-lg-block) e cartões #cartoes (telas estreitas); #vazio, #paginacao, #anterior,
+   #proxima e #pagina-atual também são controlados pelo script. #}
 <p class="resumo-periodo my-3" id="resumo" aria-live="polite"></p>
 
 <div class="cartao p-0 d-none d-lg-block">
@@ -54,6 +59,8 @@
   <button type="button" class="btn btn-outline-secondary" id="proxima">Próxima <i class="bi bi-chevron-right" aria-hidden="true"></i></button>
 </nav>
 
+{# Modal de detalhe: modal-titulo, modal-imagem (imagem já borrada), modal-sem-imagem e modal-dados são preenchidos pelo script;
+   os botões data-validar mudam a validação (CONFIRMADA, FALSO_POSITIVO, PENDENTE) e #botao-excluir só existe para o administrador. #}
 <div class="modal fade" id="modal" tabindex="-1" aria-labelledby="modal-titulo" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-lg-down">
     <div class="modal-content">

@@ -17,6 +17,7 @@ def login(request: Request, login: str = Form(...), senha: str = Form(...)) -> d
     """Entra no sistema. Devolve o perfil e o csrf_token (enviado depois no cabeçalho X-CSRF-Token)."""
     ctx = request.app.state.ctx
     login = login.strip()
+    # 5 erros seguidos bloqueiam o login por 5 minutos (app/auth.py); vale até para a senha certa
     if ctx.tentativas.bloqueado(login):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
                             "Muitas tentativas erradas. Aguarde 5 minutos e tente de novo.")
@@ -40,6 +41,7 @@ def login(request: Request, login: str = Form(...), senha: str = Form(...)) -> d
 
 @rotas.post("/logout", dependencies=[Depends(exigir_csrf)])
 def logout(request: Request, usuario: UsuarioSessao = Depends(usuario_atual)) -> dict:
+    """Encerra a sessão (apaga o cookie) e registra a saída na auditoria. Exige o token CSRF."""
     auditar(request.app.state.ctx.fabrica, usuario.id, "logout")
     request.session.clear()
     return {"ok": True}
@@ -53,6 +55,7 @@ def eu(request: Request, usuario: UsuarioSessao = Depends(usuario_atual)) -> dic
 
 
 class TrocaSenha(BaseModel):
+    """Corpo do pedido de troca de senha: a atual (para provar quem é) e a nova."""
     senha_atual: str
     nova_senha: str
 

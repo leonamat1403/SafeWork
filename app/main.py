@@ -55,18 +55,18 @@ class Contexto:
 
     ajustes: Ajustes                 # em uso: .env + config.yaml + aba Sistema (config_sistema)
     config_base: Config              # em uso: config.yaml + aba Sistema
-    engine: Engine
-    fabrica: sessionmaker[Session]
-    storage: StorageDisco
-    borrador: Borrador
-    registrador: RegistradorOcorrencias
-    cameras: GerenciadorCameras
-    uploads: FilaUploads
-    tentativas: ControleTentativas
+    engine: Engine                           # conexão com o banco
+    fabrica: sessionmaker[Session]           # cria uma sessão do banco por operação
+    storage: StorageDisco                    # grava e lê imagens/vídeos de ocorrências no disco
+    borrador: Borrador                       # borra rostos (privacidade) nas imagens guardadas
+    registrador: RegistradorOcorrencias      # transforma ocorrências detectadas em registros do banco
+    cameras: GerenciadorCameras              # uma tarefa de análise por câmera ativa
+    uploads: FilaUploads                     # fila de vídeos/fotos enviados pelo usuário
+    tentativas: ControleTentativas           # limite de tentativas de login erradas
     notificador: Notificador | None = None   # RD09: alerta pelo Telegram
     config_yaml: Config | None = None     # como veio do config.yaml (base para reaplicar a aba Sistema)
     ajustes_yaml: Ajustes | None = None
-    agendador: object | None = None
+    agendador: object | None = None       # rotinas automáticas (limpeza, backup); None nos testes
 
 
 def criar_camera_padrao(fabrica: sessionmaker[Session], config: Config) -> bool:
@@ -82,6 +82,7 @@ def criar_camera_padrao(fabrica: sessionmaker[Session], config: Config) -> bool:
 
 
 def _chave_da_sessao(ajustes: Ajustes) -> str:
+    """Chave que assina o cookie de sessão; sem chave no .env só é aceita a temporária, e só em desenvolvimento."""
     if ajustes.secret_key and ajustes.secret_key != CHAVE_PADRAO:
         return ajustes.secret_key
     if ajustes.modo_desenvolvimento:
@@ -100,13 +101,14 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
 
     @asynccontextmanager
     async def ciclo_de_vida(app: FastAPI):
+        """Liga tudo ao iniciar (banco, câmeras, uploads, rotinas) e desliga na ordem inversa ao encerrar."""
         preparar_pastas(ajustes.data_dir)
         configurar_logging(ajustes.data_dir / "logs")
         aplicar_migracoes(ajustes.database_url)
         engine = criar_engine(ajustes.database_url)
         fabrica = criar_fabrica_sessoes(engine)
         config_yaml = carregar_config(ajustes.config_yaml)
-        criar_admin_inicial(fabrica, ajustes)
+        criar_admin_inicial(fabrica, ajustes)   # as migrações já criaram as tabelas; aqui entram os dados do 1º uso
         criar_camera_padrao(fabrica, config_yaml)
         # O que o ADMIN mudou na aba Sistema (RD05) vale por cima do config.yaml
         config_base, em_uso = sistema.aplicar(config_yaml, ajustes, sistema.ler_banco(fabrica))
@@ -156,6 +158,7 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
 
     @app.middleware("http")
     async def cabecalhos_de_seguranca(request: Request, chamar_proximo):
+        """Acrescenta a toda resposta os cabeçalhos de segurança; API, mídia e páginas não ficam em cache (privacidade)."""
         resposta = await chamar_proximo(request)
         resposta.headers.setdefault("X-Content-Type-Options", "nosniff")
         resposta.headers.setdefault("X-Frame-Options", "DENY")
@@ -170,6 +173,7 @@ def criar_app(ajustes: Ajustes | None = None, criar_detector: Callable[[Config],
     if desenvolvimento:   # documentação interativa só para testes (MODO_DESENVOLVIMENTO=true no .env)
         @app.get("/docs", include_in_schema=False)
         def documentacao():
+            """Página Swagger da API, usada só no modo de desenvolvimento."""
             return get_swagger_ui_html(openapi_url="/openapi.json", title="Verificador de EPIs – API",
                                        swagger_ui_parameters={"withCredentials": True, "persistAuthorization": True})
 

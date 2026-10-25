@@ -37,9 +37,10 @@ def criar_engine(url: str) -> Engine:
 
     @event.listens_for(engine, "connect")
     def _pragmas(conexao, _registro) -> None:
+        """Roda em toda conexão nova do SQLite: o SQLite só respeita chaves estrangeiras se isto for ligado a cada vez."""
         cursor = conexao.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA journal_mode=WAL")   # leitores não bloqueiam quem grava (várias câmeras ao mesmo tempo)
         cursor.execute("PRAGMA busy_timeout=30000")
         cursor.close()
 

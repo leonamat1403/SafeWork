@@ -7,28 +7,34 @@
   const $ = (id) => document.getElementById(id);
 
   // ---------------------------------------------------------------- cores (validadas para daltonismo)
+  // Cores validadas para daltonismo: azul e laranja separam as séries; verde/vermelho/amarelo ficam só para os estados dos EPIs
   const COR_SERIE = "#2a78d6";                       // uma série só (dia, posto)
   const COR_SEM_MASCARA = "#2a78d6", COR_LEVANTADA = "#eb6834";
   const COR_ESTADO = { conforme: "#198754", nao_conforme: "#DC3545", indeterminado: "#FFC107" };   // cores de estado
   const SUPERFICIE = "#FFFFFF";
 
+  // Padrões visuais do Chart.js, iguais ao resto do sistema (fonte legível, pt-BR)
   Chart.defaults.font.family = '"Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif';
   Chart.defaults.font.size = 13;
   Chart.defaults.color = "#4A5661";
   Chart.defaults.borderColor = "#E1E6EB";
   Chart.defaults.locale = "pt-BR";
+  // Acessibilidade: sem animação para quem pediu movimento reduzido
   if (EPI.movimentoReduzido()) Chart.defaults.animation = false;
 
   // ---------------------------------------------------------------- datas e filtros
   const SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  // Utilitários de data: AAAA-MM-DD local <-> Date, "dd/mm" e "dd/mm/aaaa (dia da semana)"
   const isoLocal = (d) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
   const deIso = (texto) => { const [a, m, d] = texto.split("-").map(Number); return new Date(a, m - 1, d); };
   const curta = (texto) => texto.slice(8, 10) + "/" + texto.slice(5, 7);
   const longa = (texto) => `${curta(texto)}/${texto.slice(0, 4)} (${SEMANA[deIso(texto).getDay()]})`;
   const pct = (fracao) => (fracao === null || fracao === undefined ? "—" : numero(fracao * 100) + "%");
 
+  /** Data de hoje (ou deslocada por `deslocamento` dias) em AAAA-MM-DD, no fuso do navegador. */
   function hoje(deslocamento = 0) { const d = new Date(); d.setDate(d.getDate() + deslocamento); return isoLocal(d); }
 
+  /** Parâmetros de busca com o período e o posto escolhidos nos filtros. */
   function filtros() {
     const params = new URLSearchParams();
     if ($("f-inicio").value) params.set("inicio", $("f-inicio").value);
@@ -45,6 +51,7 @@
   }
 
   // ---------------------------------------------------------------- gráficos
+  // Gráficos já criados, por nome: nas próximas cargas só se trocam os dados, sem recriar o canvas
   const graficos = {};
 
   /** Linha vertical no ponto em foco (o leitor mira o dia, não a linha de 2 px). */
@@ -65,8 +72,10 @@
     },
   };
 
+  // Eixo de contagens: começa em zero e só mostra números inteiros
   const eixoContagem = { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "#E1E6EB" }, border: { display: false } };
 
+  /** Opções que tornam o gráfico clicável: `destino(indice)` devolve o endereço de Ocorrências já filtrada. */
   function aoClicar(destino) {
     return {
       onClick: (_evento, elementos) => { if (elementos.length) location.href = destino(elementos[0].index); },
@@ -74,6 +83,7 @@
     };
   }
 
+  /** Cria o gráfico na primeira vez; depois só atualiza os dados. */
   function criarOuAtualizar(nome, canvas, criar, dados) {
     if (graficos[nome]) {
       graficos[nome].data = dados;
@@ -83,6 +93,7 @@
     }
   }
 
+  /** Mostra o gráfico ou a mensagem de "sem dados" (`vazio`); a tabela "Ver dados" de cada gráfico é preenchida à parte. */
   function grafico(nome, vazio, criar, dados) {
     const secao = $("g-" + nome).closest(".grafico");
     secao.querySelector(".grafico-area").hidden = vazio;
@@ -90,6 +101,7 @@
     criarOuAtualizar(nome, $("g-" + nome), criar, dados);
   }
 
+  /** Gráfico de linha: ocorrências por dia; clicar num ponto abre as ocorrências daquele dia. */
   function porDia(d) {
     const dias = d.por_dia;
     grafico("dia", dias.every((x) => x.total === 0), (dados) => ({
@@ -113,6 +125,7 @@
       el("td", { classe: "text-end numero", texto: numero(x.total) }))));
   }
 
+  /** Gráfico de rosca: proporção de conforme, não conforme e indeterminado entre as pessoas avaliadas. */
   function estados(d) {
     const e = d.estados;
     const total = e.conforme + e.nao_conforme + e.indeterminado;
@@ -140,6 +153,7 @@
       el("td", { classe: "text-end numero", texto: pct(total ? e[k] / total : null) }))));
   }
 
+  /** Gráfico de barras empilhadas por turno: sem máscara x máscara levantada. */
   function porTurno(d) {
     const turnos = d.por_turno;
     const nomeTurno = (t) => (t === "sem turno" ? "Sem turno" : `Turno ${t}`);
@@ -163,6 +177,7 @@
       el("td", { classe: "text-end numero", texto: numero(x.levantada) }))));
   }
 
+  /** Gráfico de barras horizontais: ocorrências por posto de trabalho. */
   function porPosto(d) {
     const postos = d.por_posto;
     grafico("posto", postos.length === 0, (dados) => ({
@@ -186,11 +201,13 @@
   }
 
   // ---------------------------------------------------------------- números principais
+  /** Preenche um cartão de número (valor grande e nota explicativa). */
   function cartao(id, valor, nota) {
     $(id).querySelector(".numero-valor").textContent = valor;
     if (nota !== undefined) $(id).querySelector(".numero-nota").textContent = nota;
   }
 
+  /** Cartões principais: ocorrências hoje e no mês, conformidade, falsos positivos e a nota do arco aceso (RD03). */
   function numeros(d) {
     const c = d.cartoes;
     cartao("c-hoje", numero(c.hoje), c.hoje === 1 ? "ocorrência registrada" : "ocorrências registradas");
@@ -206,6 +223,7 @@
   }
 
   // ---------------------------------------------------------------- relatório mensal em PDF (RD10)
+  /** Atualiza o link do relatório mensal em PDF com o mês e o posto escolhidos. */
   function linkPdf() {
     const pdf = new URLSearchParams();
     if ($("pdf-mes").value) pdf.set("mes", $("pdf-mes").value);
@@ -217,6 +235,7 @@
   $("f-posto").addEventListener("change", linkPdf);
 
   // ---------------------------------------------------------------- carregar
+  /** Busca /api/dashboard com os filtros e redesenha tudo; aria-busy avisa o leitor de tela enquanto carrega. */
   async function carregar() {
     const painel = $("painel");
     painel.setAttribute("aria-busy", "true");
@@ -238,6 +257,7 @@
     }
   }
 
+  /** Preenche a lista de postos do filtro (inclui os desativados, para o histórico continuar acessível). */
   async function carregarPostos() {
     const valor = new URLSearchParams(location.search).get("camera_id") || "";
     try {
@@ -257,6 +277,7 @@
     carregar();
   });
 
+  // Atalhos de período: data-periodo = "hoje", "mes" ou o número de dias (7, 30...) terminando hoje
   document.querySelectorAll("[data-periodo]").forEach((botao) => botao.addEventListener("click", () => {
     const tipo = botao.dataset.periodo;
     $("f-fim").value = hoje();

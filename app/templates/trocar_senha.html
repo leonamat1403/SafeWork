@@ -1,6 +1,9 @@
 {% extends "base_simples.html" %}
+{# Troca de senha. Script: trocar_senha.js. Obrigatória no primeiro acesso e depois de redefinição pelo administrador (usuario.deve_trocar_senha). #}
 {% block titulo %}Trocar senha{% endblock %}
 {% block conteudo %}
+{# Ids usados pelo trocar_senha.js: form-senha (data-login serve para barrar senha igual ao login), senha-atual, nova-senha,
+   repita-senha e erro-senha. Cada <li data-regra=...> da lista é marcado como cumprido conforme o usuário digita. #}
 <form class="login-cartao" id="form-senha" data-login="{{ usuario.login }}" novalidate>
   {% if usuario.deve_trocar_senha %}
   <h2 class="titulo-pagina fs-4 mb-1">Defina uma senha nova</h2>
@@ -31,6 +34,7 @@
   <div class="alert alert-danger d-flex gap-2 align-items-start mt-3 mb-0" id="erro-senha" role="alert" hidden>
     <i class="bi bi-x-octagon-fill" aria-hidden="true"></i><span></span>
   </div>
+  {# Quem não é obrigado a trocar pode desistir; no primeiro acesso não há como voltar sem trocar. #}
   {% if not usuario.deve_trocar_senha %}
   <a href="/ao-vivo" class="d-block text-center mt-3">Voltar sem trocar</a>
   {% endif %}

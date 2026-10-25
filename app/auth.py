@@ -47,10 +47,12 @@ cabecalho_csrf = APIKeyHeader(name="X-CSRF-Token", auto_error=False, description
 # Senhas
 # --------------------------------------------------------------------------------------------------------------
 def gerar_hash(senha: str) -> str:
+    """Transforma a senha em hash bcrypt (com sal aleatório) para guardar no banco."""
     return bcrypt.hashpw(senha.encode("utf-8"), bcrypt.gensalt(CUSTO_BCRYPT)).decode("ascii")
 
 
 def conferir_senha(senha: str, senha_hash: str) -> bool:
+    """Diz se a senha digitada corresponde ao hash guardado (False também se o hash for inválido)."""
     try:
         return bcrypt.checkpw(senha.encode("utf-8"), senha_hash.encode("ascii"))
     except ValueError:   # hash corrompido ou senha longa demais
@@ -67,6 +69,7 @@ def problema_na_senha(senha: str, login: str) -> str | None:
     """Motivo para recusar uma senha nova, ou None se ela serve."""
     if len(senha) < SENHA_MIN:
         return f"A senha precisa ter pelo menos {SENHA_MIN} caracteres."
+    # o limite de 72 bytes é do bcrypt e conta bytes, não caracteres (acentos ocupam 2)
     if len(senha.encode("utf-8")) > SENHA_MAX_BYTES:
         return f"A senha pode ter no máximo {SENHA_MAX_BYTES} bytes."
     if senha.strip().lower() in (login.strip().lower(), SENHA_PADRAO_ENV):
@@ -78,27 +81,32 @@ class ControleTentativas:
     """Conta as senhas erradas recentes de cada login (em memória; zera quando o sistema reinicia)."""
 
     def __init__(self, maximo: int = TENTATIVAS_MAX, janela_s: float = BLOQUEIO_S) -> None:
+        """Guarda o limite de falhas e a janela de tempo; cada login tem a sua fila de horários de falha."""
         self.maximo, self.janela_s = maximo, janela_s
         self._falhas: dict[str, deque[float]] = defaultdict(deque)
         self._trava = threading.Lock()
 
     def _limpar(self, login: str, agora: float) -> deque[float]:
+        """Descarta as falhas mais velhas que a janela e devolve as que restam (chamar com a trava já tomada)."""
         falhas = self._falhas[login]
         while falhas and agora - falhas[0] > self.janela_s:
             falhas.popleft()
         return falhas
 
     def bloqueado(self, login: str, agora: float | None = None) -> bool:
+        """True se o login já errou a senha vezes demais dentro da janela (o relógio é injetável para os testes)."""
         agora = time.monotonic() if agora is None else agora
         with self._trava:
             return len(self._limpar(login.lower(), agora)) >= self.maximo
 
     def registrar_falha(self, login: str, agora: float | None = None) -> None:
+        """Anota mais uma senha errada para o login (maiúsculas e minúsculas contam como o mesmo login)."""
         agora = time.monotonic() if agora is None else agora
         with self._trava:
             self._limpar(login.lower(), agora).append(agora)
 
     def zerar(self, login: str) -> None:
+        """Esquece as falhas do login (chamado quando ele acerta a senha)."""
         with self._trava:
             self._falhas.pop(login.lower(), None)
 
@@ -108,6 +116,7 @@ class ControleTentativas:
 # --------------------------------------------------------------------------------------------------------------
 @dataclass(frozen=True)
 class UsuarioSessao:
+    """Dados do usuário logado que as rotas precisam; é imutável e não carrega o hash da senha."""
     id: int
     login: str
     nome: str
@@ -116,6 +125,7 @@ class UsuarioSessao:
 
     @property
     def admin(self) -> bool:
+        """True se o perfil é ADMIN (o outro perfil existente é SUPERVISOR)."""
         return self.perfil == "ADMIN"
 
 
@@ -140,6 +150,7 @@ def usuario_atual(request: Request) -> UsuarioSessao:
     usuario_id = sessao.get("usuario_id")
     if usuario_id is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Faça login para continuar.")
+    # expira por inatividade; cada requisição válida renova o ultimo_acesso (mais abaixo)
     if time.time() - float(sessao.get("ultimo_acesso", 0)) > INATIVIDADE_MAX_S:
         sessao.clear()
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão expirada. Faça login de novo.")
@@ -169,6 +180,7 @@ def exigir_admin(usuario: UsuarioSessao = Depends(usuario_liberado)) -> UsuarioS
 
 async def exigir_csrf(request: Request, token_cabecalho: str | None = Depends(cabecalho_csrf)) -> None:
     """Dependência das rotas que alteram algo: o token CSRF enviado tem de ser o da sessão (RNF05)."""
+    # GET/HEAD/OPTIONS não alteram nada, então não precisam de token
     if request.method in METODOS_SEGUROS:
         return
     token = token_cabecalho
@@ -176,6 +188,7 @@ async def exigir_csrf(request: Request, token_cabecalho: str | None = Depends(ca
             ("application/x-www-form-urlencoded", "multipart/form-data")):
         token = (await request.form()).get("csrf_token")
     esperado = request.session.get("csrf")
+    # compare_digest compara em tempo constante, para o token não vazar por diferença de tempo
     if not token or not esperado or not hmac.compare_digest(str(token), str(esperado)):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Token CSRF ausente ou inválido.")
 

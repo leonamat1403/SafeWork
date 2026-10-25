@@ -1,3 +1,7 @@
+{#- Layout comum das telas internas (todas, menos Login e Troca de senha, que usam base_simples.html).
+    Blocos que as telas preenchem: titulo (título da aba), dados (atributos data-* do <main>), conteudo e scripts.
+    Variáveis recebidas do servidor: csrf (token lido pelo app.js), v (versão, evita cache velho), versao, usuario
+    (nome e admin), ativa (item de menu marcado), pendentes (contador), cameras e camera_id (seletor de posto). -#}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -14,6 +18,8 @@
 {% include "_icones.html" %}
 <a class="visually-hidden-focusable btn btn-primary position-absolute m-2" href="#conteudo">Pular para o conteúdo</a>
 <div class="estrutura">
+  {# Barra lateral. #contador-pendentes é atualizado pelo app.js (atualizarPendentes) a cada 30 s;
+     o botão com data-acao="sair" também é tratado pelo app.js. Itens de Administração só aparecem para o administrador. #}
   <aside class="lateral offcanvas-lg offcanvas-start" id="menu" tabindex="-1" aria-label="Menu principal">
     <div class="lateral-marca">
       <svg aria-hidden="true"><use href="#icone-mascara"></use></svg>
@@ -54,6 +60,7 @@
   </aside>
 
   <div class="principal">
+    {# Topo: #seletor-posto (posto escolhido, lembrado pelo app.js) e #status-camera (Online/Pausada/Offline, atualizado a cada 5 s). #}
     <header class="topo">
       <button type="button" class="btn btn-outline-secondary btn-sm d-lg-none" data-bs-toggle="offcanvas"
               data-bs-target="#menu" aria-controls="menu" aria-label="Abrir menu"><i class="bi bi-list"></i></button>
@@ -73,6 +80,7 @@
       {% endif %}
     </header>
 
+    {# Conteúdo da tela. O id "conteudo" é o destino do link "Pular para o conteúdo"; data-admin (1 ou 0) é lido pelos scripts das telas. #}
     <main id="conteudo" class="conteudo" tabindex="-1" data-admin="{{ 1 if usuario.admin else 0 }}"
           {% block dados %}{% endblock %}>
       {% block conteudo %}{% endblock %}
@@ -84,6 +92,7 @@
   </div>
 </div>
 
+{# Área dos avisos rápidos (toasts): o app.js (função aviso) cria as mensagens aqui; aria-live="polite" faz o leitor de tela leia as mensagens. #}
 <div class="toast-container position-fixed bottom-0 end-0 p-3" id="avisos" aria-live="polite"></div>
 <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
 <script src="/static/js/app.js?v={{ v }}"></script>

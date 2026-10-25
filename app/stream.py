@@ -138,6 +138,7 @@ class TrabalhadorCamera(threading.Thread):
                  fabrica: sessionmaker[Session], borrador_ao_vivo: Borrador | None,
                  criar_detector: Callable[[Config], object], criar_fonte: Callable[[str], object],
                  zona: list | None = None) -> None:
+        """Guarda a configuração da câmera e inicia todo o estado compartilhado com as rotas (protegido por `_trava`)."""
         super().__init__(name=f"camera-{camera_id}", daemon=True)
         self.camera_id, self.nome, self.origem, self.config = camera_id, nome, origem, config
         self.zona = [tuple(p) for p in zona] if zona else None   # RD06: zona de interesse do posto
@@ -168,6 +169,7 @@ class TrabalhadorCamera(threading.Thread):
     # ---------------------------------------------------------------- leitura pelas rotas (outras threads)
     @property
     def ultimo_jpeg(self) -> bytes:
+        """Último quadro anotado em JPEG (ou o aviso, se a câmera estiver parada); lido pelo stream MJPEG."""
         with self._trava:
             return self._jpeg
 
@@ -199,7 +201,9 @@ class TrabalhadorCamera(threading.Thread):
             return self._dados_calibracao
 
     def _calibrar(self, frame: np.ndarray, resultado: ResultadoFrame, base) -> None:
+        """Gera o quadro técnico de calibração (e seus números) e o guarda para a tela T07; também sai borrado."""
         def desenho(img: np.ndarray) -> np.ndarray:
+            """Desenha a calibração e a zona de interesse sobre a imagem recebida."""
             return desenhar_zona(desenhar_calibracao(img, frame, resultado, self.config, self.nome), self.zona)
         imagem = base.com_desenho(desenho).pixels if isinstance(base, ImagemBorrada) else desenho(base)
         dados = {**dados_calibracao(frame, resultado, self.config), "fps": round(self.fps, 1)}
@@ -208,6 +212,7 @@ class TrabalhadorCamera(threading.Thread):
             self._jpeg_calibracao, self._dados_calibracao = quadro, dados
 
     def status(self) -> dict:
+        """Retrato do estado da câmera para o painel (copiado sob a trava, pois a thread da câmera o atualiza)."""
         with self._trava:
             return {
                 "camera_id": self.camera_id, "nome": self.nome, "online": self.online, "pausada": self.pausada,
@@ -218,10 +223,12 @@ class TrabalhadorCamera(threading.Thread):
             }
 
     def parar(self) -> None:
+        """Pede o encerramento da thread (ela termina ao ver o evento; quem chama pode dar join)."""
         self.parar_evento.set()
 
     # ---------------------------------------------------------------- thread
     def _publicar(self, jpeg_bytes: bytes, **estado) -> None:
+        """Troca o quadro do stream e atualiza atributos de estado (online, erro, pessoas...) de uma vez, sob a trava."""
         with self._trava:
             self._jpeg = jpeg_bytes
             for chave, valor in estado.items():
@@ -238,10 +245,12 @@ class TrabalhadorCamera(threading.Thread):
     def _desenhar(self, base: np.ndarray | ImagemBorrada, resultado: ResultadoFrame) -> np.ndarray:
         """Quadro do stream: caixas, rótulos e FPS por cima da base."""
         def desenho(img: np.ndarray) -> np.ndarray:
+            """Desenha caixas, rótulos, FPS e a zona de interesse sobre a imagem recebida."""
             return desenhar_zona(desenhar(img, resultado, [f"{self.nome} | {self.fps:.1f} FPS"]), self.zona)
         return base.com_desenho(desenho).pixels if isinstance(base, ImagemBorrada) else desenho(base)
 
     def _registrar(self, ocorrencias, frame: np.ndarray, resultado: ResultadoFrame) -> None:
+        """Grava cada ocorrência nova e guarda um resumo nas "últimas ocorrências" mostradas no painel."""
         for oc in ocorrencias:
             try:
                 registro = self.registrador.registrar(oc, frame, resultado, self.camera_id)
@@ -257,6 +266,7 @@ class TrabalhadorCamera(threading.Thread):
                     "thumb_url": f"/midia/{registro.uuid}?tipo=thumb"})
 
     def _contar(self, resultado: ResultadoFrame) -> None:
+        """Soma o quadro nas contagens da sessão (usadas em metricas_sessao); quadros saturados só contam como ignorados."""
         c = self._contagem
         c["frames"] += 1
         if resultado.saturado:
@@ -275,6 +285,7 @@ class TrabalhadorCamera(threading.Thread):
         trecho = int((time.time() if instante is None else instante) // PASSO_CORDAO_S)
         with self._trava:
             self._cordao.setdefault(trecho, [0, 0, 0, 0])[GRAVIDADE_CORDAO[codigo]] += 1
+            # poda os trechos com mais de 12 h; só confere de vez em quando (folga de 60 trechos) para não varrer a cada quadro
             limite = trecho - HORAS_CORDAO * 3600 // PASSO_CORDAO_S
             if len(self._cordao) > HORAS_CORDAO * 3600 // PASSO_CORDAO_S + 60:
                 for antigo in [k for k in self._cordao if k < limite]:
@@ -324,6 +335,8 @@ class TrabalhadorCamera(threading.Thread):
         return fonte
 
     def run(self) -> None:
+        """Laço da thread: abre a fonte (reconectando se cair), detecta, registra ocorrências, publica o quadro e as
+        métricas. Ao terminar, por erro ou por parada, fecha a fonte e grava as métricas finais."""
         try:
             detector = self.criar_detector(self.config)
         except ErroModelo as erro:
@@ -331,7 +344,7 @@ class TrabalhadorCamera(threading.Thread):
             log.error("Câmera %s: %s", self.nome, erro)
             return
         pipeline, gerenciador = Pipeline(self.config, detector, self.zona), GerenciadorOcorrencias(self.config)
-        pular = max(1, self.config.deteccao.pular_frames)
+        pular = max(1, self.config.deteccao.pular_frames)   # processa 1 a cada `pular` quadros (alivia a CPU)
         votacao, exibicao = VotacaoTemporal(self.config.deteccao.votacao_quadros), []
         fonte, espera, n = None, 1.0, 0
         inicio_fps, frames_fps, ultima_metrica = time.monotonic(), 0, time.monotonic()
@@ -367,7 +380,7 @@ class TrabalhadorCamera(threading.Thread):
                 tela = replace(resultado, avaliacoes=exibicao)
                 frames_fps += 1
                 agora = time.monotonic()
-                if agora - inicio_fps >= 2:
+                if agora - inicio_fps >= 2:   # FPS medido numa janela de 2 s
                     self.fps, inicio_fps, frames_fps = frames_fps / (agora - inicio_fps), agora, 0
                 base = self._base(frame, resultado)
                 quadro = jpeg(self._desenhar(base, tela))
@@ -397,8 +410,9 @@ class GerenciadorCameras:
 
     def __init__(self, ajustes: Ajustes, config_base: Config, fabrica: sessionmaker[Session],
                  registrador: RegistradorOcorrencias, borrador_ao_vivo: Borrador | None,
-                 criar_detector: Callable[[Config], object] = Detector,
+                 criar_detector: Callable[[Config], object] = Detector,   # as fábricas são trocáveis nos testes
                  criar_fonte: Callable[[str], object] = FonteVideo) -> None:
+        """Guarda as dependências compartilhadas; as threads só são criadas em `iniciar` e `reiniciar`."""
         self.ajustes, self.config_base, self.fabrica = ajustes, config_base, fabrica
         self.registrador, self.borrador_ao_vivo = registrador, borrador_ao_vivo
         self.criar_detector, self.criar_fonte = criar_detector, criar_fonte
@@ -406,6 +420,7 @@ class GerenciadorCameras:
         self._trava = threading.Lock()   # duas mudanças de configuração ao mesmo tempo não se atropelam
 
     def _cameras_ativas(self, camera_id: int | None = None) -> list[tuple]:
+        """Dados das câmeras ativas no banco (ou só de uma), como tuplas prontas para `_ligar`."""
         with self.fabrica() as sessao:
             consulta = select(Camera).where(Camera.ativa.is_(True)).order_by(Camera.id)
             if camera_id is not None:
@@ -415,6 +430,7 @@ class GerenciadorCameras:
 
     def _ligar(self, camera_id: int, nome: str, tipo: str, origem: str, epis: list, zona: list | None,
                anterior: TrabalhadorCamera | None = None) -> None:
+        """Cria e inicia a thread de uma câmera; se houver uma `anterior`, herda dela o cordão, as últimas e a pausa."""
         trabalhador = TrabalhadorCamera(
             camera_id, nome, origem_da_camera(tipo, origem, self.ajustes), config_da_camera(self.config_base, epis),
             self.registrador, self.fabrica, self.borrador_ao_vivo, self.criar_detector, self.criar_fonte, zona=zona)
@@ -425,6 +441,7 @@ class GerenciadorCameras:
         trabalhador.start()
 
     def iniciar(self) -> None:
+        """Liga uma thread para cada câmera ativa cadastrada (chamado na subida do sistema)."""
         with self._trava:
             dados = self._cameras_ativas()
             for camera in dados:
@@ -446,6 +463,7 @@ class GerenciadorCameras:
         log.info("Câmera(s) religada(s) com a nova configuração: %s", "todas" if camera_id is None else camera_id)
 
     def parar(self, espera_s: float = 10) -> None:
+        """Para todas as câmeras: avisa todas primeiro e só depois espera cada uma terminar (até `espera_s`)."""
         with self._trava:
             for trabalhador in self._trabalhadores.values():
                 trabalhador.parar()
@@ -454,9 +472,11 @@ class GerenciadorCameras:
             self._trabalhadores.clear()
 
     def obter(self, camera_id: int) -> TrabalhadorCamera | None:
+        """A thread da câmera, ou None se ela não estiver ativa."""
         return self._trabalhadores.get(camera_id)
 
     def ids(self) -> list[int]:
+        """Números das câmeras que estão rodando, em ordem."""
         return sorted(self._trabalhadores)
 
 
@@ -471,7 +491,7 @@ async def gerar_mjpeg(trabalhador: TrabalhadorCamera, desconectado: Callable[[],
     anterior, enviados = None, 0
     while not await desconectado():
         quadro = trabalhador.jpeg_calibracao if calibracao else trabalhador.ultimo_jpeg
-        if quadro is not anterior:
+        if quadro is not anterior:   # só reenvia quando há um quadro novo (comparação por identidade, sem custo)
             yield (b"--quadro\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(quadro)).encode()
                    + b"\r\n\r\n" + quadro + b"\r\n")
             anterior, enviados = quadro, enviados + 1

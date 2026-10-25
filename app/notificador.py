@@ -27,10 +27,11 @@ from app.storage import Storage
 from app.tempo import para_local
 
 log = logging.getLogger("epi_solda.telegram")
-ENDERECO = "https://api.telegram.org/bot{token}/{metodo}"
-TEMPO_LIMITE_S = 15
+ENDERECO = "https://api.telegram.org/bot{token}/{metodo}"  # {metodo}: sendPhoto ou sendMessage
+TEMPO_LIMITE_S = 15  # segundos de espera pela resposta do Telegram
 TAMANHO_FILA = 20                      # alertas esperando envio; além disso, os novos são descartados (com aviso no log)
 
+# Assinatura da função de envio (token, método, campos, foto opcional); nos testes ela é trocada por uma falsa.
 Enviar = Callable[[str, str, dict, tuple[str, bytes, str] | None], None]
 
 
@@ -78,6 +79,7 @@ class Notificador:
 
     def __init__(self, ajustes: Ajustes, storage: Storage, fabrica: sessionmaker[Session],
                  enviar: Enviar = enviar_http) -> None:
+        """Guarda as dependências e prepara a fila e a thread (que só começa a rodar em iniciar())."""
         self.ajustes, self.storage, self.fabrica, self._enviar = ajustes, storage, fabrica, enviar
         self._fila: queue.Queue[str] = queue.Queue(maxsize=TAMANHO_FILA)
         self._parar = threading.Event()
@@ -85,16 +87,20 @@ class Notificador:
 
     @property
     def configurado(self) -> bool:
+        """True se o token e o chat do Telegram estão preenchidos no .env."""
         return bool(self.ajustes.telegram_token and self.ajustes.telegram_chat_id)
 
     @property
     def ativo(self) -> bool:
+        """True se está configurado E o alerta foi ligado na tela de Configurações."""
         return self.configurado and self.ajustes.telegram_ativo
 
     def iniciar(self) -> None:
+        """Liga a thread que esvazia a fila de alertas."""
         self._thread.start()
 
     def parar(self) -> None:
+        """Pede para a thread terminar e espera até 5 segundos por ela."""
         self._parar.set()
         if self._thread.is_alive():
             self._thread.join(5)
@@ -119,6 +125,7 @@ class Notificador:
             "text": "Teste do Verificador de EPIs de Solda: os alertas de falta de máscara chegarão aqui."}, None)
 
     def _executar(self) -> None:
+        """Laço da thread: pega o próximo alerta da fila (espera até 0,5 s, para checar o pedido de parada) e envia."""
         while not self._parar.is_set():
             try:
                 uuid = self._fila.get(timeout=0.5)
@@ -127,10 +134,13 @@ class Notificador:
             try:
                 self._enviar_ocorrencia(uuid)
             except Exception as erro:   # um alerta perdido nunca derruba o sistema
+                # O token faz parte do endereço da API, então é escondido caso apareça na mensagem de erro do log.
                 texto = str(erro).replace(self.ajustes.telegram_token, "****") if self.ajustes.telegram_token else erro
                 log.warning("Alerta do Telegram não enviado (ocorrência %s): %s", uuid, texto)
 
     def _enviar_ocorrencia(self, uuid: str) -> None:
+        """Monta e envia o alerta de uma ocorrência: foto borrada com legenda, ou só o texto se não houver imagem."""
+        # A sessão do banco é fechada antes do envio, para não segurá-la durante a chamada de rede.
         with self.fabrica() as sessao:
             ocorrencia = sessao.query(Ocorrencia).filter_by(uuid=uuid).one_or_none()
             if ocorrencia is None:   # excluída antes do envio

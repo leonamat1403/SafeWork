@@ -34,6 +34,7 @@ templates.env.globals["v"] = versao_estaticos()
 
 def destino_seguro(proximo: str | None) -> str:
     """Só aceita voltar para uma página deste sistema (evita redirecionar para outro site)."""
+    # "//site" e "/\site" seriam lidos pelo navegador como outro domínio (open redirect)
     if proximo and proximo.startswith("/") and not proximo.startswith(("//", "/\\")) and not proximo.startswith("/api"):
         return proximo
     return "/ao-vivo"
@@ -46,6 +47,7 @@ def _usuario_ou_redirecionar(request: Request, liberado: bool = True) -> Usuario
     except HTTPException as erro:
         caminho = request.url.path + (f"?{request.url.query}" if request.url.query else "")
         expirou = "&expirou=1" if "expirada" in str(erro.detail) else ""
+        # 303 faz o navegador repetir o pedido com GET depois do login
         return RedirectResponse(f"/login?proximo={quote(caminho)}{expirou}", status_code=303)
     if liberado and usuario.deve_trocar_senha:
         return RedirectResponse("/trocar-senha", status_code=303)
@@ -53,6 +55,7 @@ def _usuario_ou_redirecionar(request: Request, liberado: bool = True) -> Usuario
 
 
 def _pagina(request: Request, modelo: str, usuario: UsuarioSessao, ativa: str, **extra) -> HTMLResponse:
+    """Monta uma página com o que o menu lateral precisa (postos ativos, ocorrências pendentes e token CSRF)."""
     ctx = request.app.state.ctx
     with ctx.fabrica() as sessao:
         cameras = [{"id": i, "nome": n} for i, n in sessao.execute(
@@ -66,11 +69,13 @@ def _pagina(request: Request, modelo: str, usuario: UsuarioSessao, ativa: str, *
 
 @rotas.get("/")
 def inicio() -> RedirectResponse:
+    """A raiz do site leva para a tela Ao vivo."""
     return RedirectResponse("/ao-vivo", status_code=303)
 
 
 @rotas.get("/login")
 def pagina_login(request: Request, proximo: str | None = None, expirou: int = 0) -> Response:
+    """Tela de login; quem já está logado vai direto para o destino (ou para a tela Ao vivo)."""
     if request.session.get("usuario_id"):
         try:
             usuario_atual(request)
@@ -83,6 +88,7 @@ def pagina_login(request: Request, proximo: str | None = None, expirou: int = 0)
 
 @rotas.get("/trocar-senha")
 def pagina_trocar_senha(request: Request) -> Response:
+    """Tela de troca de senha; é a única que aceita quem ainda precisa trocar a senha inicial (liberado=False)."""
     usuario = _usuario_ou_redirecionar(request, liberado=False)
     if isinstance(usuario, RedirectResponse):
         return usuario
@@ -92,6 +98,7 @@ def pagina_trocar_senha(request: Request) -> Response:
 
 @rotas.get("/ao-vivo")
 def pagina_ao_vivo(request: Request, camera_id: int | None = None) -> Response:
+    """T02: câmera ao vivo com o estado dos EPIs; se o posto pedido não existir, usa o primeiro ligado."""
     usuario = _usuario_ou_redirecionar(request)
     if isinstance(usuario, RedirectResponse):
         return usuario
@@ -102,6 +109,7 @@ def pagina_ao_vivo(request: Request, camera_id: int | None = None) -> Response:
 
 @rotas.get("/upload")
 def pagina_upload(request: Request) -> Response:
+    """T03: envio de foto ou vídeo para análise."""
     usuario = _usuario_ou_redirecionar(request)
     if isinstance(usuario, RedirectResponse):
         return usuario
@@ -111,6 +119,7 @@ def pagina_upload(request: Request) -> Response:
 
 @rotas.get("/ocorrencias")
 def pagina_ocorrencias(request: Request) -> Response:
+    """T04: lista de ocorrências com filtros e validação manual."""
     usuario = _usuario_ou_redirecionar(request)
     if isinstance(usuario, RedirectResponse):
         return usuario
@@ -136,6 +145,7 @@ def _so_admin(request: Request, usuario: UsuarioSessao, mensagem: str) -> HTMLRe
 
 @rotas.get("/usuarios")
 def pagina_usuarios(request: Request) -> Response:
+    """T08: gestão de usuários (só ADMIN; o SUPERVISOR recebe a página de erro 403)."""
     usuario = _usuario_ou_redirecionar(request)
     if isinstance(usuario, RedirectResponse):
         return usuario

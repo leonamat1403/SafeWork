@@ -18,6 +18,7 @@ MAX_DIAS = 366
 def painel(request: Request, inicio: date | None = None, fim: date | None = None, camera_id: int | None = None,
            _: UsuarioSessao = Depends(usuario_liberado)) -> dict:
     """Painel do período (padrão: do dia 1º do mês até hoje) e do posto escolhido (padrão: todos)."""
+    # o limite de 366 dias evita consultas enormes ao banco
     fim = fim or hoje_local()
     inicio = inicio or fim.replace(day=1)
     if inicio > fim:

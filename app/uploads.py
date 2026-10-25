@@ -50,12 +50,15 @@ class ErroUpload(ValueError):
     """Arquivo recusado; `codigo` é o status HTTP a devolver."""
 
     def __init__(self, mensagem: str, codigo: int = 400) -> None:
+        """Guarda a mensagem e o código HTTP (400 por padrão) que a rota deve devolver."""
         super().__init__(mensagem)
         self.codigo = codigo
 
 
 @dataclass
 class TrabalhoUpload:
+    """Um arquivo enviado e o andamento do seu processamento (fila, progresso, resultado e ocorrências achadas)."""
+
     id: str
     usuario_id: int
     camera_id: int
@@ -74,6 +77,7 @@ class TrabalhoUpload:
     registradas: list[str] | None = None
 
     def resumo(self) -> dict:
+        """Dados do trabalho em formato JSON para a tela T03 (sem caminhos de disco nem imagens)."""
         return {
             "id": self.id, "nome_original": self.nome_original, "tipo": self.tipo, "camera_id": self.camera_id,
             "estado": self.estado, "progresso": round(self.progresso, 3), "erro": self.erro,
@@ -86,6 +90,7 @@ class TrabalhoUpload:
 
 
 def _reduzir(pixels: np.ndarray, largura_max: int = LARGURA_MAX_SAIDA) -> np.ndarray:
+    """Reduz a imagem para no máximo `largura_max` pixels de largura, mantendo a proporção (nunca amplia)."""
     altura, largura = pixels.shape[:2]
     if largura <= largura_max:
         return pixels
@@ -103,12 +108,14 @@ class GravadorBorrado:
     """Grava o vídeo de resultado quadro a quadro. Só aceita ImagemBorrada (RF27)."""
 
     def __init__(self, base: Path, fps: float) -> None:
+        """`base` é o caminho sem extensão (ela depende do codec escolhido); FPS fora de 1 a 120 vira 25."""
         self.base, self.fps = base, fps if 1 <= fps <= 120 else 25.0
         self.caminho: Path | None = None
         self.tipo: str | None = None
         self._escritor: cv2.VideoWriter | None = None
 
     def gravar(self, imagem: ImagemBorrada) -> None:
+        """Acrescenta um quadro ao vídeo; no primeiro quadro, escolhe o primeiro codec que o OpenCV consegue abrir."""
         if not isinstance(imagem, ImagemBorrada):
             raise TypeError("Só imagens borradas podem ser gravadas (RF27).")
         pixels = _reduzir(imagem.pixels)
@@ -126,6 +133,7 @@ class GravadorBorrado:
         self._escritor.write(pixels)
 
     def fechar(self) -> None:
+        """Finaliza o arquivo de vídeo (sem isso ele pode ficar incompleto)."""
         if self._escritor is not None:
             self._escritor.release()
 
@@ -165,6 +173,7 @@ class FilaUploads:
 
     def __init__(self, ajustes: Ajustes, config_base: Config, fabrica: sessionmaker[Session],
                  registrador: RegistradorOcorrencias, criar_detector: Callable[[Config], object] = Detector) -> None:
+        """Prepara a fila e a thread única de processamento (só começa a rodar em `iniciar`)."""
         self.ajustes, self.config_base, self.fabrica = ajustes, config_base, fabrica
         self.registrador, self.criar_detector = registrador, criar_detector
         self.pasta = ajustes.data_dir / "uploads_temp"
@@ -176,9 +185,11 @@ class FilaUploads:
 
     # ---------------------------------------------------------------- ciclo de vida
     def iniciar(self) -> None:
+        """Liga a thread que processa os uploads, um por vez."""
         self._thread.start()
 
     def parar(self) -> None:
+        """Pede o fim da thread e espera até 10 s; um vídeo em andamento é interrompido."""
         self._parar.set()
         if self._thread.is_alive():
             self._thread.join(10)
@@ -248,7 +259,7 @@ class FilaUploads:
         """Grava como ocorrências oficiais (origem "upload") as ocorrências encontradas no arquivo."""
         if trabalho.estado != "concluido":
             raise ErroUpload("O processamento ainda não terminou.", 409)
-        with self._trava:
+        with self._trava:   # a trava evita registrar duas vezes se o usuário clicar em dobro
             if trabalho.registradas is not None:
                 raise ErroUpload("As ocorrências deste upload já foram registradas.", 409)
             trabalho.registradas = []
@@ -259,6 +270,7 @@ class FilaUploads:
 
     # ---------------------------------------------------------------- thread
     def _executar(self) -> None:
+        """Laço da thread: pega o próximo trabalho da fila, processa e atualiza o estado (concluído ou erro)."""
         while not self._parar.is_set():
             self._esquecer_antigos()
             try:
@@ -279,6 +291,7 @@ class FilaUploads:
                 trabalho.entrada.unlink(missing_ok=True)   # o arquivo original é apagado logo após o processamento
 
     def _esquecer_antigos(self) -> None:
+        """Remove da memória e do disco os trabalhos mais velhos que `uploads_max_idade_s` (1 h por padrão)."""
         limite = time.time() - self.ajustes.uploads_max_idade_s
         with self._trava:
             for trabalho_id in [t.id for t in self._trabalhos.values() if t.criado_em < limite]:
@@ -286,11 +299,13 @@ class FilaUploads:
                 shutil.rmtree(trabalho.pasta, ignore_errors=True)
 
     def _config(self, camera_id: int) -> Config:
+        """Configuração do posto escolhido no upload (a lista de EPIs exigidos muda de posto para posto)."""
         with self.fabrica() as sessao:
             camera = sessao.get(Camera, camera_id)
             return config_da_camera(self.config_base, list(camera.epis) if camera else [])
 
     def _processar(self, trabalho: TrabalhoUpload) -> None:
+        """Roda a detecção na foto ou no vídeo, grava o resultado já borrado e guarda o resumo e as ocorrências."""
         config = self._config(trabalho.camera_id)
         pipeline = Pipeline(config, self.criar_detector(config))
         if trabalho.tipo == "imagem":
@@ -310,7 +325,7 @@ class FilaUploads:
             return
 
         captura = cv2.VideoCapture(str(trabalho.entrada))
-        total = int(captura.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
+        total = int(captura.get(cv2.CAP_PROP_FRAME_COUNT)) or 1   # "or 1": evita divisão por zero se o vídeo não informar
         gravador = GravadorBorrado(trabalho.pasta / "resultado", captura.get(cv2.CAP_PROP_FPS) or 25.0)
         gerenciador = GerenciadorOcorrencias(config)
         votacao, exibicao = VotacaoTemporal(config.deteccao.votacao_quadros), []   # RD01: só o vídeo de resultado
@@ -339,7 +354,7 @@ class FilaUploads:
                             contagem[aval.pessoa.track_id][epi][a.estado.value] += 1
                         levantada[aval.pessoa.track_id] += int(aval.mascara_levantada)
                 n += 1
-                trabalho.progresso = min(0.99, n / total)
+                trabalho.progresso = min(0.99, n / total)   # 100% só quando o trabalho for marcado como concluído
         finally:
             captura.release()
             gravador.fechar()

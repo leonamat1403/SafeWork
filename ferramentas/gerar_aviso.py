@@ -15,8 +15,9 @@ from reportlab.lib.units import cm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
 RAIZ = Path(__file__).resolve().parent.parent
+# Cores do aviso: aço (faixa e texto), amarelo de segurança e grafite (rodapé).
 ACO, AMARELO, GRAFITE = colors.HexColor("#1E2933"), colors.HexColor("#FFC107"), colors.HexColor("#4A5661")
-ALTURA_FAIXA = 6.4 * cm
+ALTURA_FAIXA = 6.4 * cm  # faixa do cabeçalho; também define a margem superior do texto
 
 
 def _cabecalho(canvas, documento) -> None:
@@ -65,12 +66,13 @@ def _cabecalho(canvas, documento) -> None:
 
 
 def gerar(saida: Path, retencao_dias: int = 30) -> Path:
+    """Monta o PDF A4 do aviso (texto, campos em branco e rodapé) em `saida` e devolve o caminho."""
     titulo = ParagraphStyle("t", fontName="Helvetica-Bold", fontSize=15, leading=19, textColor=ACO, spaceBefore=12,
                             spaceAfter=4)
     texto = ParagraphStyle("x", fontName="Helvetica", fontSize=13, leading=18, textColor=ACO)
     item = ParagraphStyle("i", parent=texto, leftIndent=0.6 * cm, bulletIndent=0.1 * cm)
     rodape = ParagraphStyle("r", parent=texto, fontSize=10, leading=13, textColor=GRAFITE)
-    linha = "_" * 34
+    linha = "_" * 34  # campo em branco para preencher à mão
     historia = [
         Paragraph("Por quê?", titulo),
         Paragraph("Para prevenir acidentes. A máscara de solda protege os olhos e o rosto da radiação do arco, dos "
@@ -95,6 +97,7 @@ def gerar(saida: Path, retencao_dias: int = 30) -> Path:
                   rodape),
     ]
     saida.parent.mkdir(parents=True, exist_ok=True)
+    # A margem superior deixa o texto começar abaixo da faixa que _cabecalho desenha em cada página.
     documento = SimpleDocTemplate(str(saida), pagesize=A4, leftMargin=1.8 * cm, rightMargin=1.8 * cm,
                                   topMargin=ALTURA_FAIXA + 1.3 * cm, bottomMargin=1.5 * cm,
                                   title="Aviso de monitoramento – setor de solda",

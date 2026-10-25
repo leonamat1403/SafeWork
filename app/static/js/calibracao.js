@@ -10,6 +10,7 @@
   // ---------------------------------------------------------------- vídeo (reconecta sozinho; fecha com a aba escondida)
   const video = $("video");
   let ligado = true, religar = null;
+  /** (Re)abre o stream MJPEG de calibração; ?t= com a hora evita reaproveitar conexão antiga. */
   function conectar() {
     clearTimeout(religar);
     video.src = `/api/cameras/${cameraId}/calibracao.mjpg?t=${Date.now()}`;
@@ -38,6 +39,7 @@
   }
 
   // ---------------------------------------------------------------- medidor do arco (RF14)
+  /** Barra do arco: largura = fração de pixels estourados; marca vertical = limite do posto; fica "acima" se passar do limite. A escala é o dobro do limite. */
   function medidor(caixa, fracao, limite) {
     const escala = Math.max(limite * 2, fracao, 0.01);
     caixa.querySelector(".medidor-valor").style.width = Math.min(100, (fracao / escala) * 100) + "%";
@@ -46,6 +48,7 @@
   }
 
   // ---------------------------------------------------------------- uma pessoa
+  /** Cartão com os números que o sistema mediu de uma pessoa, cada um ao lado do limite configurado do posto. */
   function cartaoPessoa(p, limites) {
     const estado = p.estado || "INDETERMINADO";
     const dados = el("dl", {},
@@ -74,6 +77,7 @@
 
   // ---------------------------------------------------------------- ciclo de 1 s
   let chave = "";
+  /** Mostra os dados de /api/calibracao; só redesenha os cartões se as pessoas mudaram. */
   function mostrar(d) {
     EPI.mostrarStatusCamera(d);
     if (d.pausada || !d.online || d.aguardando) {
@@ -95,6 +99,7 @@
       : [el("p", { classe: "text-secondary mb-0", texto: "Ninguém no quadro agora." })]));
   }
 
+  /** Ciclo de atualização: 1 s com a aba visível, 5 s escondida. */
   async function atualizar() {
     try {
       mostrar(await api("/api/calibracao/" + encodeURIComponent(cameraId)));

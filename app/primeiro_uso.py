@@ -16,17 +16,21 @@ from pathlib import Path
 from app.auth import SENHA_PADRAO_ENV, problema_na_senha
 from app.config import RAIZ, Ajustes
 
+# Valores que vêm no .env.example e que precisam ser trocados antes do uso real.
 VALORES_DE_EXEMPLO = {"SECRET_KEY": "troque-esta-chave", "ADMIN_SENHA_INICIAL": SENHA_PADRAO_ENV}
 
 
 def _valor(texto: str, chave: str) -> str | None:
+    """Valor de `chave` no texto do .env, sem espaços nem aspas nas pontas; None se a chave não existir."""
     achado = re.search(rf"^{chave}=(.*)$", texto, re.MULTILINE)
     return achado.group(1).strip().strip("'\"") if achado else None
 
 
 def _definir(texto: str, chave: str, valor: str) -> str:
+    """Troca a linha `chave=...` pelo novo valor ou, se ela não existir, acrescenta ao fim do texto."""
     linha = f"{chave}={valor}"
     if re.search(rf"^{chave}=", texto, re.MULTILINE):
+        # A troca é feita por uma função (lambda) para o re.sub não interpretar barras invertidas da senha.
         return re.sub(rf"^{chave}=.*$", lambda _: linha, texto, count=1, flags=re.MULTILINE)
     return texto.rstrip("\n") + f"\n{linha}\n"
 
@@ -39,6 +43,7 @@ def _entre_aspas(valor: str) -> str:
 
 
 def _faltando(texto: str, chave: str) -> bool:
+    """True se a chave está vazia ou ainda com o valor de exemplo do .env.example."""
     valor = _valor(texto, chave)
     return not valor or valor == VALORES_DE_EXEMPLO[chave]
 
@@ -86,7 +91,8 @@ def problema_para_iniciar(ajustes: Ajustes, env: Path) -> str | None:
             and not ajustes.modo_desenvolvimento:
         return f"Falta a SECRET_KEY no .env. Para gerar uma, rode:\n  {comando}"
     banco = ajustes.caminho_sqlite
-    sem_usuarios = banco is not None and not banco.exists()
+    sem_usuarios = banco is not None and not banco.exists()  # banco novo = ainda sem usuários
+    # A senha inicial só é usada para criar o primeiro administrador, quando o banco ainda não existe.
     if sem_usuarios and (not ajustes.admin_senha_inicial or ajustes.admin_senha_inicial == SENHA_PADRAO_ENV):
         return f"Falta a senha inicial do administrador no .env (ADMIN_SENHA_INICIAL). Para defini-la, rode:\n  {comando}"
     return None

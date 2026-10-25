@@ -67,6 +67,7 @@ COLUNAS_TESTES = [
     ("resultado", 10, "formula", "OK se o sistema fez o esperado (ocorrência quando devia, nenhuma quando não devia)."),
     ("avaliado_em", 17, "script", "Data e hora da avaliação."),
 ]
+# Nome da coluna -> letra da planilha (A, B...), para escrever e ler as células pelo nome.
 COL = {nome: get_column_letter(i + 1) for i, (nome, *_rest) in enumerate(COLUNAS_TESTES)}
 
 CENARIOS = [
@@ -114,10 +115,12 @@ EXEMPLO_TESTE = {   # teste real feito em 12/10/2026 (webcam, sem máscara, cabe
 
 
 def fonte(negrito: bool = False, cor: str = "000000", tamanho: int = 10) -> Font:
+    """Fonte Arial da planilha (cor em hexadecimal, sem o #)."""
     return Font(name=FONTE, bold=negrito, color=cor, size=tamanho)
 
 
 def cabecalho(ws, linha: int, titulos: list[str], larguras: list[int]) -> None:
+    """Escreve a linha de títulos (fundo azul, texto branco), ajusta as larguras e congela as linhas até ela."""
     for i, (titulo, largura) in enumerate(zip(titulos, larguras), start=1):
         c = ws.cell(linha, i, titulo)
         c.font = fonte(True, "FFFFFF")
@@ -129,6 +132,7 @@ def cabecalho(ws, linha: int, titulos: list[str], larguras: list[int]) -> None:
 
 
 def lista(ws, valores: list[str], intervalo: str) -> None:
+    """Cria uma lista suspensa (validação de dados) com `valores` nas células de `intervalo`."""
     dv = DataValidation(type="list", formula1='"' + ",".join(valores) + '"', allow_blank=True)
     dv.error = "Escolha um valor da lista."
     ws.add_data_validation(dv)
@@ -136,18 +140,21 @@ def lista(ws, valores: list[str], intervalo: str) -> None:
 
 
 def formula_esperado(n: int) -> str:
+    """Fórmula do Excel da coluna 'esperado' na linha n (mesma regra de esperado() em avaliar_testes.py)."""
     sit, ang = f"{COL['situacao_real']}{n}", f"{COL['angulo']}{n}"
     return (f'=IF({sit}="","",IF({sit}="misto","revisão manual",'
             f'IF(OR({sit}="pausa_curta",{sit}="mascara_abaixada",{ang}="costas"),"sem ocorrência","ocorrência")))')
 
 
 def formula_resultado(n: int) -> str:
+    """Fórmula da coluna 'resultado': OK se houve ocorrência quando devia (ou nenhuma quando não devia), senão FALHA."""
     esp, oc = f"{COL['esperado']}{n}", f"{COL['ocorrencias']}{n}"
     return (f'=IF(OR({esp}="",{esp}="revisão manual",{oc}=""),"",'
             f'IF(OR(AND({oc}>0,{esp}="ocorrência"),AND({oc}=0,{esp}="sem ocorrência")),"OK","FALHA"))')
 
 
 def aba_instrucoes(wb: Workbook) -> None:
+    """Aba Instruções: texto de como preencher e rodar a avaliação."""
     ws = wb.active
     ws.title = "Instruções"
     ws.column_dimensions["A"].width = 115
@@ -190,6 +197,7 @@ def aba_instrucoes(wb: Workbook) -> None:
 
 
 def aba_cenarios(wb: Workbook) -> None:
+    """Aba Cenários: o roteiro dos testes, com o resultado esperado e quantos testes já foram feitos de cada um."""
     ws = wb.create_sheet("Cenários")
     titulos = ["ID", "descricao", "situacao_real", "angulo", "distancia_m", "arco", "fumos", "esperado",
                "recurso_necessario", "prioridade", "testes_feitos"]
@@ -197,6 +205,7 @@ def aba_cenarios(wb: Workbook) -> None:
     for n, cen in enumerate(CENARIOS, start=2):
         for col, valor in enumerate(cen[:7], start=1):
             ws.cell(n, col, valor)
+        # Reaproveita a fórmula da aba Testes, trocando as referências para as colunas C e D desta aba.
         ws.cell(n, 8, formula_esperado(n).replace(f"{COL['situacao_real']}{n}", f"C{n}")
                 .replace(f"{COL['angulo']}{n}", f"D{n}"))
         ws.cell(n, 9, cen[7])
@@ -210,6 +219,7 @@ def aba_cenarios(wb: Workbook) -> None:
 
 
 def aba_testes(wb: Workbook) -> None:
+    """Aba Testes: uma linha por vídeo, com cores (amarelo = você, cinza = script), fórmulas e listas suspensas."""
     ws = wb.create_sheet("Testes")
     cabecalho(ws, 1, [c[0] for c in COLUNAS_TESTES], [c[1] for c in COLUNAS_TESTES])
     for i, (nome, _larg, quem, comentario) in enumerate(COLUNAS_TESTES, start=1):
@@ -228,6 +238,7 @@ def aba_testes(wb: Workbook) -> None:
         for nome in ("pct_conforme", "pct_nao_conforme", "pct_indeterminado"):
             ws[f"{COL[nome]}{n}"].number_format = "0.0%"
         ws[f"{COL['fps']}{n}"].number_format = "0.0"
+    # A linha 2 já vem com um teste real de exemplo.
     for nome, valor in EXEMPLO_TESTE.items():
         ws[f"{COL[nome]}2"] = valor
     lista(ws, SITUACOES, f"{COL['situacao_real']}2:{COL['situacao_real']}{ULTIMA_LINHA}")
@@ -238,6 +249,7 @@ def aba_testes(wb: Workbook) -> None:
 
 
 def aba_ocorrencias(wb: Workbook) -> None:
+    """Aba Ocorrências: uma linha por ocorrência registrada, com a revisão manual (VP ou FP) e a classificação final."""
     ws = wb.create_sheet("Ocorrências")
     titulos = ["ID_teste", "arquivo", "tempo_video", "pessoa", "situacao_detectada", "esperado_no_teste",
                "classificacao_automatica", "revisao_manual", "classificacao_final"]
@@ -248,6 +260,7 @@ def aba_ocorrencias(wb: Workbook) -> None:
             c = ws.cell(n, col)
             c.font = fonte()
             c.border = BORDA
+            # H (revisão manual) amarela; A-E cinza (o script preenche); F, G e I sem cor (são fórmulas).
             c.fill = AMARELO if col == 8 else (CINZA if col <= 5 else PatternFill())
         escrever_formulas_ocorrencia(ws, n)
     for col, valor in enumerate(exemplo, start=1):
@@ -264,6 +277,7 @@ def escrever_formulas_ocorrencia(ws, n: int) -> None:
 
 
 def aba_fontes(wb: Workbook) -> None:
+    """Aba Fontes: catálogo dos vídeos (origem, link, licença, autorização das pessoas e uso)."""
     ws = wb.create_sheet("Fontes")
     titulos = ["arquivo", "origem", "link", "licenca", "autorizacao_das_pessoas", "uso", "observacoes"]
     cabecalho(ws, 1, titulos, [42, 12, 45, 22, 22, 10, 30])
@@ -282,8 +296,11 @@ def aba_fontes(wb: Workbook) -> None:
 
 
 def aba_metricas(wb: Workbook) -> None:
+    """Aba Métricas: fórmulas que comparam os resultados com as metas de validação e recortes por condição."""
     ws = wb.create_sheet("Métricas")
+    # t("coluna") = intervalo daquela coluna na aba Testes, para usar dentro das fórmulas.
     t = lambda nome: f"Testes!${COL[nome]}$2:${COL[nome]}${ULTIMA_LINHA}"   # noqa: E731
+    # Classificação final (revisão manual ou, se não houver, a automática) da aba Ocorrências.
     fin = f"'Ocorrências'!$I$2:$I${ULTIMA_LINHA_OCORRENCIAS}"
     ws.column_dimensions["A"].width = 62
     for col, larg in zip("BCDE", (14, 14, 18, 60)):
@@ -291,6 +308,7 @@ def aba_metricas(wb: Workbook) -> None:
     ws["A1"] = "Métricas dos testes de campo – comparação com as METAS DE VALIDAÇÃO"
     ws["A1"].font = fonte(True, tamanho=13)
     cabecalho(ws, 3, ["Métrica", "Valor", "Meta", "Situação", "Como é calculada"], [62, 14, 14, 18, 60])
+    # Nesta aba não se congela nada (o cabeçalho está na linha 3).
     ws.freeze_panes = None
 
     avaliados_ocorrencia = f'COUNTIFS({t("esperado")},"ocorrência",{t("ocorrencias")},"<>")'
@@ -335,9 +353,11 @@ def aba_metricas(wb: Workbook) -> None:
             c.font = fonte()
             c.border = BORDA
             c.alignment = Alignment(wrap_text=True, vertical="top")
+        # FPS com 1 decimal, contagens como inteiro e o resto em porcentagem.
         formato = "0.0" if "FPS" in nome else ("0" if nome.startswith(("Testes avaliados", "Frames")) else "0.0%")
         ws.cell(n, 2).number_format = formato
         ws.cell(n, 3).number_format = formato
+    # `n` ainda guarda a última linha escrita no laço acima.
     ws.cell(n + 1, 1, "Metas: prompt do projeto (METAS DE VALIDAÇÃO, métricas práticas dos testes de campo).").font = \
         fonte(cor="595959")
 
@@ -369,11 +389,13 @@ def aba_metricas(wb: Workbook) -> None:
         for col in range(1, 5):
             ws.cell(linha, col).font = fonte()
             ws.cell(linha, col).border = BORDA
+            # Listras: as linhas ímpares ficam em verde claro.
             if linha % 2:
                 ws.cell(linha, col).fill = VERDE_CLARO
 
 
 def criar(destino: Path = DESTINO_PADRAO) -> Path:
+    """Monta as seis abas e salva o modelo da planilha em `destino`; devolve o caminho."""
     wb = Workbook()
     wb._named_styles["Normal"].font = Font(name=FONTE, size=10)   # fonte padrão das células vazias
     aba_instrucoes(wb)

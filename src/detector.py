@@ -81,10 +81,13 @@ class DetectorRostos:
     """
 
     def __init__(self, caminho: Path, conf: float, tamanho_recorte: int) -> None:
+        """Carrega o modelo YuNet de `caminho` com a confiança mínima `conf` e o tamanho (px) do recorte da cabeça."""
+        # Parâmetros 0.3 e 50 do YuNet: limiar do NMS (supressão de caixas repetidas) e máximo de rostos por recorte
         self.modelo = cv2.FaceDetectorYN.create(str(caminho), "", (tamanho_recorte, tamanho_recorte), conf, 0.3, 50)
         self.tamanho = tamanho_recorte
 
     def detectar(self, frame: np.ndarray, pessoas: list[Pessoa], conf_keypoint: float) -> list[Rosto]:
+        """Procura rostos descobertos na cabeça de cada pessoa e devolve as caixas em coordenadas da imagem inteira."""
         altura_img, largura_img = frame.shape[:2]
         rostos = []
         for pessoa in pessoas:
@@ -98,6 +101,7 @@ class DetectorRostos:
             x2, y2 = min(largura_img, int(cx + lado / 2)), min(altura_img, int(cy + lado / 2))
             if x2 - x1 < 8 or y2 - y1 < 8:
                 continue
+            # O recorte é ampliado até `self.tamanho` px; depois as coordenadas voltam à escala original (÷ escala)
             escala = self.tamanho / max(x2 - x1, y2 - y1)
             recorte = cv2.resize(frame[y1:y2, x1:x2], (max(1, round((x2 - x1) * escala)), max(1, round((y2 - y1) * escala))))
             self.modelo.setInputSize((recorte.shape[1], recorte.shape[0]))
@@ -114,6 +118,7 @@ class Detector:
     """Carrega os modelos e roda todos em cada frame (RF06): pose, EPI e (se disponível) rostos."""
 
     def __init__(self, config: Config) -> None:
+        """Confere se os arquivos dos modelos existem, carrega pose e EPI e, se houver, o detector de rostos."""
         self.config = config
         for papel, caminho in (("EPI", config.modelos.epi), ("pose", config.modelos.pose)):
             if not Path(caminho).exists():

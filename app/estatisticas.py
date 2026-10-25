@@ -23,6 +23,7 @@ SEM_TURNO = "sem turno"
 
 
 def _fracao(parte: int, todo: int) -> float | None:
+    """Proporção parte/todo com 4 casas; None quando não há base de cálculo (todo = 0)."""
     return round(parte / todo, 4) if todo else None
 
 
@@ -30,10 +31,13 @@ def resumo_do_periodo(fabrica: sessionmaker[Session], turnos: dict[str, str], in
                       camera_id: int | None = None) -> dict:
     """Cartões, ocorrências por dia/turno/posto e estados das pessoas avaliadas, de `inicio` a `fim` (inclusive)."""
     hoje = hoje_local()
+    # Limites do período em UTC (é como o banco guarda); `ate` é o início do dia seguinte ao último dia.
     de, ate = inicio_do_dia_utc(inicio), inicio_do_dia_utc(fim + timedelta(days=1))
+    # Condição extra do filtro por posto (lista vazia = todos os postos).
     do_posto = [Ocorrencia.camera_id == camera_id] if camera_id is not None else []
 
     def contar(sessao, desde: date, antes_de: date) -> int:
+        """Conta as ocorrências de `desde` até antes de `antes_de` (dias locais), no posto filtrado se houver."""
         return sessao.scalar(select(func.count()).select_from(Ocorrencia).where(
             Ocorrencia.data_hora >= inicio_do_dia_utc(desde), Ocorrencia.data_hora < inicio_do_dia_utc(antes_de),
             *do_posto))
@@ -66,7 +70,9 @@ def resumo_do_periodo(fabrica: sessionmaker[Session], turnos: dict[str, str], in
         validacoes[validacao] += 1
         com_arco += bool(arco)
 
+    # Turnos configurados em ordem alfabética; 'sem turno' só entra se alguma ocorrência ficou fora das faixas.
     lista_turnos = sorted(turnos) + ([SEM_TURNO] if SEM_TURNO in por_turno else [])
+    # Validadas = já conferidas pelo supervisor (confirmada ou falso positivo).
     validadas = validacoes["CONFIRMADA"] + validacoes["FALSO_POSITIVO"]
     avaliados = conformes + nao_conformes
     return {

@@ -10,11 +10,12 @@ from app.primeiro_uso import aviso_do_python, configurar_env, pedir_senha_no_ter
 
 
 def main() -> int:
+    """Com --configurar, prepara o .env e sai; senão confere a configuração e sobe o servidor. Devolve o código de saída."""
     parser = argparse.ArgumentParser(prog="python -m app", description="Verificador de EPIs de Solda – sistema web")
     parser.add_argument("--configurar", action="store_true",
                         help="cria ou completa o .env (gera a SECRET_KEY e pede a senha do 1º administrador)")
     args = parser.parse_args()
-    if aviso := aviso_do_python():
+    if aviso := aviso_do_python():   # avisa (sem impedir) se não for o Python do .venv do projeto
         print(aviso, file=sys.stderr)
     env = RAIZ / ".env"
     if args.configurar:
@@ -31,7 +32,7 @@ def main() -> int:
     if problema := problema_para_iniciar(ajustes, env):
         print(problema, file=sys.stderr)
         return 1
-    import uvicorn
+    import uvicorn   # importado só aqui: o modo --configurar não precisa do servidor
     print(f"Abra no navegador: http://{'127.0.0.1' if ajustes.host == '0.0.0.0' else ajustes.host}:{ajustes.porta}")
     # 1 processo só (sem workers): os modelos e as câmeras ficam na memória dele (docs/arquitetura_fase2.md, seção 6)
     uvicorn.run("app.main:criar_app", factory=True, host=ajustes.host, port=ajustes.porta, log_level="info")

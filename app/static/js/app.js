@@ -4,9 +4,11 @@
 "use strict";
 
 window.EPI = (() => {
+  // Token CSRF: o servidor o coloca numa <meta> do base.html; toda requisição que altera algo o devolve no cabeçalho
   const meta = document.querySelector('meta[name="csrf-token"]');
   const csrf = () => (meta ? meta.content : "");
 
+  /** Erro vindo da API: guarda a mensagem (já em português, do campo "detail") e o código HTTP em `status`. */
   class ErroApi extends Error {
     constructor(mensagem, status) { super(mensagem); this.status = status; }
   }
@@ -52,8 +54,10 @@ window.EPI = (() => {
     return elemento;
   }
 
+  /** Ícone do Bootstrap Icons (ex.: "bi-check2"); aria-hidden porque o texto ao lado já diz tudo ao leitor de tela. */
   const icone = (nome) => el("i", { classe: "bi " + nome, "aria-hidden": "true" });
 
+  /** Ícone SVG da máscara de solda, reaproveitando o <symbol id="icone-mascara"> definido em _icones.html. */
   function iconeMascara(classe = "icone-epi") {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("class", classe);
@@ -72,6 +76,7 @@ window.EPI = (() => {
   };
   const ESTADO_DA_COR = { verde: "CONFORME", vermelho: "NAO_CONFORME", amarelo: "INDETERMINADO" };
 
+  /** Selo de estado (ícone + texto, nunca só cor): estado = CONFORME, NAO_CONFORME ou INDETERMINADO; `claro` usa o fundo claro; `texto` troca o rótulo padrão. */
   function selo(estado, { claro = false, texto } = {}) {
     const info = ESTADOS[estado] || ESTADOS.INDETERMINADO;
     return el("span", { classe: `estado ${info.classe}${claro ? " estado-claro" : ""}` }, icone(info.icone), texto || info.texto);
@@ -83,6 +88,7 @@ window.EPI = (() => {
     CONFIRMADA: { classe: "validacao-confirmada", icone: "bi-check2", texto: "Confirmada" },
     FALSO_POSITIVO: { classe: "validacao-falso", icone: "bi-x-lg", texto: "Falso positivo" },
   };
+  /** Selo da validação de uma ocorrência (Pendente, Confirmada ou Falso positivo). */
   function seloValidacao(validacao) {
     const info = VALIDACOES[validacao] || VALIDACOES.PENDENTE;
     return el("span", { classe: "validacao " + info.classe }, icone(info.icone), info.texto);
@@ -104,8 +110,10 @@ window.EPI = (() => {
   const marcaArco = () => el("span", { classe: "marca-arco", title: "Arco aceso perto das mãos: a pessoa estava soldando" },
     icone("bi-lightning-charge-fill"), "Arco aceso");
 
+  /** Formata número no padrão brasileiro (vírgula decimal) com um número fixo de casas. */
   const numero = (n, casas = 0) => Number(n).toLocaleString("pt-BR",
     { minimumFractionDigits: casas, maximumFractionDigits: casas });
+  /** Fração entre 0 e 1 em porcentagem inteira: pct(0.25) -> "25%". */
   const pct = (fracao) => numero(fracao * 100) + "%";
 
   /** Aviso rápido no canto da tela (lido pelos leitores de tela). */
@@ -128,8 +136,10 @@ window.EPI = (() => {
   // Telas de um posto só (Ao vivo, Calibração): trocar o posto recarrega a tela com o posto escolhido
   const naTelaAoVivo = ["/ao-vivo", "/calibracao"].includes(location.pathname);
 
+  /** Id do posto escolhido na lista do topo (ou null nas telas sem o seletor). */
   function postoSelecionado() { return seletor ? Number(seletor.value) : null; }
 
+  /** Atualiza a etiqueta do topo (#status-camera) com Online + FPS, Pausada ou Offline, conforme os dados da câmera. */
   function mostrarStatusCamera(info) {
     if (!statusCamera || !info) return;
     let classe = "estado-n", nomeIcone = "bi-x-octagon-fill", texto = "Offline";
@@ -139,6 +149,7 @@ window.EPI = (() => {
     statusCamera.replaceChildren(icone(nomeIcone), el("span", { texto }));
   }
 
+  /** Consulta /api/cameras e mostra o status do posto escolhido; repetida a cada 5 s nas telas que não são de um posto só. */
   async function atualizarTopo() {
     try {
       const cameras = await api("/api/cameras");
@@ -146,6 +157,7 @@ window.EPI = (() => {
     } catch (_) { /* a próxima tentativa resolve */ }
   }
 
+  /** Lembra o posto escolhido no navegador para as outras telas abrirem já nele. */
   function guardarPosto() { try { localStorage.setItem("postoSelecionado", seletor.value); } catch (_) { /* sem armazenamento */ } }
 
   if (seletor) {
@@ -168,6 +180,7 @@ window.EPI = (() => {
 
   // ---------------------------------------------------------------- barra lateral: ocorrências pendentes
   const contador = document.getElementById("contador-pendentes");
+  /** Atualiza o número de ocorrências pendentes na barra lateral (também chamada após validar ou excluir). */
   async function atualizarPendentes() {
     if (!contador) return;
     try {
@@ -184,8 +197,10 @@ window.EPI = (() => {
     location.href = "/login";
   }));
 
+  // Acessibilidade: quem pediu menos animação no sistema operacional não recebe rolagem suave
   const movimentoReduzido = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // API pública: os outros scripts usam tudo isto por meio de window.EPI
   return { api, ErroApi, el, icone, iconeMascara, iconeEpi, nomeEpi, faltaTexto, selo, seloValidacao, marcaArco, ESTADOS,
     ESTADO_DA_COR, numero, pct, aviso, mostrarStatusCamera, atualizarPendentes, postoSelecionado, movimentoReduzido };
 })();

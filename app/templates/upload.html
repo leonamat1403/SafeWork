@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{# T03 – Analisar arquivo (foto .jpg/.png ou vídeo .mp4). Script: upload.js. data-tamanho-max-mb (no <main>) é o limite de envio. #}
 {% block titulo %}Analisar arquivo{% endblock %}
 {% block dados %}data-tamanho-max-mb="{{ tamanho_max_mb }}"{% endblock %}
 {% block conteudo %}
@@ -14,6 +15,8 @@
     </div>
   </div>
 
+  {# Ids do envio usados pelo upload.js: posto-upload (regras de qual posto aplicar), area-envio (aceita arrastar e soltar),
+     arquivo (<input file>), erro-envio e a barra de progresso (andamento, andamento-texto, andamento-pct, barra, barra-valor). #}
   <div class="area-envio" id="area-envio">
     <i class="bi bi-cloud-upload" aria-hidden="true"></i>
     <p class="mt-2 mb-2">Arraste uma foto (.jpg, .png) ou um vídeo (.mp4) para cá</p>
@@ -37,6 +40,8 @@
   </div>
 </div>
 
+{# Resultado da análise (escondido até concluir): midia (imagem ou vídeo já borrado), tabela-pessoas, qtd-ocorrencias,
+   botao-registrar (cria as ocorrências oficiais), registrado (confirmação) e baixar-resultado (link de download). #}
 <section class="cartao" id="resultado" aria-labelledby="titulo-resultado" hidden>
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <h2 class="rotulo" id="titulo-resultado">Resultado</h2>

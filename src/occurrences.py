@@ -44,6 +44,7 @@ class Ocorrencia:
     arco_ativo: bool = False               # RD03: arco aceso perto das mãos no momento (prioridade alta)
 
     def descricao(self) -> str:
+        """Resumo em uma linha para o terminal, ex.: "pessoa #3 | mascara: máscara levantada (100%)"."""
         partes = [f"{epi}: {self.situacao.get(epi, 'não conforme')} ({self.fracao_nao_conforme.get(epi, 0):.0%})"
                   for epi in self.epis_faltantes]
         return f"pessoa #{self.track_id} | " + "; ".join(partes)
@@ -51,6 +52,8 @@ class Ocorrencia:
 
 @dataclass
 class _Amostra:
+    """Uma observação de um EPI em um frame: tempo, estado e confiança da detecção associada."""
+
     t: float
     estado: Estado
     conf: float | None
@@ -58,6 +61,8 @@ class _Amostra:
 
 @dataclass
 class _HistoricoPessoa:
+    """Tudo que o gerenciador lembra de uma pessoa (track_id): janelas de persistência, cooldown e tempos."""
+
     janelas: dict[str, deque] = field(default_factory=lambda: defaultdict(deque))   # EPI -> amostras recentes
     ultima_ocorrencia: dict[str, float] = field(default_factory=dict)                # EPI -> tempo da última
     tempo_por_estado: dict[tuple[str, Estado], float] = field(default_factory=lambda: defaultdict(float))
@@ -70,6 +75,7 @@ class GerenciadorOcorrencias:
     """Recebe as avaliações de cada frame e devolve as ocorrências confirmadas."""
 
     def __init__(self, config: Config) -> None:
+        """Guarda a configuração (persistência, fração mínima e cooldown) e começa sem histórico de ninguém."""
         self.config = config
         self._pessoas: dict[int, _HistoricoPessoa] = defaultdict(_HistoricoPessoa)
 
@@ -89,8 +95,9 @@ class GerenciadorOcorrencias:
                 cfg = self.config.epis[epi]
                 janela = hist.janelas[epi]
                 janela.append(_Amostra(t, avaliacao.estado, avaliacao.conf))
-                while janela and t - janela[0].t > cfg.persistencia_s:
+                while janela and t - janela[0].t > cfg.persistencia_s:   # mantém só os últimos `persistencia_s` segundos
                     janela.popleft()
+                # Dispara só se a falta persistiu (4 s / 75%) E a pessoa não está em cooldown (RF19)
                 if self._persistiu(janela, t, cfg.persistencia_s, cfg.fracao_minima) and \
                         t - hist.ultima_ocorrencia.get(epi, float("-inf")) >= self.config.ocorrencias.cooldown_s:
                     disparados.append(epi)
@@ -101,6 +108,7 @@ class GerenciadorOcorrencias:
     @staticmethod
     def _persistiu(janela: deque, t: float, persistencia_s: float, fracao_minima: float) -> bool:
         """A janela cobre (quase) todo o período e a fração de NÃO CONFORME atinge o mínimo."""
+        # Janela ainda curta (a pessoa acabou de aparecer): não dá para afirmar que a falta durou o tempo exigido
         if not janela or t - janela[0].t < persistencia_s - TOLERANCIA_JANELA_S:
             return False
         nao_conformes = sum(a.estado == Estado.NAO_CONFORME for a in janela)
@@ -169,11 +177,13 @@ class RegistroCSV:
                "fracao_nao_conforme", "epis_indeterminados", "confianca_media", "mascara_levantada", "revisao_manual"]
 
     def __init__(self, caminho: Path, fonte: str, posto: str) -> None:
+        """Abre (ou cria) o CSV em `caminho`; escreve o cabeçalho só se o arquivo for novo. `fonte` e `posto` vão em toda linha."""
         self.caminho = Path(caminho)
         self.fonte = fonte
         self.posto = posto
         self.caminho.parent.mkdir(parents=True, exist_ok=True)
         novo = not self.caminho.exists()
+        # Modo "a" (acrescentar): execuções seguintes continuam o mesmo arquivo. utf-8-sig = BOM, para o Excel acentuar certo
         self._arquivo = self.caminho.open("a", newline="", encoding="utf-8-sig")
         self._escritor = csv.writer(self._arquivo, delimiter=";")
         if novo:
@@ -182,9 +192,11 @@ class RegistroCSV:
 
     @staticmethod
     def _numero(valor: float) -> str:
+        """Formata o número com 3 casas e vírgula decimal (padrão do Excel em português)."""
         return f"{valor:.3f}".replace(".", ",")
 
     def gravar(self, oc: Ocorrencia) -> None:
+        """Acrescenta uma linha ao CSV (colunas na ordem de `COLUNAS`; `revisao_manual` fica vazia)."""
         self._escritor.writerow([
             oc.data_hora.strftime("%d/%m/%Y %H:%M:%S"),
             formatar_tempo(oc.tempo_s),
@@ -203,6 +215,7 @@ class RegistroCSV:
         self._arquivo.flush()   # grava na hora: se o programa cair, as ocorrências já estão no arquivo
 
     def fechar(self) -> None:
+        """Fecha o arquivo CSV."""
         self._arquivo.close()
 
 

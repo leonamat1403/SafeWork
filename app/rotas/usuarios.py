@@ -24,6 +24,7 @@ ALFABETO_TEMPORARIA = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
 def usuario_json(u: Usuario, eu: int) -> dict:
+    """Dados do usuário para as telas (nunca inclui o hash); 'voce' marca o próprio usuário logado."""
     return {"id": u.id, "nome": u.nome, "login": u.login, "perfil": u.perfil, "ativo": u.ativo,
             "deve_trocar_senha": u.deve_trocar_senha, "criado_em": para_local(u.criado_em).strftime("%d/%m/%Y"),
             "voce": u.id == eu}
@@ -31,12 +32,14 @@ def usuario_json(u: Usuario, eu: int) -> dict:
 
 @rotas.get("")
 def listar(request: Request, admin: UsuarioSessao = Depends(exigir_admin)) -> list[dict]:
+    """Lista todos os usuários (ativos primeiro, depois por nome). Só ADMIN."""
     with request.app.state.ctx.fabrica() as sessao:
         usuarios = sessao.scalars(select(Usuario).order_by(Usuario.ativo.desc(), Usuario.nome)).all()
     return [usuario_json(u, admin.id) for u in usuarios]
 
 
 class NovoUsuario(BaseModel):
+    """Corpo do pedido de criação de usuário."""
     nome: str
     login: str
     perfil: Literal["ADMIN", "SUPERVISOR"]
@@ -67,6 +70,7 @@ def criar(dados: NovoUsuario, request: Request, admin: UsuarioSessao = Depends(e
 
 
 def _alvo(sessao, usuario_id: int) -> Usuario:
+    """Busca o usuário que sofrerá a ação ou responde 404."""
     usuario = sessao.get(Usuario, usuario_id)
     if usuario is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuário não encontrado.")
@@ -84,6 +88,7 @@ def desativar(usuario_id: int, request: Request, admin: UsuarioSessao = Depends(
         if usuario.perfil == "ADMIN" and usuario.ativo:
             admins_ativos = sessao.scalar(select(func.count()).select_from(Usuario)
                                           .where(Usuario.perfil == "ADMIN", Usuario.ativo.is_(True)))
+            # trava para o sistema nunca ficar sem quem o administre
             if admins_ativos <= 1:
                 raise HTTPException(status.HTTP_400_BAD_REQUEST, "O sistema precisa de pelo menos um administrador ativo.")
         usuario.ativo = False
@@ -94,6 +99,7 @@ def desativar(usuario_id: int, request: Request, admin: UsuarioSessao = Depends(
 
 @rotas.post("/{usuario_id}/reativar", dependencies=[Depends(exigir_csrf)])
 def reativar(usuario_id: int, request: Request, admin: UsuarioSessao = Depends(exigir_admin)) -> dict:
+    """Reativa um usuário desativado, com a mesma senha de antes. Só ADMIN."""
     ctx = request.app.state.ctx
     with ctx.fabrica() as sessao:
         usuario = _alvo(sessao, usuario_id)
@@ -107,6 +113,7 @@ def reativar(usuario_id: int, request: Request, admin: UsuarioSessao = Depends(e
 def redefinir_senha(usuario_id: int, request: Request, admin: UsuarioSessao = Depends(exigir_admin)) -> dict:
     """Gera uma senha temporária (mostrada uma única vez); a pessoa troca no próximo acesso."""
     ctx = request.app.state.ctx
+    # secrets (e não random): a senha temporária precisa ser imprevisível
     temporaria = "".join(secrets.choice(ALFABETO_TEMPORARIA) for _ in range(10))
     with ctx.fabrica() as sessao:
         usuario = _alvo(sessao, usuario_id)

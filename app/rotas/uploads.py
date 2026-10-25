@@ -13,6 +13,7 @@ rotas = APIRouter(prefix="/api/uploads", tags=["upload"])
 
 
 def _trabalho(request: Request, trabalho_id: str, usuario: UsuarioSessao) -> TrabalhoUpload:
+    """Busca o upload do usuário (o ADMIN enxerga todos) ou responde 404."""
     trabalho = request.app.state.ctx.uploads.obter(trabalho_id, usuario.id, usuario.admin)
     if trabalho is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Upload não encontrado (ou já expirou, após 1 h).")
@@ -26,6 +27,7 @@ async def enviar(request: Request, arquivo: UploadFile = File(..., description="
     """Envia o arquivo; o processamento roda em segundo plano (acompanhe em GET /api/uploads/{id})."""
     ctx = request.app.state.ctx
     if camera_id is None:
+        # sem posto escolhido, as regras usam o primeiro cadastrado
         with ctx.fabrica() as sessao:
             camera_id = sessao.scalars(select(Camera.id).order_by(Camera.id).limit(1)).first()
         if camera_id is None:

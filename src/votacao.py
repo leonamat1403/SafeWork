@@ -19,10 +19,12 @@ from src.tipos import Estado
 
 @dataclass
 class _Historico:
+    """Memória de uma pessoa (track_id): estados recentes de cada EPI e a última avaliação de cada estado."""
+
     estados: dict[str, deque] = field(default_factory=dict)        # EPI -> últimos estados
     # (EPI, estado) -> última avaliação com esse estado e se a máscara estava levantada naquele quadro
     ultima: dict[tuple[str, Estado], tuple[AvaliacaoEPI, bool]] = field(default_factory=dict)
-    ultimo_quadro: int = 0
+    ultimo_quadro: int = 0   # número do último quadro em que a pessoa apareceu (para esquecer quem sumiu)
 
 
 def mais_votado(valores: deque) -> Estado:
@@ -36,6 +38,7 @@ class VotacaoTemporal:
     """Guarda os últimos `quadros` estados de cada pessoa e devolve as avaliações "votadas" para a tela."""
 
     def __init__(self, quadros: int = 5) -> None:
+        """`quadros` é o tamanho da janela de votação (K); com 1 a votação fica desligada."""
         self.quadros = max(1, int(quadros))
         self._pessoas: dict[int, _Historico] = {}
         self._quadro = 0

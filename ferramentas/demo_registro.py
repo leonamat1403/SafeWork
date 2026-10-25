@@ -16,7 +16,9 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
+# Permite importar app/ e src/ mesmo rodando o script de dentro de ferramentas/.
 sys.path.insert(0, str(RAIZ))
+# Impede o ultralytics de tentar baixar arquivos da internet.
 os.environ.setdefault("YOLO_OFFLINE", "true")
 
 from sqlalchemy import select  # noqa: E402
@@ -37,15 +39,18 @@ def camera_de_demonstracao(fabrica, fonte: str, conf_mascara: float) -> int:
     with fabrica() as sessao:
         camera = sessao.scalars(select(Camera).where(Camera.nome_posto == NOME_CAMERA)).first()
         if camera is None:
+            # ativa=False: é só uma câmera de mentira para a demonstração, não deve ser ligada ao vivo.
             camera = Camera(nome_posto=NOME_CAMERA, tipo="arquivo", origem=fonte, ativa=False,
                             epis=[ConfigEpiCamera(epi="mascara", conf_min=conf_mascara)])
             sessao.add(camera)
+        # O vídeo de origem é atualizado a cada execução.
         camera.origem = fonte
         sessao.commit()
         return camera.id
 
 
 def listar(fabrica, data_dir: Path, limite: int = 20) -> None:
+    """Mostra as últimas `limite` ocorrências do banco (data, turno, pessoa, faltas, validação e caminho da imagem)."""
     with fabrica() as sessao:
         ocorrencias = sessao.scalars(select(Ocorrencia).order_by(Ocorrencia.data_hora.desc()).limit(limite)).all()
     if not ocorrencias:
@@ -60,6 +65,7 @@ def listar(fabrica, data_dir: Path, limite: int = 20) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Processa o vídeo de --fonte e grava as ocorrências no banco, ou só lista as existentes (--listar). Devolve 0."""
     parser = argparse.ArgumentParser(description="Grava no banco as ocorrências de um vídeo (demonstração da 2.2).")
     parser.add_argument("--fonte", help="arquivo de vídeo")
     parser.add_argument("--max-frames", type=int, default=0, help="para depois de N frames (0 = vídeo inteiro)")
@@ -77,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
             listar(fabrica, ajustes.data_dir)
             return 0
 
+        # Importados aqui dentro para carregar o YOLO só quando há vídeo para processar (o --listar fica leve).
         from src.config import carregar_config
         from src.detector import Detector
         from src.occurrences import GerenciadorOcorrencias
@@ -93,13 +100,14 @@ def main(argv: list[str] | None = None) -> int:
         pipeline = Pipeline(config, Detector(config))
         gerenciador = GerenciadorOcorrencias(config)
         fonte = FonteVideo(args.fonte)
-        n = registradas = 0
+        n = registradas = 0  # frames lidos / ocorrências gravadas
         try:
             while True:
                 frame, t = fonte.ler()
                 if frame is None or (args.max_frames and n >= args.max_frames):
                     break
                 resultado = pipeline.processar(frame)
+                # Cada ocorrência confirmada pela regra de 4 s / 75% é gravada com a imagem já borrada.
                 for oc in gerenciador.atualizar(resultado.avaliacoes, t, n, resultado.saturado):
                     registrador.registrar(oc, frame, resultado, camera_id)
                     registradas += 1

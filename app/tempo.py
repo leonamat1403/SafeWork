@@ -38,6 +38,7 @@ def hoje_local() -> date:
 
 
 def _hora(h: str, m: str, texto: str) -> time:
+    """Monta um horário a partir de horas e minutos em texto; o regex só garante 2 dígitos, então confere os limites."""
     if int(h) > 23 or int(m) > 59:
         raise ValueError(f"Horário inválido em {texto!r}")
     return time(int(h), int(m))
@@ -64,7 +65,7 @@ def janela_do_turno(momento: datetime, turnos: dict, horas_sem_turno: float = 8)
     hora, hoje = local.time(), local.date()
     um_dia = timedelta(days=1)
     for nome, (inicio, fim) in validar_turnos(turnos).items():
-        if inicio <= fim:
+        if inicio <= fim:   # turno comum, no mesmo dia (início < fim); o fim não entra (intervalo aberto à direita)
             if not inicio <= hora < fim:
                 continue
             comeco, termino = datetime.combine(hoje, inicio, FUSO), datetime.combine(hoje, fim, FUSO)

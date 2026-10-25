@@ -28,6 +28,7 @@ class RegistradorOcorrencias:
 
     def __init__(self, fabrica_sessoes: sessionmaker[Session], storage: Storage, borrador: Borrador,
                  turnos: dict[str, str]) -> None:
+        """Recebe o banco, o armazenamento de imagens, o borrador e os horários dos turnos (usados para rotular)."""
         self.fabrica_sessoes = fabrica_sessoes
         self.storage = storage
         self.borrador = borrador
@@ -68,7 +69,7 @@ class RegistradorOcorrencias:
         if origem not in ORIGENS:
             raise ValueError(f"origem deve ser uma de {ORIGENS}")
         uuid = str(uuid_mod.uuid4())
-        quando = para_utc(detectada.data_hora)
+        quando = para_utc(detectada.data_hora)   # a Fase 1 devolve horário local; o banco guarda sempre em UTC
         caminhos = self._salvar(imagem, uuid, quando)
         registro = Ocorrencia(
             uuid=uuid,

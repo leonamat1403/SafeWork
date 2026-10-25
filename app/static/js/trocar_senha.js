@@ -16,6 +16,7 @@
     igual: () => nova.value.length > 0 && nova.value === repita.value,
   };
 
+  /** Confere as três regras, marca cada item da lista (data-regra) como ok ou pendente e devolve true se todas passam. */
   function conferir() {
     let tudoOk = true;
     for (const [nome, regra] of Object.entries(regras)) {
@@ -28,11 +29,13 @@
     return tudoOk;
   }
 
+  /** Mostra a mensagem de erro do formulário; texto vazio esconde o aviso. */
   function erro(texto) {
     caixaErro.querySelector("span").textContent = texto;
     caixaErro.hidden = !texto;
   }
 
+  // A lista de regras reage a cada tecla digitada
   [atual, nova, repita].forEach((campo) => campo.addEventListener("input", conferir));
 
   form.addEventListener("submit", async (evento) => {

@@ -58,6 +58,7 @@ def nome_saida(fonte: str, extensao: str, prefixo: str = "saida") -> Path:
 
 
 def espaco_livre_mb(pasta: Path) -> float:
+    """Espaço livre em disco, em megabytes, no disco onde está `pasta`."""
     return shutil.disk_usage(pasta).free / 1e6
 
 
@@ -86,6 +87,7 @@ class GravadorVideo:
     """
 
     def __init__(self, caminho: Path, fps_informado: float, ao_vivo: bool) -> None:
+        """Prepara a gravação. Ao vivo (`fps` = None) o FPS será medido; em arquivo, usa o informado ou o padrão."""
         self.caminho = caminho
         self.fps = None if ao_vivo else (fps_valido(fps_informado) or FPS_PADRAO)
         self.escritor: cv2.VideoWriter | None = None
@@ -94,6 +96,7 @@ class GravadorVideo:
         self._frames = 0
 
     def _criar(self, frame: np.ndarray) -> None:
+        """Cria o arquivo MP4 com o tamanho do frame dado; se não conseguir, desativa a gravação."""
         self.caminho.parent.mkdir(parents=True, exist_ok=True)
         altura, largura = frame.shape[:2]
         self.escritor = cv2.VideoWriter(str(self.caminho), cv2.VideoWriter_fourcc(*"mp4v"), self.fps, (largura, altura))
@@ -102,6 +105,7 @@ class GravadorVideo:
             self.ativo = False
 
     def _descarregar(self) -> None:
+        """Cria o arquivo (já com o FPS medido) e grava de uma vez os frames que estavam guardados."""
         if not self._pendentes:
             return
         if self.fps is None:
@@ -112,6 +116,7 @@ class GravadorVideo:
             self._escrever(frame)
 
     def _escrever(self, frame: np.ndarray) -> None:
+        """Grava um frame no arquivo; a cada 100 frames confere o disco e interrompe se estiver quase cheio (RNF03)."""
         if not self.ativo:
             return
         if self._frames % 100 == 0 and espaco_livre_mb(self.caminho.parent) < ESPACO_MINIMO_MB:
@@ -122,6 +127,7 @@ class GravadorVideo:
         self._frames += 1
 
     def gravar(self, t: float, frame: np.ndarray) -> None:
+        """Recebe um frame anotado e o instante `t` (s). Enquanto o FPS não é conhecido, só guarda o frame na espera."""
         if not self.ativo:
             return
         if self.escritor is None:
@@ -133,6 +139,7 @@ class GravadorVideo:
         self._escrever(frame)
 
     def fechar(self) -> None:
+        """Termina a gravação: descarrega os frames pendentes e fecha o arquivo de vídeo."""
         if self.escritor is None:
             self._descarregar()          # gravação curta: menos frames do que o necessário para medir o FPS
         if self.escritor is not None and self.ativo:
@@ -148,6 +155,7 @@ def ler_imagem(caminho: Path) -> np.ndarray | None:
 
 
 def salvar_imagem(caminho: Path, img: np.ndarray) -> None:
+    """Salva a imagem anotada (cv2.imencode + tofile, que aceita acentos no caminho do Windows), se houver espaço."""
     caminho.parent.mkdir(parents=True, exist_ok=True)
     if espaco_livre_mb(caminho.parent) < ESPACO_MINIMO_MB:
         log.error("Disco quase cheio (< %d MB livres): imagem não salva.", ESPACO_MINIMO_MB)
@@ -162,6 +170,7 @@ def salvar_imagem(caminho: Path, img: np.ndarray) -> None:
 # Modos de execução
 # ---------------------------------------------------------------------------------------------------------------
 def formatar_tempo(segundos: float) -> str:
+    """Tempo no formato hh:mm:ss (segundos inteiros), para o terminal e a tela."""
     m, s = divmod(int(segundos), 60)
     h, m = divmod(m, 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
@@ -197,6 +206,7 @@ def resumo_estados(contagem: Counter) -> list[str]:
 
 
 def processar_imagem(config: Config, pipeline: Pipeline, caminho: Path, args: argparse.Namespace) -> int:
+    """Modo foto: avalia uma imagem, mostra o resultado no terminal (e na janela) e devolve o código de saída."""
     frame = ler_imagem(caminho)
     if frame is None:
         log.error("Não foi possível ler a imagem %s.", caminho)
@@ -220,7 +230,8 @@ def processar_imagem(config: Config, pipeline: Pipeline, caminho: Path, args: ar
 
 
 def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args: argparse.Namespace) -> int:
-    pular = config.deteccao.pular_frames
+    """Modo vídeo/câmera: lê frames, avalia, registra ocorrências, mostra a janela e imprime o resumo no fim."""
+    pular = config.deteccao.pular_frames   # processa 1 a cada `pular` frames; nos demais repete o último resultado
     lidos = processados = ignorados = 0
     contagem: Counter = Counter()
     resultado: ResultadoFrame | None = None
@@ -249,6 +260,7 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
                     processados += 1
                     ignorados += int(resultado.saturado)
                     contar_estados(contagem, resultado)
+                    # Ocorrências só são avaliadas nos frames realmente processados (e nunca nos saturados pelo arco)
                     for oc in gerenciador.atualizar(resultado.avaliacoes, tempo, lidos, resultado.saturado):
                         total_ocorrencias += 1
                         ultima = (tempo, oc)
@@ -275,6 +287,7 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
                     break
             if not args.sem_janela and anotado is not None:
                 cv2.imshow(TITULO_JANELA, anotado)
+                # waitKey também atualiza a janela; em pausa espera mais (50 ms) para não gastar CPU à toa
                 tecla = cv2.waitKey(1 if not pausado else 50) & 0xFF
                 if tecla in (ord("q"), 27):
                     break
@@ -283,7 +296,7 @@ def processar_video(config: Config, pipeline: Pipeline, fonte: FonteVideo, args:
                     print("PAUSADO" if pausado else "CONTINUANDO")
                 if cv2.getWindowProperty(TITULO_JANELA, cv2.WND_PROP_VISIBLE) < 1:   # janela fechada no X
                     break
-    finally:
+    finally:   # roda mesmo com erro ou Ctrl+C: libera câmera, arquivos e janelas
         fonte.fechar()
         if gravador is not None:
             gravador.fechar()
@@ -403,6 +416,7 @@ def baixar_modelos(pasta: Path) -> int:
 # Entrada
 # ---------------------------------------------------------------------------------------------------------------
 def criar_parser() -> argparse.ArgumentParser:
+    """Define as opções da linha de comando (fonte, config, posto, saída, depuração, benchmark e download)."""
     p = argparse.ArgumentParser(prog="python -m src.run", description="Verificador de EPIs de Solda – Fase 1 "
                                 "(validação da detecção da máscara de solda).")
     p.add_argument("--fonte", help="webcam (0, 1, ...), arquivo de imagem/vídeo ou URL RTSP. Padrão: webcam 0.")
@@ -420,13 +434,14 @@ def criar_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Ponto de entrada. Códigos de saída: 0 ok, 2 config inválida, 3 modelo ausente, 4 fonte inválida, 5 download."""
     args = criar_parser().parse_args(argv)
     # Saída padrão (stdout): no PowerShell, mensagens em stderr aparecem em vermelho como se fossem erros
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S",
                         stream=sys.stdout)
 
     if args.baixar_modelos:
-        os.environ["YOLO_OFFLINE"] = "false"
+        os.environ["YOLO_OFFLINE"] = "false"   # só aqui a internet é liberada, para baixar os modelos
         return baixar_modelos(Path(args.config).resolve().parent / "models")
 
     try:

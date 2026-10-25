@@ -23,6 +23,7 @@ SEM_CACHE = {"Cache-Control": "no-store, private"}
 
 
 def _uuid_valido(texto: str) -> str:
+    """Confere o formato do código da ocorrência; um código malformado vira 404, como um que não existe."""
     try:
         return str(uuid_mod.UUID(texto))
     except ValueError as erro:
@@ -61,6 +62,7 @@ def filtros_da_tela(inicio: date | None = Query(None, description="primeiro dia 
                     epi: str | None = Query(None, description="EPI faltante (ex.: mascara)"),
                     turno: str | None = None,
                     validacao: str | None = Query(None, description="PENDENTE, CONFIRMADA ou FALSO_POSITIVO")) -> Filtros:
+    """Lê os filtros da URL, confere os valores e monta as condições SQL (a lista e o CSV usam a mesma)."""
     if epi is not None and epi not in EPIS_CONHECIDOS:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"epi deve ser um de {EPIS_CONHECIDOS}")
     if validacao is not None and validacao not in VALIDACOES:
@@ -68,11 +70,13 @@ def filtros_da_tela(inicio: date | None = Query(None, description="primeiro dia 
     filtros = []
     if inicio:
         filtros.append(Ocorrencia.data_hora >= inicio_do_dia_utc(inicio))
+    # o fim é inclusivo: vale até a meia-noite do dia seguinte (horário de Brasília)
     if fim:
         filtros.append(Ocorrencia.data_hora < inicio_do_dia_utc(fim + timedelta(days=1)))
     if camera_id is not None:
         filtros.append(Ocorrencia.camera_id == camera_id)
     if epi:
+        # epis_faltantes é uma lista JSON; procura o nome entre aspas para não casar com parte de outro nome
         filtros.append(cast(Ocorrencia.epis_faltantes, String).like(f'%"{epi}"%'))
     if turno:
         filtros.append(Ocorrencia.turno == turno)
@@ -115,6 +119,7 @@ def _celula(valor) -> str:
 
 
 def _decimal(valor: float | None) -> str:
+    """Número com 2 casas e vírgula decimal, como o Excel em português espera."""
     return "" if valor is None else f"{valor:.2f}".replace(".", ",")
 
 
@@ -144,6 +149,7 @@ def exportar_csv(request: Request, filtros: Filtros = Depends(filtros_da_tela),
             TEXTO_ORIGEM.get(oc.origem, oc.origem), oc.uuid)])
     auditar(ctx.fabrica, usuario.id, "exportar", {"formato": "csv", "linhas": len(linhas), **filtros.descricao})
     nome = f"ocorrencias_{para_local(agora_utc()):%Y%m%d_%H%M}.csv"
+    # o BOM (\ufeff) no início faz o Excel abrir o arquivo em UTF-8, com os acentos certos
     return Response("\ufeff" + saida.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={**SEM_CACHE, "Content-Disposition": f'attachment; filename="{nome}"'})
 
@@ -158,6 +164,7 @@ def resumo_geral(request: Request, _: UsuarioSessao = Depends(usuario_liberado))
 
 
 def _buscar(sessao, uuid: str) -> tuple[Ocorrencia, str]:
+    """Devolve a ocorrência e o nome do posto, ou responde 404."""
     linha = sessao.execute(select(Ocorrencia, Camera.nome_posto).join(Camera)
                            .where(Ocorrencia.uuid == _uuid_valido(uuid))).first()
     if linha is None:
@@ -175,6 +182,7 @@ def detalhes(uuid: str, request: Request, _: UsuarioSessao = Depends(usuario_lib
 
 
 class Validacao(BaseModel):
+    """Corpo do pedido de validação; PENDENTE desfaz uma validação anterior."""
     validacao: Literal["CONFIRMADA", "FALSO_POSITIVO", "PENDENTE"]
 
 
@@ -204,7 +212,7 @@ def excluir(uuid: str, request: Request, usuario: UsuarioSessao = Depends(exigir
                 try:
                     ctx.storage.apagar(caminho)
                 except ErroArmazenamento:
-                    pass
+                    pass   # arquivo já ausente: segue e apaga o registro mesmo assim
         sessao.delete(oc)
         sessao.commit()
     auditar(ctx.fabrica, usuario.id, "excluir", {"uuid": oc.uuid, "data_hora": oc.data_hora.isoformat()})

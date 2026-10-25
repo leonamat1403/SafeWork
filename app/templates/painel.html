@@ -1,8 +1,10 @@
 {% extends "base.html" %}
+{# T05 – Painel (números do período e gráficos). Scripts: Chart.js local (vendor) e painel.js. #}
 {% block titulo %}Painel{% endblock %}
 {% block conteudo %}
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
   <h1 class="titulo-pagina">Painel</h1>
+  {# Relatório mensal em PDF: o painel.js monta o endereço de #baixar-pdf com o mês de #pdf-mes e o posto escolhido. #}
   <div class="d-flex align-items-end gap-2" role="group" aria-label="Relatório mensal em PDF">
     <div><label class="form-label rotulo" for="pdf-mes">Relatório do mês (PDF)</label>
       <input type="month" class="form-control form-control-sm" id="pdf-mes"></div>
@@ -11,6 +13,7 @@
   </div>
 </div>
 
+{# Filtros. Os botões data-periodo (hoje, 7, mes, 30) preenchem f-inicio e f-fim; f-posto é preenchido pelo script. #}
 <form class="cartao" id="filtros" aria-label="Filtros do painel">
   <div class="d-flex flex-wrap gap-2 mb-2" role="group" aria-label="Períodos prontos">
     <button type="button" class="btn btn-sm btn-outline-secondary" data-periodo="hoje">Hoje</button>
@@ -29,7 +32,9 @@
   </div>
 </form>
 
+{# Área recarregada pelo painel.js; aria-busy avisa o leitor de tela enquanto os dados carregam. #}
 <div id="painel" class="painel" aria-busy="true">
+  {# Cartões de números: c-hoje, c-mes, c-conformidade e c-falsos (cada um com .numero-valor e .numero-nota). #}
   <section class="cartoes-numeros" aria-label="Números principais">
     <a class="numero-cartao" id="c-hoje" href="/ocorrencias">
       <span class="rotulo">Hoje</span><strong class="numero-valor">—</strong>
@@ -45,6 +50,8 @@
       <span class="numero-nota">das ocorrências validadas</span></div>
   </section>
 
+  {# Gráficos: cada <canvas id="g-..."> tem a tabela equivalente em "Ver dados" (<tbody id="d-...">), para acessibilidade.
+     Ordem: g-dia, g-estados, g-turno, g-posto. O parágrafo .grafico-vazio aparece quando não há dados no período. #}
   <div class="graficos">
     <section class="cartao grafico grafico-largo" aria-labelledby="t-dia">
       <h2 class="rotulo" id="t-dia">Ocorrências por dia</h2>

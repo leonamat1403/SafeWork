@@ -35,6 +35,7 @@ class ImagemBorrada:
     __slots__ = ("_pixels",)
 
     def __init__(self, pixels: np.ndarray, _chave: object = None) -> None:
+        """Só aceita criação com a chave secreta do módulo; guarda uma cópia imutável dos pixels."""
         if _chave is not _CHAVE:
             raise TypeError("ImagemBorrada só pode ser criada por privacy.Borrador.borrar() (RF27): "
                             "nenhuma imagem sem blur pode ser gravada.")
@@ -49,6 +50,7 @@ class ImagemBorrada:
 
     @property
     def forma(self) -> tuple[int, ...]:
+        """Dimensões da imagem (altura, largura, canais)."""
         return self._pixels.shape
 
     def com_desenho(self, desenhar: Callable[[np.ndarray], np.ndarray]) -> ImagemBorrada:
@@ -60,6 +62,7 @@ class ImagemBorrada:
 
 
 def _ampliar(caixa: Caixa, folga: float, largura: int, altura: int) -> tuple[int, int, int, int]:
+    """Aumenta a caixa pela `folga` em cada lado e a limita às bordas da imagem, em pixels inteiros."""
     x1, y1, x2, y2 = caixa
     dx, dy = (x2 - x1) * folga, (y2 - y1) * folga
     return (max(0, int(x1 - dx)), max(0, int(y1 - dy)), min(largura, int(x2 + dx + 1)), min(altura, int(y2 + dy + 1)))
@@ -98,14 +101,16 @@ class DetectorRostosQuadro:
     avisa no log: as cabeças encontradas pela pose continuam sendo borradas."""
 
     def __init__(self, caminho_modelo: Path | None, conf: float = 0.6) -> None:
+        """Carrega o YuNet de `caminho_modelo`; `conf` é a confiança mínima para aceitar um rosto."""
         self._detector = None
         if caminho_modelo is None or not Path(caminho_modelo).exists():
             log.warning("Modelo de rostos não encontrado (%s): o blur usa só a cabeça das pessoas (pose).",
                         caminho_modelo)
             return
-        self._detector = cv2.FaceDetectorYN.create(str(caminho_modelo), "", (320, 320), conf, 0.3, 5000)
+        self._detector = cv2.FaceDetectorYN.create(str(caminho_modelo), "", (320, 320), conf, 0.3, 5000)   # tamanho inicial (refeito a cada quadro), limiar, NMS, máx. rostos
 
     def detectar(self, frame: np.ndarray) -> list[Caixa]:
+        """Caixas (x1, y1, x2, y2) dos rostos, nas coordenadas do frame original (a detecção usa cópia reduzida)."""
         if self._detector is None:
             return []
         altura, largura = frame.shape[:2]
@@ -122,6 +127,7 @@ class Borrador:
     """Aplica o blur de privacidade e devolve a ImagemBorrada (a única coisa que o Storage aceita)."""
 
     def __init__(self, detector_rostos: DetectorRostosQuadro | None, conf_keypoint: float = 0.5) -> None:
+        """`conf_keypoint` é a confiança mínima dos pontos do corpo usados para achar a cabeça."""
         self.detector_rostos = detector_rostos
         self.conf_keypoint = conf_keypoint
 

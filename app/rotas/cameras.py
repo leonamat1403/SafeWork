@@ -15,6 +15,7 @@ SEM_CACHE = {"Cache-Control": "no-store, private"}
 
 
 def _trabalhador(request: Request, camera_id: int) -> TrabalhadorCamera:
+    """O processo que lê a câmera ligada, ou 404 se ela não existe ou está desativada."""
     trabalhador = request.app.state.ctx.cameras.obter(camera_id)
     if trabalhador is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Câmera inexistente ou desativada.")
@@ -116,6 +117,7 @@ def pausar(camera_id: int, request: Request, _: UsuarioSessao = Depends(exigir_a
 
 @rotas.post("/cameras/{camera_id}/retomar", dependencies=[Depends(exigir_csrf)])
 def retomar(camera_id: int, request: Request, _: UsuarioSessao = Depends(exigir_admin)) -> dict:
+    """Volta a monitorar uma câmera pausada. Só ADMIN."""
     _trabalhador(request, camera_id).pausada = False
     return {"camera_id": camera_id, "pausada": False}
 
@@ -128,6 +130,7 @@ def snapshot(camera_id: int, request: Request, _: UsuarioSessao = Depends(usuari
     if instantaneo is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "A câmera ainda não tem imagem.")
     frame, resultado = instantaneo
+    # o mesmo registrador das ocorrências, que borra o rosto antes de a imagem sair
     imagem = request.app.state.ctx.registrador.imagem_anotada(frame, resultado)
     nome = f"snapshot_camera{camera_id}_{para_local(agora_utc()):%Y%m%d_%H%M%S}.jpg"
     return Response(jpeg(imagem.pixels, largura_max=1920, qualidade=85), media_type="image/jpeg",

@@ -15,6 +15,7 @@ from app.database import Base
 from app.tempo import agora_utc
 from src.config import EPIS_CONHECIDOS
 
+# Listas de valores permitidos: cada uma vira uma restrição CHECK no banco (ver `_uma_das`)
 PERFIS = ("ADMIN", "SUPERVISOR")
 PROCESSOS_SOLDA = ("MIG_MAG", "TIG", "ELETRODO", "CORTE", "OUTRO")
 TIPOS_CAMERA = ("webcam", "rtsp", "arquivo")
@@ -31,6 +32,7 @@ class DataHoraUTC(TypeDecorator):
     cache_ok = True
 
     def process_bind_param(self, valor: datetime | None, dialect) -> datetime | None:
+        """Ao gravar: exige fuso, converte para UTC e tira o fuso (o SQLite não guarda fuso)."""
         if valor is None:
             return None
         if valor.tzinfo is None:
@@ -38,6 +40,7 @@ class DataHoraUTC(TypeDecorator):
         return valor.astimezone(timezone.utc).replace(tzinfo=None)
 
     def process_result_value(self, valor: datetime | None, dialect) -> datetime | None:
+        """Ao ler: devolve a data/hora marcada como UTC, para voltar igual ao que foi gravado."""
         return None if valor is None else valor.replace(tzinfo=timezone.utc)
 
 
@@ -48,6 +51,8 @@ def _uma_das(coluna: str, valores: tuple[str, ...]) -> CheckConstraint:
 
 
 class Usuario(Base):
+    """Pessoa que acessa o sistema (perfil ADMIN ou SUPERVISOR). A senha é guardada só como hash."""
+
     __tablename__ = "usuarios"
     __table_args__ = (_uma_das("perfil", PERFIS),)
 
@@ -62,6 +67,8 @@ class Usuario(Base):
 
 
 class Camera(Base):
+    """Câmera ou posto de solda monitorado, com a zona de interesse e os EPIs exigidos (`epis`)."""
+
     __tablename__ = "cameras"
     __table_args__ = (_uma_das("processo_solda", PROCESSOS_SOLDA), _uma_das("tipo", TIPOS_CAMERA))
 

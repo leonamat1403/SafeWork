@@ -46,12 +46,15 @@ from src.tipos import Estado  # noqa: E402
 
 PLANILHA_PADRAO = RAIZ / "testes_campo" / "planilha_testes_campo.xlsx"
 PASTA_VIDEOS = RAIZ / "testes_campo" / "videos"
+# Subpasta de testes_campo/videos -> situacao_real cadastrada automaticamente para os vídeos dela.
 PASTAS_IMPORTACAO = {"conformes": "mascara_abaixada", "nao_conformes": "sem_mascara"}
 EXTENSOES_VIDEO = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v"}
 
 
 @dataclass
 class ResultadoTeste:
+    """Resumo da avaliação de um vídeo ou trecho: frames, FPS, fração de cada estado da máscara, frames ignorados
+    pelo arco e as ocorrências geradas."""
     frames: int
     fps: float
     fracoes: dict[Estado, float]
@@ -87,6 +90,7 @@ def avaliar_trecho(config: Config, caminho: Path, inicio_s: float | None, fim_s:
     cap = cv2.VideoCapture(str(caminho))
     if not cap.isOpened():
         raise RuntimeError(f"não foi possível abrir {caminho}")
+    # Começa no trecho pedido; o fim é controlado dentro do laço (tempo maior que fim_s).
     if inicio_s:
         cap.set(cv2.CAP_PROP_POS_MSEC, inicio_s * 1000)
     pipeline = Pipeline(config, Detector(config))       # detector novo por teste: o rastreamento começa do zero
@@ -116,6 +120,7 @@ def avaliar_trecho(config: Config, caminho: Path, inicio_s: float | None, fim_s:
         if gravador is not None:
             gravador.fechar()
     duracao = time.perf_counter() - inicio
+    # Fração de cada estado entre todas as avaliações de máscara (pessoa x frame).
     total = sum(n for (epi, _), n in contagem.items() if epi == "mascara")
     fracoes = {e: (contagem[("mascara", e)] / total if total else 0.0) for e in Estado}
     return ResultadoTeste(frames, frames / duracao if duracao > 0 else 0.0, fracoes, ignorados, ocorrencias)
@@ -146,13 +151,16 @@ def substituir_ocorrencias(wb, id_teste: str, novas: list[list]) -> None:
     ws = wb["Ocorrências"]
     linhas, revisadas = [], {}
     for n in range(2, ULTIMA_LINHA_OCORRENCIAS + 1):
+        # Colunas A-E (dados da ocorrência) e H (revisão manual); as demais (F, G, I) são fórmulas.
         valores = [ws.cell(n, col).value for col in (1, 2, 3, 4, 5, 8)]
         if valores[0] in (None, ""):
             continue
         if valores[0] != id_teste:
             linhas.append(valores)
+        # Linhas do teste que será reavaliado: guarda a revisão manual para tentar reaproveitá-la.
         elif valores[5] not in (None, ""):
             revisadas[(valores[2], valores[3])] = valores[5]
+    # Se a ocorrência nova coincide (mesmo tempo e pessoa) com uma antiga já revisada, herda a revisão.
     linhas += [linha[:5] + [revisadas.get((linha[2], linha[3]), linha[5])] for linha in novas]
     if len(linhas) > ULTIMA_LINHA_OCORRENCIAS - 1:
         raise RuntimeError("a aba Ocorrências está cheia; crie uma planilha nova para a próxima rodada de testes")
@@ -171,11 +179,14 @@ def importar_pastas(wb, pasta_videos: Path = PASTA_VIDEOS, raiz: Path = RAIZ) ->
     linhas_usadas = [n for n in range(2, ULTIMA_LINHA + 1)
                      if ws[f"{COL['arquivo']}{n}"].value or ws[f"{COL['ID']}{n}"].value]
     existentes = {str(ws[f"{COL['arquivo']}{n}"].value).replace("\\", "/") for n in linhas_usadas}
+    # Números dos IDs já usados (T01, T02...); o próximo ID é o maior mais 1.
     numeros = [int(m.group(1)) for n in linhas_usadas
                if (m := re.fullmatch(r"T(\d+)", str(ws[f"{COL['ID']}{n}"].value or "")))]
     proximo = max(numeros, default=0) + 1
+    # Linhas ainda vazias da aba Testes, em ordem.
     livres = (n for n in range(2, ULTIMA_LINHA + 1) if n not in set(linhas_usadas))
     fontes = wb["Fontes"]
+    # Primeira linha vazia da aba Fontes (a aba tem até a linha 200).
     linha_fonte = next((n for n in range(2, 201) if not fontes[f"A{n}"].value), None)
     importados = []
     for subpasta, situacao in PASTAS_IMPORTACAO.items():
@@ -195,6 +206,7 @@ def importar_pastas(wb, pasta_videos: Path = PASTA_VIDEOS, raiz: Path = RAIZ) ->
                                   ("observacoes", f"importado de videos/{subpasta} (revisar ângulo e condições)")]:
                 ws[f"{COL[coluna]}{n}"] = valor
             if linha_fonte is not None and linha_fonte <= 200:
+                # Colunas A (arquivo), B (origem) e F (uso) da aba Fontes.
                 for col, valor in zip("ABF", (relativo, "internet", "teste")):
                     fontes[f"{col}{linha_fonte}"] = valor
                 fontes[f"G{linha_fonte}"] = "preencher link e licença"
@@ -204,6 +216,8 @@ def importar_pastas(wb, pasta_videos: Path = PASTA_VIDEOS, raiz: Path = RAIZ) ->
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Avalia as linhas da aba Testes ainda sem resultado (todas, com --todos) e salva a planilha.
+    Devolve 0 (ok), 2 (config inválida) ou 3 (planilha aberta no Excel)."""
     p = argparse.ArgumentParser(description="Avalia os testes de campo da planilha e preenche os resultados.")
     p.add_argument("--planilha", default=str(PLANILHA_PADRAO), help="planilha de testes (padrão: %(default)s)")
     p.add_argument("--config", default=str(RAIZ / "config.yaml"))
@@ -235,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         if not arquivo:
             continue
         id_teste = str(id_teste or f"linha{n}")
+        # Linha já avaliada (tem frames): pula, a menos que --todos.
         if ws[f"{COL['frames']}{n}"].value is not None and not args.todos:
             continue
         caminho = Path(arquivo) if Path(arquivo).is_absolute() else RAIZ / arquivo

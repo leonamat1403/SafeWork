@@ -36,6 +36,8 @@ class ErroConfig(ValueError):
 
 @dataclass(frozen=True)
 class ConfigEPI:
+    """Parâmetros de um EPI no posto escolhido (seção `epis` do config.yaml, já mesclada com o posto)."""
+
     nome: str
     ativo: bool
     conf: float                    # confiança mínima da detecção (RF15)
@@ -47,10 +49,12 @@ class ConfigEPI:
 
 @dataclass(frozen=True)
 class ConfigDeteccao:
-    imgsz: int = 640
-    imgsz_pose: int = 640
-    conf_pessoa: float = 0.40
-    conf_keypoint: float = 0.5
+    """Parâmetros dos modelos de detecção (seção `deteccao`): tamanhos de imagem e limiares de confiança."""
+
+    imgsz: int = 640               # lado da imagem enviada ao modelo de EPI (múltiplo de 32, exigência do YOLO)
+    imgsz_pose: int = 640          # idem, para o modelo de pose
+    conf_pessoa: float = 0.40      # confiança mínima para aceitar uma pessoa
+    conf_keypoint: float = 0.5     # confiança mínima para considerar um ponto do corpo visível
     altura_min_pessoa_px: int = 200
     pular_frames: int = 1
     conf_rosto: float = 0.6        # confiança mínima do detector de rostos (YuNet)
@@ -60,8 +64,10 @@ class ConfigDeteccao:
 
 @dataclass(frozen=True)
 class ConfigArco:
-    limiar_brilho: int = 245
-    fracao_max_saturada: float = 0.15
+    """Parâmetros do arco elétrico (seção `arco`): filtro de frames estourados (RF14) e solda ativa (RD03)."""
+
+    limiar_brilho: int = 245             # brilho (0-255) a partir do qual um pixel conta como "estourado"
+    fracao_max_saturada: float = 0.15    # acima desta fração de pixels estourados, o frame inteiro é ignorado
     exigir_mascara_somente_com_arco: bool = False   # RD03: sem arco aceso perto das mãos, a falta de máscara não conta
     detectar_solda_ativa: bool = True    # RD03: procura o brilho do arco perto dos punhos de cada pessoa
     fracao_min_maos: float = 0.03        # fração de pixels estourados perto de um punho que indica arco aceso
@@ -71,11 +77,15 @@ class ConfigArco:
 
 @dataclass(frozen=True)
 class ConfigOcorrencias:
-    cooldown_s: float = 60.0
+    """Parâmetros das ocorrências (seção `ocorrencias`)."""
+
+    cooldown_s: float = 60.0   # tempo mínimo entre duas ocorrências do mesmo EPI para a mesma pessoa (RF19)
 
 
 @dataclass(frozen=True)
 class ConfigModelos:
+    """Caminhos dos arquivos de modelo (seção `modelos`), já resolvidos a partir da pasta do config.yaml."""
+
     epi: Path
     pose: Path
     rosto: Path | None = None      # detector de rostos (YuNet); sem ele, "rosto visível" vem da pose
@@ -83,6 +93,8 @@ class ConfigModelos:
 
 @dataclass(frozen=True)
 class Config:
+    """Configuração completa e validada do sistema para um posto de trabalho."""
+
     posto: str
     descricao: str
     epis: dict[str, ConfigEPI]
@@ -124,6 +136,7 @@ def _numero(secao: dict, chave: str, onde: str, minimo: float, maximo: float, pa
 
 
 def _ler_epis(secao: dict) -> dict[str, ConfigEPI]:
+    """Valida a seção `epis` (já mesclada com o posto) e cria um ConfigEPI por EPI, recusando nomes e campos inválidos."""
     if not isinstance(secao, dict) or not secao:
         raise ErroConfig("A seção 'epis' é obrigatória e não pode estar vazia.")
     epis = {}
@@ -141,6 +154,7 @@ def _ler_epis(secao: dict) -> dict[str, ConfigEPI]:
             log.warning("epis.%s está ativo, mas ainda não foi implementado na Fase 1 (foco: máscara). "
                         "Ele será ignorado.", nome)
             ativo = False
+        # Tudo que não for campo conhecido vai para `extras` (ex.: opções específicas da regra da máscara)
         conhecidos = {"ativo", "conf", "persistencia_s", "fracao_minima", "cobertura_min"}
         epis[nome] = ConfigEPI(
             nome=nome,
@@ -184,7 +198,7 @@ def carregar_config(caminho: str | Path = "config.yaml", posto: str = "padrao") 
     sec = dados.get("deteccao") or {}
     imgsz = int(_numero(sec, "imgsz", "deteccao", 32, 4096, padrao=640))
     imgsz_pose = int(_numero(sec, "imgsz_pose", "deteccao", 32, 4096, padrao=640))
-    for nome, valor in (("imgsz", imgsz), ("imgsz_pose", imgsz_pose)):
+    for nome, valor in (("imgsz", imgsz), ("imgsz_pose", imgsz_pose)):   # o YOLO só aceita tamanhos múltiplos de 32
         if valor % 32:
             raise ErroConfig(f"deteccao.{nome} = {valor} deve ser múltiplo de 32 (ex.: 640, 960).")
     deteccao = ConfigDeteccao(
