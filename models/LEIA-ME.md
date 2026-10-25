@@ -9,5 +9,6 @@
 Sem o `epi_solda_best.pt`, o sistema liga, mas a tela Ao vivo avisa "Modelo de EPI não encontrado".
 
 O `epi_solda_best.pt` foi treinado a partir do YOLOv8n da Ultralytics (licença AGPL-3.0) com os datasets
-Welding-PPE e Welding Helmet (CC BY 4.0, atribuição no README) e exemplos negativos. Versões antigas (v2, v3, v4) e
+Welding-PPE, Welding Helmet, welder e safeweld (CC BY 4.0, atribuição no README) e exemplos negativos
+(pessoas do COCO 2017 e quadros de vídeos do Pexels sem máscara). Versões antigas (v2, v3, v4) e
 outros pesos ficam só no computador de quem treinou (não vão para o git).

@@ -33,6 +33,8 @@ trabalho futuro).
 15. [Estrutura de pastas e documentação](#15-estrutura-de-pastas-e-documentação)
 16. [Atribuição dos datasets](#16-atribuição-dos-datasets-cc-by-40)
 17. [Licenças de software](#17-licenças-de-software)
+18. [Tecnologias e versões](#18-tecnologias-e-versões)
+19. [Funcionamento do back-end e do front-end](#19-funcionamento-do-back-end-e-do-front-end)
 
 ---
 
@@ -388,3 +390,60 @@ COCO. Vídeos dos testes de campo: Pexels (links na aba Fontes da planilha de te
   **ReportLab** (PDF): BSD.
 - Telas: **Bootstrap**, **Bootstrap Icons** e **Chart.js** (MIT) e as fontes **Barlow Semi Condensed**, **Atkinson
   Hyperlegible** e **IBM Plex Mono** (SIL Open Font License 1.1), guardadas em `app/static/vendor/` com as licenças.
+
+---
+
+## 18. Tecnologias e versões
+
+Linguagem: **Python 3.12**. As versões abaixo estão fixadas em `requirements.txt` (RNF07); as do navegador ficam
+guardadas no próprio projeto, em `app/static/vendor/`, e funcionam sem internet.
+
+| Camada | Tecnologia | Versão | Para quê |
+|---|---|---|---|
+| Visão computacional | Ultralytics (YOLOv8n e YOLOv8n-pose) | 8.4.175 | detector de máscara (treinado no projeto) e pontos do corpo |
+| | PyTorch / torchvision | 2.14.1 / 0.29.1 | execução dos modelos em CPU |
+| | OpenCV | 5.0.0.93 | leitura da câmera, blur, desenho; detector de rostos YuNet |
+| | NumPy, lap | 2.5.3, 0.5.13 | cálculo e rastreamento (ByteTrack) |
+| Servidor | FastAPI, Starlette, Uvicorn | 0.143.1, 1.8.0, 0.54.0 | rotas, API e servidor web |
+| | Jinja2 | 3.1.6 | páginas HTML no servidor |
+| | python-multipart, itsdangerous, bcrypt | 0.0.32, 2.2.0, 5.0.0 | upload, cookie de login assinado, senhas |
+| Dados | SQLAlchemy, Alembic | 2.1.4, 1.20.0 | banco (SQLite) e atualizações do banco |
+| | APScheduler | 3.11.3 | backup, retenção e relatório mensal |
+| | python-dotenv, PyYAML, tzdata | 1.2.4, 6.0.3, 2026.5 | configuração (`.env`, `config.yaml`) e fuso de Brasília |
+| Relatórios | ReportLab, openpyxl | 4.2.5, 3.1.5 | PDF mensal e planilhas de teste |
+| Telas | Bootstrap, Bootstrap Icons | 5.3.8, 1.13.2 | layout responsivo e ícones |
+| | Chart.js | 4.4.7 | gráficos do Painel |
+| | JavaScript puro (fetch) | – | comportamento das telas, sem framework |
+| | Fontes Barlow Semi Condensed, Atkinson Hyperlegible, IBM Plex Mono | – | tipografia |
+| Testes | pytest, httpx2 | 9.1.1, 2.13.1 | testes automáticos |
+| Modelos pré-treinados | YOLOv8n-pose (COCO) e YuNet (OpenCV Zoo) | – | pontos do corpo e rostos (open source; referências na seção 17) |
+
+---
+
+## 19. Funcionamento do back-end e do front-end
+
+### Back-end (`app/` e `src/`)
+
+O back-end recebe a imagem, processa e devolve o resultado para as telas (`docs/arquitetura_fase2.md`).
+
+1. **Entrada:** uma thread por câmera ativa lê o vídeo (webcam, RTSP ou arquivo) em `app/stream.py`.
+2. **Processamento:** cada quadro passa por `src/pipeline.py`: filtro do arco, detecção de pessoas, de máscara e de
+   rostos, e as regras de `src/compliance.py` (conforme, não conforme, indeterminado).
+3. **Decisão:** `src/occurrences.py` só gera a ocorrência quando a falta dura 4 s (75% dos quadros).
+4. **Privacidade e gravação:** `app/privacy.py` borra cabeças e rostos; `app/storage.py` só grava imagens já borradas;
+   `app/registro.py` grava a ocorrência no banco (`app/models.py`).
+5. **Saída:** rotas em `app/rotas/` entregam o vídeo ao vivo (MJPEG), o estado das pessoas (a cada 1 s), as
+   ocorrências, o painel, as configurações e os relatórios; `app/auth.py` exige login e CSRF em todas.
+6. **Rotinas:** `app/scheduler.py` faz backup (02:00), retenção (03:00) e relatório mensal (dia 1º).
+
+### Front-end (`app/templates/` e `app/static/`)
+
+Interface web em português, pensada para usuários leigos (supervisor e técnico de segurança), sem instalar nada no
+aparelho.
+
+- As páginas são montadas no servidor (Jinja2) e o JavaScript puro (`app/static/js/`) busca os dados na API e
+  atualiza a tela, por exemplo o painel "Pessoas agora" a cada segundo.
+- **Responsivo:** Bootstrap; no celular o menu vira botão e as telas ficam empilhadas (testado em 375 px).
+- **Acessível:** o estado nunca depende só da cor (cor + forma + texto), foco visível, navegação por teclado.
+- **Seguro:** nenhum script ou estilo dentro do HTML; os dados da API entram como texto, nunca como HTML.
+- Desenho e decisões das telas: `docs/wireframes_fase2.md`.
