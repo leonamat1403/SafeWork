@@ -123,7 +123,7 @@ def gerar_relatorio_mensal(fabrica: sessionmaker[Session], turnos: dict[str, str
     historia = [
         Paragraph("Relatório mensal: uso da máscara de solda", titulo),
         Paragraph(f"{MESES[inicio.month - 1].capitalize()} de {inicio.year} · {nome_posto or 'todos os postos'} · "
-                  f"Verificador de EPIs de Solda – FSG / Marcopolo", subtitulo),
+                  f"Verificador de EPIs de Solda – FSG", subtitulo),
         _tabela(resumo, [12.5 * cm, 4.5 * cm]),
         Paragraph("Ocorrências por dia", secao), _grafico_por_dia(dados["por_dia"]),
         Paragraph("Por turno", secao), _tabela(turnos_linhas, [6.5 * cm, 3.5 * cm, 4 * cm, 3 * cm], numericas=3),

@@ -194,6 +194,9 @@ os números; o efeito do sistema e o da palestra não podem ser separados neste 
   no mesmo ambiente), conforme o planejamento em `docs/dataset_welding_ppe.md`, seção 8.
 - Inclusão dos demais EPIs, com dados próprios, e dos requisitos RD07 e RD08.
 - Avaliação com mais câmeras, arco real e por mais tempo; estudo com grupo de controle.
+- Posto de validação na entrada do setor de solda (sugestão do professor da disciplina): a câmera confere se a pessoa
+  tem a máscara antes de começar o trabalho, em vez de acompanhar o turno inteiro. Exige aceitar a máscara levantada
+  como conforme e dar a resposta na hora; não substitui o monitoramento no posto, que é o foco deste trabalho.
 
 ---
 

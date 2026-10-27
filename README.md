@@ -1,6 +1,7 @@
 # Verificador de EPIs de Solda com Visão Computacional
 
-Projeto extensionista de Ciência da Computação da **FSG** (Caxias do Sul – RS), em parceria com a **Marcopolo**.
+Projeto extensionista de Ciência da Computação da **FSG** (Caxias do Sul – RS). Público-alvo: empresas com **postos fixos de solda** ou setores de solda pequenos,
+com a câmera a curta distância (2 a 6 m; testado até 4 m).
 Uma câmera instalada no posto de solda verifica se o soldador está usando a **máscara de solda** e registra as
 faltas (NR-6), com as imagens **sempre borradas** e sem identificar ninguém.
 
@@ -282,6 +283,8 @@ Do sistema:
 - O alerta do Telegram foi testado só de forma simulada (sem um bot real).
 - RD07 (mosaico para luvas e calçado) e RD08 (classificador de luvas) não foram feitos (só máscara).
 - A revisão LGPD é técnica, feita pela equipe do projeto; **não é parecer jurídico**.
+- Ideia para o futuro, fora do escopo: um **posto de validação** na entrada do setor de solda, que confere a
+  máscara antes do início do trabalho (sem acompanhar o turno).
 
 ---
 
