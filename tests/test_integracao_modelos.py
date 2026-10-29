@@ -10,6 +10,7 @@ pytestmark = pytest.mark.modelos
 
 @pytest.fixture
 def pipeline(config):
+    """Monta o pipeline com os modelos reais, ou pula o teste se os modelos não existirem."""
     if not (config.modelos.epi.exists() and config.modelos.pose.exists()):
         pytest.skip("modelos ausentes em models/ (rode: python -m src.run --baixar-modelos)")
     from src.detector import Detector

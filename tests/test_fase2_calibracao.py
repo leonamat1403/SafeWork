@@ -19,12 +19,14 @@ PULSOS = {9: (240, 380), 10: (160, 380)}
 
 
 def quadro_com_arco() -> np.ndarray:
+    """Imagem escura com um brilho de arco logo à frente de um punho."""
     img = np.full((700, 500, 3), 40, np.uint8)
     img[385:415, 230:260] = 255                     # brilho do arco logo à frente de um punho
     return img
 
 
 def test_valores_de_quem_esta_de_mascara(config):
+    """Pessoa de máscara tem os números da calibração (estado, altura, cobertura, confiança, mãos e brilho) corretos."""
     pessoa = criar_pessoa({**ROSTO_COBERTO, **PULSOS})
     avaliacoes = avaliar_frame([pessoa], [mascara(MASCARA_ABAIXADA, conf=0.81)], config, rostos=[])
     dados = dados_calibracao(quadro_com_arco(), ResultadoFrame(avaliacoes, [], False, 0.02, []), config)
@@ -37,6 +39,7 @@ def test_valores_de_quem_esta_de_mascara(config):
 
 
 def test_valores_de_quem_esta_sem_mascara(config):
+    """Pessoa sem máscara e com rosto visível aparece como não conforme, sem cobertura nem confiança de máscara."""
     avaliacoes = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [], config, rostos=[ROSTO_DETECTADO])
     p = dados_calibracao(QUADRO, ResultadoFrame(avaliacoes, [], False, 0.0, [ROSTO_DETECTADO]), config)["pessoas"][0]
     assert p["estado"] == "NAO_CONFORME" and p["cobertura"] is None and p["conf_mascara"] is None
@@ -44,6 +47,7 @@ def test_valores_de_quem_esta_sem_mascara(config):
 
 
 def test_desenho_da_calibracao_fica_sobre_a_imagem(config):
+    """O desenho de calibração é feito numa cópia da imagem e marca a região das mãos em vermelho."""
     avaliacoes = avaliar_frame([criar_pessoa({**ROSTO_COBERTO, **PULSOS})], [mascara(MASCARA_ABAIXADA)], config,
                                rostos=[])
     resultado = ResultadoFrame(avaliacoes, [mascara(MASCARA_ABAIXADA)], False, 0.0, [])
@@ -55,6 +59,7 @@ def test_desenho_da_calibracao_fica_sobre_a_imagem(config):
 
 # --------------------------------------------------------------------------------------------------- tela e API
 def test_calibracao_so_para_admin(cliente):
+    """Supervisor recebe 403 na tela, na API e no vídeo de calibração."""
     token = admin_pronto(cliente)
     criar_supervisor(cliente)
     cliente.post("/logout", headers={"X-CSRF-Token": token})
@@ -65,6 +70,7 @@ def test_calibracao_so_para_admin(cliente):
 
 
 def test_tela_de_calibracao(cliente):
+    """A tela de calibração mostra a câmera, o quadro de valores e o link no menu."""
     admin_pronto(cliente)
     html = cliente.get("/calibracao").text
     assert 'data-camera-id="1"' in html and "Valores agora" in html and 'href="/calibracao"' in html
@@ -72,6 +78,7 @@ def test_tela_de_calibracao(cliente):
 
 
 def test_valores_e_video_de_calibracao(cliente):
+    """A API devolve os valores da pessoa detectada e o vídeo de calibração mantém a cabeça borrada."""
     admin_pronto(cliente)
     dados = esperar(lambda: (d := cliente.get("/api/calibracao/1").json())["pessoas"] and d)
     assert dados["aguardando"] is False and dados["online"] is True and dados["quadro_valido"] is True

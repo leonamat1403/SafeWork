@@ -20,6 +20,7 @@ AGORA = datetime(2026, 10, 14, 15, 0, tzinfo=UTC)
 
 
 def registrar(fabrica, storage, config, frame, camera_id, quando):
+    """Registra no banco uma ocorrência de pessoa sem máscara na data informada e devolve o registro."""
     avaliacoes = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [], config)
     resultado = ResultadoFrame(avaliacoes, [], False, 0.0)
     return RegistradorOcorrencias(fabrica, storage, Borrador(None), TURNOS).registrar(
@@ -28,6 +29,7 @@ def registrar(fabrica, storage, config, frame, camera_id, quando):
 
 def test_retencao_apaga_imagens_e_registros_antigos_e_audita(fabrica, storage, config, frame_texturizado, camera_id,
                                                               data_dir):
+    """A retenção apaga imagens e registros mais velhos que o prazo, mantém os recentes e grava auditoria."""
     antiga = registrar(fabrica, storage, config, frame_texturizado, camera_id, AGORA - timedelta(days=40))
     recente = registrar(fabrica, storage, config, frame_texturizado, camera_id, AGORA - timedelta(days=1))
 
@@ -43,18 +45,21 @@ def test_retencao_apaga_imagens_e_registros_antigos_e_audita(fabrica, storage, c
 
 
 def test_retencao_sem_nada_para_apagar_nao_audita(fabrica, storage):
+    """Sem ocorrências antigas, a retenção não apaga nada nem grava auditoria."""
     assert apagar_ocorrencias_antigas(fabrica, storage, dias=30, agora=AGORA) == 0
     with fabrica() as s:
         assert s.query(Auditoria).count() == 0
 
 
 def test_retencao_continua_se_uma_imagem_ja_sumiu(fabrica, storage, config, frame_texturizado, camera_id, data_dir):
+    """A retenção segue e apaga o registro mesmo se o arquivo da imagem já não existe."""
     antiga = registrar(fabrica, storage, config, frame_texturizado, camera_id, AGORA - timedelta(days=40))
     (data_dir / antiga.caminho_imagem).unlink()
     assert apagar_ocorrencias_antigas(fabrica, storage, dias=30, agora=AGORA) == 1
 
 
 def test_backup_mantem_as_7_copias_mais_recentes(banco, data_dir, camera_id):
+    """O backup diário guarda só as 7 cópias mais recentes e a cópia contém os dados do banco."""
     pasta = data_dir / "backups"
     banco_sqlite = data_dir / "db" / "epi.sqlite3"
     for dia in range(1, 10):
@@ -66,6 +71,7 @@ def test_backup_mantem_as_7_copias_mais_recentes(banco, data_dir, camera_id):
 
 
 def test_limpeza_de_uploads_apaga_so_os_antigos(tmp_path):
+    """A limpeza de uploads temporários apaga só arquivos e pastas mais velhos que o limite."""
     antigo, novo, pasta_antiga = tmp_path / "antigo.mp4", tmp_path / "novo.mp4", tmp_path / "job_antigo"
     antigo.write_bytes(b"x")
     novo.write_bytes(b"x")
@@ -80,6 +86,7 @@ def test_limpeza_de_uploads_apaga_so_os_antigos(tmp_path):
 
 
 def test_agendador_registra_as_rotinas(fabrica, storage, data_dir, url_banco):
+    """O agendador cria as 4 rotinas (backup, retenção, uploads e relatório) com o fuso e o horário esperados."""
     ajustes = carregar_ajustes(ambiente={"DATA_DIR": str(data_dir), "DATABASE_URL": url_banco})
     agendador = iniciar_agendador(ajustes, fabrica, storage)
     try:

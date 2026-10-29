@@ -253,6 +253,7 @@
     return partes.join(" · ");
   }
 
+  // Guarda o cordão do turno recebido e o redesenha na tela.
   function mostrarCordao(cordao) {
     ultimoCordao = cordao;
     const { duracao } = desenharCordao(cordao);

@@ -32,6 +32,7 @@ class Referencias(HTMLParser):
     """Coleta os scripts, estilos e imagens que a página carrega, os scripts sem arquivo e os atributos style."""
 
     def __init__(self) -> None:
+        """Zera os contadores e a lista de arquivos carregados."""
         super().__init__()
         self.arquivos: list[str] = []
         self.scripts_inline = 0
@@ -39,6 +40,7 @@ class Referencias(HTMLParser):
         self.handlers_inline = 0
 
     def handle_starttag(self, tag, attrs):
+        """Registra arquivos carregados, scripts sem arquivo, atributos style e manipuladores on*."""
         atributos = dict(attrs)
         if tag == "script":
             if atributos.get("src"):
@@ -53,6 +55,7 @@ class Referencias(HTMLParser):
 
 
 def analisar(html: str) -> Referencias:
+    """Lê o HTML e devolve o que a página carrega e usa dentro dele."""
     leitor = Referencias()
     leitor.feed(html)
     return leitor
@@ -70,16 +73,19 @@ def analisar(html: str) -> Referencias:
     (None, "/ao-vivo"),
 ])
 def test_destino_depois_do_login_so_dentro_do_sistema(proximo, esperado):
+    """Depois do login só se aceita destino dentro do sistema; o resto vai para Ao vivo."""
     assert destino_seguro(proximo) == esperado
 
 
 @pytest.mark.parametrize("pagina", PAGINAS + ["/trocar-senha"])
 def test_paginas_sem_login_levam_ao_login(cliente, pagina):
+    """Página aberta sem login redireciona para o login."""
     r = cliente.get(pagina, follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"].startswith("/login?proximo=")
 
 
 def test_volta_para_a_pagina_pedida_depois_do_login(cliente):
+    """O login lembra a página pedida e leva de volta a ela."""
     r = cliente.get("/ocorrencias?validacao=PENDENTE", follow_redirects=False)
     assert r.headers["location"] == "/login?proximo=/ocorrencias%3Fvalidacao%3DPENDENTE"
     pagina = cliente.get(r.headers["location"])
@@ -88,11 +94,13 @@ def test_volta_para_a_pagina_pedida_depois_do_login(cliente):
 
 
 def test_login_com_destino_externo_vai_para_ao_vivo(cliente):
+    """Login com destino em outro site ignora o destino e vai para Ao vivo."""
     pagina = cliente.get("/login?proximo=//outro-site.com")
     assert 'data-proximo="/ao-vivo"' in pagina.text and "outro-site" not in pagina.text
 
 
 def test_troca_de_senha_obrigatoria_antes_das_telas(cliente):
+    """Com senha ainda inicial, todas as telas levam à troca de senha."""
     entrar(cliente)   # admin inicial, ainda com a senha do .env
     for pagina in PAGINAS:
         r = cliente.get(pagina, follow_redirects=False)
@@ -102,6 +110,7 @@ def test_troca_de_senha_obrigatoria_antes_das_telas(cliente):
 
 
 def test_quem_ja_entrou_e_abre_o_login_vai_direto(cliente):
+    """Quem já está logado e abre o login é levado direto ao destino."""
     admin_pronto(cliente)
     r = cliente.get("/login?proximo=/upload", follow_redirects=False)
     assert r.status_code == 303 and r.headers["location"] == "/upload"
@@ -110,6 +119,7 @@ def test_quem_ja_entrou_e_abre_o_login_vai_direto(cliente):
 
 # --------------------------------------------------------------------------------------------------- conteúdo das telas
 def test_ao_vivo_mostra_o_posto_e_o_token_csrf(cliente):
+    """A tela Ao vivo mostra o posto, o token CSRF e os botões do administrador."""
     token = admin_pronto(cliente)
     html = cliente.get("/ao-vivo").text
     assert f'<meta name="csrf-token" content="{token}">' in html
@@ -120,6 +130,7 @@ def test_ao_vivo_mostra_o_posto_e_o_token_csrf(cliente):
 
 
 def test_supervisor_nao_ve_administracao(cliente):
+    """O supervisor não vê o botão de pausar nem a área de usuários."""
     token = admin_pronto(cliente)
     criar_supervisor(cliente)
     cliente.post("/logout", headers={"X-CSRF-Token": token})
@@ -131,6 +142,7 @@ def test_supervisor_nao_ve_administracao(cliente):
 
 
 def test_telas_de_upload_e_ocorrencias(cliente):
+    """As telas de upload, ocorrências e usuários trazem os elementos esperados."""
     admin_pronto(cliente)
     upload = cliente.get("/upload").text
     assert 'data-tamanho-max-mb="200"' in upload and 'accept=".jpg,.jpeg,.png,.mp4' in upload
@@ -159,6 +171,7 @@ def test_paginas_seguem_a_politica_de_conteudo(cliente, pagina):
 
 
 def test_api_nao_recebe_csp_de_pagina(cliente):
+    """As respostas da API não levam a política de conteúdo de páginas."""
     admin_pronto(cliente)
     assert "Content-Security-Policy" not in cliente.get("/api/me").headers
 
@@ -177,11 +190,13 @@ def test_arquivos_estaticos_sem_login_e_sem_internet(cliente):
 
 # --------------------------------------------------------------------------------------------------- usuários (T08)
 def criar_usuario(c, token, **dados):
+    """Cria um usuário pela API com dados padrão que podem ser trocados."""
     corpo = {"nome": "Maria Souza", "login": "maria", "perfil": "SUPERVISOR", "senha_inicial": "inicial-maria-1", **dados}
     return c.post("/api/usuarios", json=corpo, headers={"X-CSRF-Token": token})
 
 
 def test_admin_cria_usuario_que_troca_a_senha_no_primeiro_acesso(cliente):
+    """O administrador cria usuário, que precisa trocar a senha no primeiro acesso."""
     token = admin_pronto(cliente)
     r = criar_usuario(cliente, token)
     assert r.status_code == 201, r.text
@@ -204,6 +219,7 @@ def test_admin_cria_usuario_que_troca_a_senha_no_primeiro_acesso(cliente):
     ({"perfil": "DONO"}, 422, ""),
 ])
 def test_criar_usuario_recusa_dados_ruins(cliente, dados, codigo, trecho):
+    """Criar usuário recusa login repetido ou inválido, nome vazio, senha fraca e perfil desconhecido."""
     token = admin_pronto(cliente)
     assert criar_usuario(cliente, token).status_code == 201
     r = criar_usuario(cliente, token, **dados)
@@ -211,6 +227,7 @@ def test_criar_usuario_recusa_dados_ruins(cliente, dados, codigo, trecho):
 
 
 def test_gestao_de_usuarios_so_admin_e_com_csrf(cliente):
+    """Gerir usuários exige ser administrador e ter o token CSRF certo."""
     token = admin_pronto(cliente)
     assert criar_usuario(cliente, "token-errado").status_code == 403
     criar_supervisor(cliente)
@@ -222,6 +239,7 @@ def test_gestao_de_usuarios_so_admin_e_com_csrf(cliente):
 
 
 def test_desativar_e_reativar(cliente):
+    """O administrador desativa e reativa usuários, mas não a si mesmo."""
     token = admin_pronto(cliente)
     maria = criar_usuario(cliente, token).json()
     eu = cliente.get("/api/me").json()["id"]
@@ -238,6 +256,7 @@ def test_desativar_e_reativar(cliente):
 
 
 def test_sessao_aberta_cai_quando_o_usuario_e_desativado(cliente):
+    """A sessão aberta de um usuário cai quando ele é desativado."""
     token = admin_pronto(cliente)
     criar_usuario(cliente, token)
     maria = TestClient(cliente.app)            # mesma aplicação, outro navegador (outro cookie)
@@ -251,6 +270,7 @@ def test_sessao_aberta_cai_quando_o_usuario_e_desativado(cliente):
 
 
 def test_sempre_sobra_um_administrador_ativo(cliente):
+    """Nunca se desativa o último administrador ativo."""
     token = admin_pronto(cliente)
     outro = criar_usuario(cliente, token, login="chefe", perfil="ADMIN").json()
     assert cliente.post(f"/api/usuarios/{outro['id']}/desativar", headers={"X-CSRF-Token": token}).status_code == 200
@@ -262,6 +282,7 @@ def test_sempre_sobra_um_administrador_ativo(cliente):
 
 
 def test_redefinir_senha_gera_temporaria_mostrada_uma_vez(cliente):
+    """Redefinir a senha gera uma temporária mostrada uma só vez e sem guardá-la na auditoria."""
     token = admin_pronto(cliente)
     maria = criar_usuario(cliente, token).json()
     r = cliente.post(f"/api/usuarios/{maria['id']}/senha", headers={"X-CSRF-Token": token})
@@ -279,6 +300,7 @@ def test_redefinir_senha_gera_temporaria_mostrada_uma_vez(cliente):
 
 # --------------------------------------------------------------------------------------------------- ocorrências (T04)
 def test_resumo_do_periodo_ignora_o_filtro_de_validacao(cliente):
+    """O resumo do período conta tudo, sem aplicar o filtro de validação, e o contador de pendentes confere."""
     token = admin_pronto(cliente)
     uuids = registrar_ocorrencias(cliente, 4, datetime(2026, 10, 10, 12, 0, tzinfo=UTC))
     cabecalho = {"X-CSRF-Token": token}
@@ -293,11 +315,13 @@ def test_resumo_do_periodo_ignora_o_filtro_de_validacao(cliente):
 
 
 def test_resumo_de_pendentes_exige_login(cliente):
+    """O resumo de pendentes responde 401 sem login."""
     assert cliente.get("/api/ocorrencias/resumo").status_code == 401
 
 
 # --------------------------------------------------------------------------------------------------- cordão do turno (T02)
 def resultado(com_pessoa: bool, saturado: bool = False, config=None):
+    """Monta um resultado de quadro com ou sem a pessoa sem máscara, e com ou sem arco saturado."""
     avaliacoes = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [], config, rostos=[ROSTO_DETECTADO]) if com_pessoa else []
     return ResultadoFrame(avaliacoes, [], saturado, 0.4 if saturado else 0.0, [ROSTO_DETECTADO] if com_pessoa else [])
 
@@ -313,10 +337,12 @@ def resultado(com_pessoa: bool, saturado: bool = False, config=None):
     ([3, 0, 0, 1], "N"),    # 1/4 exato já conta
 ])
 def test_codigo_do_trecho_e_o_estado_predominante(quadros, codigo):
+    """O código do trecho do cordão reflete o estado predominante dos quadros."""
     assert codigo_do_trecho(quadros) == codigo
 
 
 def test_cordao_conta_os_quadros_de_cada_trecho(config):
+    """O cordão conta os quadros de cada trecho e ignora os de arco de solda."""
     trabalhador = TrabalhadorCamera(9, "Teste", "0", config, None, None, None, None, None)
     t0 = 1_000_000.0                                        # início de um trecho de 10 s
     trabalhador.marcar_cordao(resultado(False), t0)          # ninguém
@@ -330,6 +356,7 @@ def test_cordao_conta_os_quadros_de_cada_trecho(config):
 
 
 def test_status_ao_vivo_traz_o_cordao_do_turno_e_os_pinos(cliente):
+    """O status ao vivo traz o cordão do turno e os pinos das ocorrências do turno atual."""
     admin_pronto(cliente)
     cordao = esperar(lambda: "N" in (c := cliente.get("/api/status").json()["cordao"])["trechos"] and c)
     inicio, fim = datetime.fromisoformat(cordao["inicio"]), datetime.fromisoformat(cordao["fim"])

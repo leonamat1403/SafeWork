@@ -9,6 +9,7 @@ from tests.conftest import RAIZ
 
 
 def test_arquivos_citados_no_readme_existem():
+    """Todos os arquivos citados no README existem."""
     readme = (RAIZ / "README.md").read_text(encoding="utf-8-sig")
     citados = set(re.findall(r"`((?:docs|models|ferramentas|app|src|tests|notebooks)/[^`\s]*)`", readme))
     assert len(citados) > 15
@@ -17,12 +18,14 @@ def test_arquivos_citados_no_readme_existem():
 
 
 def test_modelos_de_documentos_do_rf30():
+    """Os modelos de aviso, termo e revisão da LGPD (RF30) existem."""
     for nome in ("aviso_monitoramento.md", "aviso_monitoramento.pdf", "termo_autorizacao.md"):
         assert (RAIZ / "docs" / "modelos" / nome).exists(), nome
     assert (RAIZ / "docs" / "revisao_lgpd.md").exists()
 
 
 def test_material_academico_da_etapa_2_7():
+    """O material acadêmico existe e o texto-base tem as seções esperadas."""
     pasta = RAIZ / "docs" / "academico"
     for nome in ("texto_base.md", "planilha_antes_depois.xlsx", "roteiro_palestra.md"):
         assert (pasta / nome).exists(), nome
@@ -31,6 +34,7 @@ def test_material_academico_da_etapa_2_7():
 
 
 def test_gerar_aviso_para_imprimir(tmp_path):
+    """A ferramenta gera o aviso de monitoramento em PDF válido."""
     especificacao = importlib.util.spec_from_file_location("gerar_aviso", RAIZ / "ferramentas" / "gerar_aviso.py")
     modulo = importlib.util.module_from_spec(especificacao)
     especificacao.loader.exec_module(modulo)

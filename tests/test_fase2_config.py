@@ -20,10 +20,12 @@ TURNOS = {"1": "06:00-14:00", "2": "14:00-22:00", "3": "22:00-06:00"}
     ((9, 0), "1"),      # 06:00
 ])
 def test_turno_pelo_horario_de_brasilia(hora_utc, turno):
+    """Horário em UTC cai no turno certo pelo horário de Brasília, inclusive o turno que passa da meia-noite."""
     assert turno_de(datetime(2026, 10, 14, *hora_utc, tzinfo=UTC), TURNOS) == turno
 
 
 def test_horario_sem_turno():
+    """Horário fora de qualquer turno devolve None."""
     assert turno_de(datetime(2026, 10, 14, 3, 0, tzinfo=UTC), {"1": "06:00-14:00"}) is None
 
 
@@ -39,21 +41,25 @@ def test_horario_sem_turno():
      datetime(2026, 10, 14, 9, 0, tzinfo=UTC)),
 ])
 def test_janela_do_turno_para_o_cordao(agora, turno, inicio, fim):
+    """A janela do turno devolve nome, início e fim em UTC, inclusive quando atravessa a meia-noite."""
     assert janela_do_turno(agora, TURNOS) == (turno, inicio, fim)
 
 
 def test_janela_sem_turno_sao_as_ultimas_8_horas():
+    """Sem turno, a janela são as últimas 8 horas."""
     agora = datetime(2026, 10, 14, 3, 0, tzinfo=UTC)
     assert janela_do_turno(agora, {"1": "06:00-14:00"}) == (None, agora - timedelta(hours=8), agora)
 
 
 @pytest.mark.parametrize("ruim", [{"1": "6h-14h"}, {"1": "25:00-06:00"}, {"1": "06:00 - 14:00"}])
 def test_turno_mal_escrito(ruim):
+    """Turno escrito fora do formato HH:MM-HH:MM levanta ValueError."""
     with pytest.raises(ValueError):
         validar_turnos(ruim)
 
 
 def test_conversoes_de_fuso():
+    """Conversões entre UTC e horário local usam Brasília e assumem horário local quando falta o fuso."""
     meio_dia_utc = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)
     assert para_local(meio_dia_utc).hour == 9                    # Brasília: UTC-3
     sem_fuso = datetime(2026, 10, 14, 12, 0)
@@ -61,6 +67,7 @@ def test_conversoes_de_fuso():
 
 
 def test_ajustes_do_env_e_do_config_yaml(tmp_path):
+    """Ajustes são lidos do ambiente e do config.yaml, com caminhos relativos à pasta do projeto."""
     ajustes = carregar_ajustes(ambiente={"DATA_DIR": "./dados_teste", "SECRET_KEY": " segredo "})
     assert ajustes.data_dir == (RAIZ / "dados_teste").resolve()  # relativo à pasta do projeto
     assert ajustes.database_url == f"sqlite:///{(ajustes.data_dir / 'db' / 'epi.sqlite3').as_posix()}"
@@ -71,6 +78,7 @@ def test_ajustes_do_env_e_do_config_yaml(tmp_path):
 
 
 def test_url_sqlite_relativa_e_outros_bancos():
+    """URL SQLite relativa vira caminho absoluto e outros bancos ficam como estão."""
     relativo = carregar_ajustes(ambiente={"DATABASE_URL": "sqlite:///./data/db/x.sqlite3"})
     assert relativo.database_url == f"sqlite:///{(RAIZ / 'data' / 'db' / 'x.sqlite3').as_posix()}"
     postgres = carregar_ajustes(ambiente={"DATABASE_URL": "postgresql://u@servidor/epi"})
@@ -78,6 +86,7 @@ def test_url_sqlite_relativa_e_outros_bancos():
 
 
 def test_turnos_invalidos_no_config_yaml(tmp_path):
+    """Turnos inválidos no config.yaml levantam ErroAjustes."""
     arquivo = tmp_path / "config.yaml"
     arquivo.write_text('turnos: {"1": "seis às duas"}\n', encoding="utf-8")
     with pytest.raises(ErroAjustes, match="turnos"):
@@ -85,11 +94,13 @@ def test_turnos_invalidos_no_config_yaml(tmp_path):
 
 
 def test_preparar_pastas(tmp_path):
+    """preparar_pastas cria todas as pastas de dados."""
     preparar_pastas(tmp_path / "data")
     assert {p.name for p in (tmp_path / "data").iterdir()} == set(PASTAS_DADOS)
 
 
 def test_log_em_arquivo_com_rotacao_sem_duplicar(tmp_path):
+    """O log vai para arquivo com rotação e chamar a configuração de novo não duplica as saídas."""
     raiz = logging.getLogger()
     antes = list(raiz.handlers)
     try:

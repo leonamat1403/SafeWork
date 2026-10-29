@@ -10,18 +10,22 @@ class DetectorFalso:
     """Simula o Detector: sempre devolve uma pessoa de rosto descoberto e sem máscara."""
 
     def __init__(self):
+        """Começa com o contador de chamadas zerado."""
         self.chamadas = 0
 
     def detectar(self, frame):
+        """Conta a chamada e devolve sempre uma pessoa de rosto descoberto, sem máscara."""
         self.chamadas += 1
         return [criar_pessoa(ROSTO_DESCOBERTO)], [], None   # sem detector de rostos: vale a pose
 
 
 def frame(brilho: int) -> np.ndarray:
+    """Imagem 640x480 de cor uniforme com o brilho informado."""
     return np.full((480, 640, 3), brilho, np.uint8)
 
 
 def test_frame_saturado_nao_roda_os_modelos_nem_altera_estados(config):
+    """Frame estourado pelo arco pula os modelos e mantém o último estado válido."""
     detector = DetectorFalso()
     pipeline = Pipeline(config, detector)
     normal = pipeline.processar(frame(60))
@@ -35,6 +39,7 @@ def test_frame_saturado_nao_roda_os_modelos_nem_altera_estados(config):
 
 
 def test_desenhar_nao_altera_o_frame_original(config):
+    """Desenhar anota uma cópia e deixa o frame original intacto."""
     original = frame(60)
     copia = original.copy()
     resultado = Pipeline(config, DetectorFalso()).processar(original)
@@ -52,6 +57,7 @@ def test_texto_e_linhas_crescem_em_imagens_grandes():
 
 
 def test_contagem_de_estados_ignora_frames_saturados(config):
+    """A contagem de estados soma só os frames normais e o resumo sai no formato esperado."""
     from collections import Counter
 
     from src.run import contar_estados, resumo_estados
@@ -65,5 +71,6 @@ def test_contagem_de_estados_ignora_frames_saturados(config):
 
 
 def test_senha_do_rtsp_nao_aparece_no_terminal():
+    """A senha do endereço RTSP é escondida e entradas sem senha ficam iguais."""
     assert ocultar_senha("rtsp://admin:segredo@192.168.0.10/stream") == "rtsp://***@192.168.0.10/stream"
     assert ocultar_senha("video.mp4") == "video.mp4"

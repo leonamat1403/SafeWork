@@ -24,12 +24,14 @@ QUADRADO = [(0.0, 0.0), (0.5, 0.0), (0.5, 1.0), (0.0, 1.0)]       # metade esque
 
 # --------------------------------------------------------------------------------------------------- zona (RD06)
 def test_ponto_dentro_e_fora_do_poligono():
+    """Ponto dentro do polígono é aceito e ponto fora é recusado, em quadrado e triângulo."""
     assert dentro_do_poligono((0.25, 0.5), QUADRADO) and not dentro_do_poligono((0.75, 0.5), QUADRADO)
     triangulo = [(0.1, 0.9), (0.5, 0.1), (0.9, 0.9)]
     assert dentro_do_poligono((0.5, 0.6), triangulo) and not dentro_do_poligono((0.15, 0.2), triangulo)
 
 
 def test_quem_pisa_fora_da_zona_nao_e_avaliado():
+    """Pessoa com os pés fora da zona vai para a lista de fora; sem zona, todos são avaliados."""
     dentro = criar_pessoa(ROSTO_DESCOBERTO)                                      # caixa x 100–300 numa imagem de 1000
     fora = criar_pessoa(ROSTO_DESCOBERTO, caixa=deslocar_caixa((100, 100, 300, 600), 600), track_id=2)
     assert separar_por_zona([dentro, fora], QUADRADO, 1000, 700) == ([dentro], [fora])
@@ -40,6 +42,7 @@ class DetectorDuasPessoas:
     """A pessoa padrão e outra igual 350 px à direita (pontos do corpo e caixa deslocados)."""
 
     def detectar(self, frame):
+        """Devolve a pessoa padrão e uma segunda deslocada, com um rosto detectado."""
         fora = criar_pessoa(deslocar(ROSTO_DESCOBERTO, 350), caixa=deslocar_caixa((100, 100, 300, 600), 350), track_id=2)
         return [criar_pessoa(ROSTO_DESCOBERTO), fora], [], [ROSTO_DETECTADO]
 
@@ -58,6 +61,7 @@ def test_fora_da_zona_continua_borrado(config, fabrica, storage, camera_id):
 
 # --------------------------------------------------------------------------------------------------- aba Sistema
 def test_validacao_dos_ajustes_do_sistema(config, tmp_path):
+    """Ajustes válidos são convertidos e cada valor errado levanta ErroSistema com a mensagem esperada."""
     from tests.test_fase2_web import ajustes_de_teste
     atuais = sistema.valores_atuais(config, ajustes_de_teste(tmp_path))
     assert sistema.validar({"cooldown_s": 30, "imgsz": 960}, atuais) == {"cooldown_s": 30.0, "imgsz": 960}
@@ -71,6 +75,7 @@ def test_validacao_dos_ajustes_do_sistema(config, tmp_path):
 
 
 def test_ajustes_do_banco_por_cima_do_config_yaml(config, tmp_path):
+    """Ajustes do banco valem sobre o config.yaml sem alterá-lo, e valor inválido é ignorado."""
     from tests.test_fase2_web import ajustes_de_teste
     ajustes = ajustes_de_teste(tmp_path)
     novo_config, novos_ajustes = sistema.aplicar(config, ajustes, {"cooldown_s": 15, "fracao_max_saturada": 0.2,
@@ -84,6 +89,7 @@ def test_ajustes_do_banco_por_cima_do_config_yaml(config, tmp_path):
 
 # --------------------------------------------------------------------------------------------------- acesso
 def test_configuracoes_so_para_admin(cliente):
+    """Supervisor recebe 403 nas telas e APIs de configuração, que só o administrador acessa."""
     token = admin_pronto(cliente)
     assert cliente.get("/configuracoes").status_code == 200
     criar_supervisor(cliente)
@@ -100,11 +106,13 @@ def test_configuracoes_so_para_admin(cliente):
 
 # --------------------------------------------------------------------------------------------------- postos
 def novo_posto(c, token, **dados):
+    """Cria um posto pela API com dados padrão, que cada teste pode sobrescrever."""
     corpo = {"nome_posto": "TIG 02", "processo_solda": "TIG", "tipo": "webcam", "origem": "1", "ativa": True, **dados}
     return c.post("/api/cameras", json=corpo, headers={"X-CSRF-Token": token})
 
 
 def test_criar_editar_e_desativar_posto(cliente):
+    """Posto é criado, editado e desativado pela API, com nome único e auditoria de cada ação."""
     token = admin_pronto(cliente)
     r = novo_posto(cliente, token)
     assert r.status_code == 201, r.text
@@ -130,12 +138,14 @@ def test_criar_editar_e_desativar_posto(cliente):
     ({"nome_posto": "X"}, "2 a 100"),
 ])
 def test_posto_com_dados_ruins(cliente, dados, trecho):
+    """Posto com origem, tipo ou nome inválidos é recusado com erro 400 e a mensagem esperada."""
     token = admin_pronto(cliente)
     r = novo_posto(cliente, token, **dados)
     assert r.status_code == 400 and trecho in r.json()["detail"]
 
 
 def test_posto_com_ocorrencias_nao_e_removido(cliente):
+    """Posto com ocorrências não pode ser apagado (409), mas um posto vazio pode."""
     token = admin_pronto(cliente)
     from datetime import datetime, timezone
     registrar_ocorrencias(cliente, 1, datetime(2026, 9, 1, tzinfo=timezone.utc))
@@ -149,6 +159,7 @@ def test_posto_com_ocorrencias_nao_e_removido(cliente):
 
 # --------------------------------------------------------------------------------------------------- máscara e zona
 def test_mascara_do_posto_vale_na_hora_e_mantem_o_cordao(cliente):
+    """Ajuste da máscara do posto vale na hora, mantém o cordão do turno e recusa valor inválido."""
     token = admin_pronto(cliente)
     esperar(lambda: ctx(cliente).cameras.obter(1).online)
     antigo = ctx(cliente).cameras.obter(1)
@@ -167,6 +178,7 @@ def test_mascara_do_posto_vale_na_hora_e_mantem_o_cordao(cliente):
 
 
 def test_zona_de_interesse_do_posto(cliente):
+    """Zona de interesse do posto é gravada, lida e removida pela API, e polígonos inválidos são recusados."""
     token = admin_pronto(cliente)
     cab = {"X-CSRF-Token": token}
     r = cliente.put("/api/cameras/1/roi", json={"pontos": [[0, 0], [0.5, 0], [0.5, 1]]}, headers=cab)
@@ -181,6 +193,7 @@ def test_zona_de_interesse_do_posto(cliente):
 
 # --------------------------------------------------------------------------------------------------- sistema (API)
 def test_sistema_vale_na_hora_e_depois_de_reiniciar(tmp_path):
+    """Ajustes do sistema valem na hora, recusam valor ruim e continuam valendo depois de reiniciar."""
     with montar(tmp_path) as c:
         token = admin_pronto(c)
         d = c.get("/api/config/sistema").json()
@@ -204,6 +217,7 @@ def test_sistema_vale_na_hora_e_depois_de_reiniciar(tmp_path):
 
 
 def test_token_do_telegram_nunca_aparece_inteiro(tmp_path):
+    """Token e chat do Telegram aparecem mascarados na API e nunca inteiros na resposta."""
     with montar(tmp_path, TELEGRAM_TOKEN="123456789:AAH-segredo-do-bot-xyz9", TELEGRAM_CHAT_ID="-1001234567") as c:
         admin_pronto(c)
         resposta = c.get("/api/config/sistema")

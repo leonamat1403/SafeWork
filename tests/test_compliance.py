@@ -9,11 +9,13 @@ from tests.auxiliares import (CAIXA_PADRAO, MASCARA_ABAIXADA, MASCARA_LEVANTADA,
 
 
 def avaliar_uma(config, pontos, deteccoes, **kwargs):
+    """Avalia uma única pessoa com os pontos e detecções dados e devolve a avaliação dela."""
     return avaliar_frame([criar_pessoa(pontos, **kwargs)], deteccoes, config)[0]
 
 
 # --- Casos [FASE 1] do RNF06 -------------------------------------------------------------------------------------
 def test_mascara_sobre_o_rosto_com_olhos_nao_visiveis_e_conforme(config):
+    """Máscara sobre o rosto com olhos cobertos é conforme, verde e sem aviso de levantada."""
     aval = avaliar_uma(config, ROSTO_COBERTO, [mascara(MASCARA_ABAIXADA)])
     assert aval.epis["mascara"].estado == Estado.CONFORME
     assert not aval.mascara_levantada
@@ -42,6 +44,7 @@ def test_mascara_levantada_e_nao_conforme_no_config_do_projeto(config):
 
 
 def test_pessoa_de_costas_sem_mascara_e_indeterminado(config):
+    """Pessoa de costas sem máscara fica indeterminada (amarelo), sem acusar falta."""
     aval = avaliar_uma(config, {**ORELHAS, **OMBROS_COSTAS}, [])
     assert aval.epis["mascara"].estado == Estado.INDETERMINADO
     assert aval.epis["mascara"].motivo == "de costas"
@@ -51,6 +54,7 @@ def test_pessoa_de_costas_sem_mascara_e_indeterminado(config):
 
 # --- Demais regras da máscara --------------------------------------------------------------------------------------
 def test_rosto_visivel_sem_mascara_e_nao_conforme(config):
+    """Rosto visível e nenhuma máscara detectada é não conforme (vermelho)."""
     aval = avaliar_uma(config, ROSTO_DESCOBERTO, [])
     assert aval.epis["mascara"].estado == Estado.NAO_CONFORME
     assert aval.cor == "vermelho"
@@ -58,6 +62,7 @@ def test_rosto_visivel_sem_mascara_e_nao_conforme(config):
 
 
 def test_mascara_longe_da_cabeca_nao_e_associada(config):
+    """Máscara longe da cabeça (na bancada) não é associada à pessoa."""
     aval = avaliar_uma(config, ROSTO_DESCOBERTO, [mascara(MASCARA_NA_BANCADA)])
     assert aval.epis["mascara"].estado == Estado.NAO_CONFORME
 
@@ -69,6 +74,7 @@ def test_rosto_coberto_sem_mascara_detectada_e_indeterminado(config):
 
 
 def test_cabeca_nao_visivel_e_indeterminado(config):
+    """Sem cabeça visível (só quadris) o estado é indeterminado."""
     aval = avaliar_uma(config, QUADRIS, [])
     assert aval.epis["mascara"].estado == Estado.INDETERMINADO
     assert aval.epis["mascara"].motivo == "cabeça não visível"
@@ -84,6 +90,7 @@ def test_fallback_sem_pose(config):
 
 
 def test_cada_mascara_vai_para_a_pessoa_certa(config):
+    """Com duas pessoas afastadas, a máscara vale só para a que está perto dela."""
     pessoas = [criar_pessoa(ROSTO_DESCOBERTO, track_id=1),
                criar_pessoa(deslocar(ROSTO_DESCOBERTO, 400), deslocar_caixa(CAIXA_PADRAO, 400), track_id=2)]
     cfg = com_extras_da_mascara(config, levantada_nao_conforme=False)   # aqui o foco é a associação
@@ -103,6 +110,7 @@ def test_uma_mascara_nao_conta_para_duas_pessoas(config):
 
 
 def com_extras_da_mascara(config, **extras):
+    """Devolve uma cópia da config com os parâmetros extras da máscara trocados pelos informados."""
     mascara_cfg = config.epis["mascara"]
     return replace(config, epis={**config.epis, "mascara": replace(mascara_cfg, extras={**mascara_cfg.extras, **extras})})
 
@@ -117,6 +125,7 @@ def test_cobertura_minima_configuravel(config):
 
 # --- Contradição: "máscara" sobre o rosto com o rosto nítido (falso positivo do teste da webcam) ---------------------
 def test_mascara_na_altura_do_rosto_com_rosto_nitido_e_indeterminado(config):
+    """Máscara na altura do rosto com rosto nítido fica indeterminada, sem acusar nem dar OK."""
     aval = avaliar_uma(config, ROSTO_DESCOBERTO, [mascara(MASCARA_ABAIXADA)])
     assert aval.epis["mascara"].estado == Estado.INDETERMINADO
     assert aval.epis["mascara"].motivo == "máscara na altura do rosto, mas rosto visível"
@@ -135,33 +144,39 @@ def test_mascara_real_com_pontos_do_rosto_fracos_continua_conforme(config):
 
 
 def test_contradicao_pode_ser_desligada(config):
+    """Com a contradição de rosto visível desligada no config, a máscara abaixada conta como conforme."""
     cfg = com_extras_da_mascara(config, contradicao_rosto_visivel=False)
     aval = avaliar_uma(cfg, ROSTO_DESCOBERTO, [mascara(MASCARA_ABAIXADA)])
     assert aval.epis["mascara"].estado == Estado.CONFORME
 
 
 def test_somente_epis_ativos_sao_avaliados(config):
+    """Só os EPIs ativos no config aparecem na avaliação (aqui, só a máscara)."""
     aval = avaliar_uma(config, ROSTO_DESCOBERTO, [])
     assert list(aval.epis) == ["mascara"]
 
 
 def test_rotulo_sem_track_id(config):
+    """Pessoa sem identificador de rastreio recebe o rótulo com '#?'."""
     aval = avaliar_uma(config, ROSTO_DESCOBERTO, [], track_id=None)
     assert aval.rotulo == "#? SEM MASCARA"
 
 
 # --- Cor da caixa da pessoa (RF04) -----------------------------------------------------------------------------------
 def test_cor_vermelha_quando_algum_epi_e_nao_conforme():
+    """Qualquer EPI não conforme deixa a caixa da pessoa vermelha."""
     epis = {"mascara": AvaliacaoEPI(Estado.NAO_CONFORME), "luvas": AvaliacaoEPI(Estado.INDETERMINADO)}
     assert cor_da_pessoa(epis) == "vermelho"
 
 
 def test_cor_amarela_quando_nenhum_nao_conforme_mas_algum_indeterminado():
+    """Sem não conforme, mas com algum indeterminado, a caixa fica amarela."""
     epis = {"mascara": AvaliacaoEPI(Estado.CONFORME), "luvas": AvaliacaoEPI(Estado.INDETERMINADO)}
     assert cor_da_pessoa(epis) == "amarelo"
 
 
 def test_cor_verde_quando_todos_conformes():
+    """Todos os EPIs conformes deixam a caixa verde."""
     assert cor_da_pessoa({"mascara": AvaliacaoEPI(Estado.CONFORME)}) == "verde"
 
 
@@ -183,12 +198,14 @@ def test_sem_mascara_detectada_e_sem_rosto_detectado_fica_indeterminado(config):
 
 
 def test_rosto_descoberto_detectado_sem_mascara_e_nao_conforme(config):
+    """Rosto descoberto confirmado pelo detector de rostos e sem máscara é não conforme."""
     aval = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [], config, rostos=[ROSTO_DETECTADO])[0]
     assert aval.epis["mascara"].estado == Estado.NAO_CONFORME
     assert aval.regioes.rosto_por_detector
 
 
 def test_mascara_levantada_com_rosto_detectado(config):
+    """Máscara levantada com rosto detectado é sinalizada como levantada."""
     aval = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [mascara(MASCARA_LEVANTADA)], config,
                          rostos=[ROSTO_DETECTADO])[0]
     assert aval.mascara_levantada
@@ -196,6 +213,7 @@ def test_mascara_levantada_com_rosto_detectado(config):
 
 
 def test_contradicao_com_o_detector_de_rostos(config):
+    """Máscara na altura do rosto com rosto detectado é contradição e fica indeterminada."""
     aval = avaliar_frame([criar_pessoa(ROSTO_DESCOBERTO)], [mascara(MASCARA_ABAIXADA)], config,
                          rostos=[ROSTO_DETECTADO])[0]
     assert aval.epis["mascara"].estado == Estado.INDETERMINADO
@@ -203,6 +221,7 @@ def test_contradicao_com_o_detector_de_rostos(config):
 
 
 def test_sem_pose_mas_com_rosto_detectado_pode_acusar(config):
+    """Sem pose, mas com rosto detectado e sem máscara, já dá para acusar falta."""
     aval = avaliar_frame([Pessoa(caixa=CAIXA_PADRAO)], [], config, rostos=[ROSTO_DETECTADO])[0]
     assert aval.regioes.fallback
     assert aval.epis["mascara"].estado == Estado.NAO_CONFORME

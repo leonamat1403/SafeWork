@@ -35,33 +35,41 @@ class DetectorFalso:
     """Sempre uma pessoa de frente, sem máscara, rosto descoberto (track_id 1)."""
 
     def detectar(self, frame):
+        """Devolve sempre a mesma pessoa, sem máscara e com o rosto descoberto."""
         return [criar_pessoa(ROSTO_DESCOBERTO)], [], [ROSTO_DETECTADO]
 
 
 class FonteFalsa:
+    """Webcam simulada que devolve sempre o mesmo quadro."""
     tipo, fps = "webcam", 20.0
 
     def __init__(self, origem: str) -> None:
+        """Guarda o instante de início para marcar o tempo de cada quadro."""
         self.inicio = time.monotonic()
 
     def ler(self, parar=None):
+        """Espera um instante e devolve uma cópia do quadro fixo com o tempo decorrido."""
         time.sleep(0.05)
         return QUADRO.copy(), time.monotonic() - self.inicio
 
     def fechar(self) -> None:
+        """Não faz nada, pois a webcam simulada não tem nada a liberar."""
         pass
 
 
 def fonte_offline(origem: str):
+    """Simula uma webcam que não é encontrada, levantando erro de fonte."""
     raise ErroFonte("webcam 0 não encontrada")
 
 
 @pytest.fixture(autouse=True)
 def bcrypt_rapido(monkeypatch):
+    """Reduz o custo do bcrypt só nos testes para o hash ser rápido."""
     monkeypatch.setattr(app.auth, "CUSTO_BCRYPT", 4)   # só nos testes: hash rápido
 
 
 def ajustes_de_teste(tmp_path, **extra):
+    """Monta os ajustes do sistema apontando para uma pasta de dados temporária."""
     ambiente = {"DATA_DIR": str(tmp_path / "data"), "SECRET_KEY": "x" * 64, "ADMIN_LOGIN_INICIAL": "admin",
                 "ADMIN_SENHA_INICIAL": SENHA_INICIAL, "MODO_DESENVOLVIMENTO": "true", **extra}
     return carregar_ajustes(ambiente=ambiente)
@@ -71,10 +79,12 @@ TELEGRAM_ENVIADOS: list = []   # o que teria ido para o Telegram (os testes nunc
 
 
 def telegram_falso(token, metodo, campos, foto=None):
+    """Guarda o que seria enviado ao Telegram, sem usar a rede."""
     TELEGRAM_ENVIADOS.append((metodo, campos, foto))
 
 
 def montar(tmp_path, fonte=FonteFalsa, **extra) -> TestClient:
+    """Cria o sistema com câmera e detector simulados e devolve o cliente de teste."""
     sistema = criar_app(ajustes_de_teste(tmp_path, **extra), criar_detector=lambda config: DetectorFalso(),
                         criar_fonte=fonte, iniciar_rotinas=False, enviar_telegram=telegram_falso)
     return TestClient(sistema)
@@ -82,15 +92,18 @@ def montar(tmp_path, fonte=FonteFalsa, **extra) -> TestClient:
 
 @pytest.fixture
 def cliente(tmp_path):
+    """Entrega um cliente de teste com o sistema já ligado, e o encerra no fim."""
     with montar(tmp_path) as c:
         yield c
 
 
 def ctx(c: TestClient):
+    """Atalho para o contexto interno do sistema ligado ao cliente."""
     return c.app.state.ctx
 
 
 def entrar(c: TestClient, login: str = "admin", senha: str = SENHA_INICIAL) -> str:
+    """Faz login e devolve o token CSRF da sessão."""
     resposta = c.post("/login", data={"login": login, "senha": senha})
     assert resposta.status_code == 200, resposta.text
     return resposta.json()["csrf_token"]
@@ -106,6 +119,7 @@ def admin_pronto(c: TestClient) -> str:
 
 
 def criar_supervisor(c: TestClient, login: str = "sup", senha: str = "senha-supervisor-1") -> None:
+    """Cria direto no banco um usuário com perfil de supervisor."""
     with ctx(c).fabrica() as s:
         s.add(Usuario(nome="Supervisor", login=login, senha_hash=app.auth.gerar_hash(senha), perfil="SUPERVISOR"))
         s.commit()
@@ -127,6 +141,7 @@ def registrar_ocorrencias(c: TestClient, quantidade: int, inicio: datetime, came
 
 
 def esperar(condicao, limite_s: float = 5.0):
+    """Repete a condição até ela dar verdadeiro ou levanta erro por tempo esgotado."""
     fim = time.monotonic() + limite_s
     while time.monotonic() < fim:
         valor = condicao()
@@ -138,6 +153,7 @@ def esperar(condicao, limite_s: float = 5.0):
 
 # --------------------------------------------------------------------------------------------------- primeiro uso
 def test_primeiro_uso_cria_admin_e_webcam(cliente):
+    """No primeiro uso nascem o administrador, a webcam e a regra da máscara."""
     with ctx(cliente).fabrica() as s:
         admin = s.scalars(select(Usuario)).one()
         camera = s.scalars(select(Camera)).one()
@@ -152,10 +168,12 @@ def test_primeiro_uso_cria_admin_e_webcam(cliente):
                                   f"/midia/{uuid.uuid4()}", "/api/cameras/1/stream.mjpg",
                                   "/api/cameras/1/snapshot.jpg", "/api/uploads/abc"])
 def test_sem_login_tudo_responde_401(cliente, rota):
+    """Sem login, todas as rotas protegidas respondem 401."""
     assert cliente.get(rota).status_code == 401
 
 
 def test_senha_errada_e_bloqueio_apos_5_tentativas(cliente):
+    """Senha errada falha, a quinta tentativa bloqueia o login e a auditoria não guarda a senha digitada."""
     for _ in range(5):
         assert cliente.post("/login", data={"login": "admin", "senha": "errada"}).status_code == 401
     assert cliente.post("/login", data={"login": "admin", "senha": SENHA_INICIAL}).status_code == 429
@@ -168,6 +186,7 @@ def test_senha_errada_e_bloqueio_apos_5_tentativas(cliente):
 
 
 def test_primeiro_acesso_exige_troca_de_senha(cliente):
+    """No primeiro acesso o sistema obriga a trocar a senha antes de liberar o uso."""
     token = entrar(cliente)
     assert cliente.get("/api/me").json()["deve_trocar_senha"] is True
     assert cliente.get("/api/status").status_code == 403
@@ -183,6 +202,7 @@ def test_primeiro_acesso_exige_troca_de_senha(cliente):
 
 
 def test_logout_encerra_a_sessao(cliente):
+    """Sair encerra a sessão e fica registrado na auditoria."""
     token = admin_pronto(cliente)
     assert cliente.post("/logout", headers={"X-CSRF-Token": token}).status_code == 200
     assert cliente.get("/api/me").status_code == 401
@@ -191,6 +211,7 @@ def test_logout_encerra_a_sessao(cliente):
 
 
 def test_supervisor_nao_pausa_camera_e_admin_pausa(cliente):
+    """Só o administrador, com CSRF, pausa e retoma a câmera."""
     criar_supervisor(cliente)
     token = entrar(cliente, "sup", "senha-supervisor-1")
     assert cliente.post("/api/cameras/1/pausar", headers={"X-CSRF-Token": token}).status_code == 403
@@ -202,6 +223,7 @@ def test_supervisor_nao_pausa_camera_e_admin_pausa(cliente):
 
 
 def test_cabecalhos_de_seguranca_e_documentacao_no_modo_desenvolvimento(cliente):
+    """No modo de desenvolvimento a documentação abre e as respostas levam cabeçalhos de segurança."""
     r = cliente.get("/docs")
     assert r.status_code == 200
     assert r.headers["X-Frame-Options"] == "DENY" and r.headers["X-Content-Type-Options"] == "nosniff"
@@ -209,17 +231,20 @@ def test_cabecalhos_de_seguranca_e_documentacao_no_modo_desenvolvimento(cliente)
 
 
 def test_sem_modo_desenvolvimento_nao_ha_documentacao(tmp_path):
+    """Fora do modo de desenvolvimento a documentação da API não existe."""
     with montar(tmp_path, MODO_DESENVOLVIMENTO="false") as c:
         assert c.get("/docs").status_code == 404 and c.get("/openapi.json").status_code == 404
 
 
 def test_sem_secret_key_fora_do_modo_desenvolvimento_nao_inicia(tmp_path):
+    """Sem SECRET_KEY e fora do modo de desenvolvimento o sistema se recusa a iniciar."""
     with pytest.raises(RuntimeError, match="SECRET_KEY"):
         criar_app(ajustes_de_teste(tmp_path, SECRET_KEY="", MODO_DESENVOLVIMENTO="false"))
 
 
 # --------------------------------------------------------------------------------------------------- ao vivo
 def test_status_ao_vivo_mostra_a_pessoa_sem_mascara(cliente):
+    """O status ao vivo mostra a pessoa sem máscara em vermelho e a câmera online."""
     admin_pronto(cliente)
     status = esperar(lambda: (s := cliente.get("/api/status").json())["pessoas"] and s)
     assert status["online"] is True and status["camera_id"] == 1 and status["fps"] >= 0
@@ -230,6 +255,7 @@ def test_status_ao_vivo_mostra_a_pessoa_sem_mascara(cliente):
 
 
 def test_stream_mjpeg_envia_quadros_jpeg(cliente):
+    """O fluxo MJPEG envia quadros JPEG e câmera inexistente dá 404."""
     admin_pronto(cliente)
     esperar(lambda: cliente.get("/api/status").json()["pessoas"])
     r = cliente.get("/api/cameras/1/stream.mjpg?max_quadros=1")
@@ -239,6 +265,7 @@ def test_stream_mjpeg_envia_quadros_jpeg(cliente):
 
 
 def test_snapshot_sai_borrado(cliente):
+    """A foto instantânea da câmera sai com a cabeça borrada."""
     admin_pronto(cliente)
     esperar(lambda: cliente.get("/api/status").json()["pessoas"])
     r = cliente.get("/api/cameras/1/snapshot.jpg")
@@ -248,6 +275,7 @@ def test_snapshot_sai_borrado(cliente):
 
 
 def test_camera_offline_aparece_no_status(tmp_path):
+    """Câmera que não abre aparece como offline, com a mensagem de erro."""
     with montar(tmp_path, fonte=fonte_offline) as c:
         admin_pronto(c)
         status = esperar(lambda: (s := c.get("/api/status").json())["erro"] and s)
@@ -256,6 +284,7 @@ def test_camera_offline_aparece_no_status(tmp_path):
 
 # --------------------------------------------------------------------------------------------------- ocorrências
 def test_lista_de_ocorrencias_paginada_e_filtrada(cliente):
+    """A lista de ocorrências é paginada, filtrável e permite validar, com registro na auditoria."""
     token = admin_pronto(cliente)
     registrar_ocorrencias(cliente, 25, datetime(2026, 10, 10, 12, 0, tzinfo=UTC))   # 10/10 09:00 em diante
 
@@ -287,6 +316,7 @@ def test_lista_de_ocorrencias_paginada_e_filtrada(cliente):
 
 
 def test_midia_so_com_login_e_sempre_borrada(cliente):
+    """A imagem da ocorrência só abre com login, sai borrada e bloqueia caminhos fora da pasta."""
     alvo = registrar_ocorrencias(cliente, 1, datetime.now(UTC))[0]
     assert cliente.get(f"/midia/{alvo}").status_code == 401
     admin_pronto(cliente)
@@ -301,6 +331,7 @@ def test_midia_so_com_login_e_sempre_borrada(cliente):
 
 
 def test_excluir_ocorrencia_so_admin(cliente):
+    """Só o administrador exclui ocorrência, e o arquivo da imagem some junto."""
     alvo = registrar_ocorrencias(cliente, 1, datetime.now(UTC))[0]
     with ctx(cliente).fabrica() as s:
         caminho = s.scalars(select(Ocorrencia.caminho_imagem)).one()
@@ -317,14 +348,17 @@ def test_excluir_ocorrencia_so_admin(cliente):
 
 # --------------------------------------------------------------------------------------------------- upload
 def enviar(c: TestClient, token: str, nome: str, conteudo: bytes, tipo: str = "image/png"):
+    """Envia um arquivo para a rota de upload com o token CSRF."""
     return c.post("/api/uploads", files={"arquivo": (nome, conteudo, tipo)}, headers={"X-CSRF-Token": token})
 
 
 def aguardar_upload(c: TestClient, trabalho_id: str) -> dict:
+    """Espera o processamento do upload terminar e devolve o resultado."""
     return esperar(lambda: (r := c.get(f"/api/uploads/{trabalho_id}").json())["estado"] in ("concluido", "erro") and r)
 
 
 def test_upload_de_foto_borrada_e_registro_como_ocorrencia(cliente):
+    """Foto enviada é analisada e borrada, e só vira ocorrência quando o usuário registra."""
     token = admin_pronto(cliente)
     r = enviar(cliente, token, "foto.png", cv2.imencode(".png", QUADRO)[1].tobytes())
     assert r.status_code == 202
@@ -350,6 +384,7 @@ def test_upload_de_foto_borrada_e_registro_como_ocorrencia(cliente):
 
 
 def test_upload_de_video(cliente, tmp_path):
+    """Vídeo enviado é analisado e o resultado fica disponível para abrir."""
     token = admin_pronto(cliente)
     caminho = tmp_path / "curto.mp4"
     gravador = cv2.VideoWriter(str(caminho), cv2.VideoWriter_fourcc(*"mp4v"), 10, (500, 700))
@@ -364,6 +399,7 @@ def test_upload_de_video(cliente, tmp_path):
 
 
 def test_upload_recusa_tipo_conteudo_e_tamanho(tmp_path):
+    """O upload recusa tipo errado, conteúdo falso, arquivo vazio, falta de CSRF e arquivo grande demais."""
     with montar(tmp_path) as c:
         token = admin_pronto(c)
         assert enviar(c, token, "notas.txt", b"texto", "text/plain").status_code == 415
@@ -377,6 +413,7 @@ def test_upload_recusa_tipo_conteudo_e_tamanho(tmp_path):
 
 
 def test_upload_de_outro_usuario_nao_aparece(cliente):
+    """Um usuário não enxerga o upload de outro."""
     token = admin_pronto(cliente)
     trabalho = enviar(cliente, token, "foto.png", cv2.imencode(".png", QUADRO)[1].tobytes()).json()["id"]
     criar_supervisor(cliente)
@@ -386,6 +423,7 @@ def test_upload_de_outro_usuario_nao_aparece(cliente):
 
 # --------------------------------------------------------------------------------------------------- unidades
 def test_config_da_camera_usa_os_limiares_do_posto(config):
+    """A configuração da câmera usa os limiares do posto e mantém os extras do config.yaml."""
     linhas = [ConfigEpiCamera(epi="mascara", exigido=True, conf_min=0.6, persistencia_s=6, fracao_minima=0.8,
                               parametros_extra={"cobertura_min": 0.4}),
               ConfigEpiCamera(epi="luvas", exigido=True, conf_min=0.3, persistencia_s=2, fracao_minima=0.75,
@@ -398,6 +436,7 @@ def test_config_da_camera_usa_os_limiares_do_posto(config):
 
 
 def test_rtsp_recebe_usuario_e_senha_do_env(tmp_path):
+    """A URL RTSP recebe usuário e senha do .env, sem trocar os que já existem."""
     ajustes = ajustes_de_teste(tmp_path, RTSP_USUARIO="operador", RTSP_SENHA="p@ss:1")
     assert origem_da_camera("rtsp", "rtsp://10.0.0.5:554/stream", ajustes) == \
         "rtsp://operador:p%40ss%3A1@10.0.0.5:554/stream"

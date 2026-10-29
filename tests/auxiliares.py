@@ -47,8 +47,10 @@ def deslocar(pontos: dict[int, tuple[float, float]], dx: float) -> dict[int, tup
 
 
 def deslocar_caixa(caixa: Caixa, dx: float) -> Caixa:
+    """Mesma caixa, deslocada dx pixels na horizontal."""
     return (caixa[0] + dx, caixa[1], caixa[2] + dx, caixa[3])
 
 
 def mascara(caixa: Caixa, conf: float = 0.8) -> DeteccaoEPI:
+    """Detecção de máscara na caixa informada, com a confiança dada."""
     return DeteccaoEPI(classe="mascara", epi="mascara", conf=conf, caixa=caixa)

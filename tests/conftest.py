@@ -1,3 +1,4 @@
+"""Fixtures compartilhadas dos testes: configuração, pastas temporárias, banco, armazenamento e imagem de ruído."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -21,6 +22,7 @@ def config() -> Config:
 # --------------------------------------------------------------------------------------------------------------
 @pytest.fixture
 def data_dir(tmp_path: Path) -> Path:
+    """Pasta data temporária, já com as subpastas preparadas."""
     from app.config import preparar_pastas
 
     pasta = tmp_path / "data"
@@ -30,6 +32,7 @@ def data_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def url_banco(data_dir: Path) -> str:
+    """Endereço SQLite do banco de testes, dentro da pasta temporária."""
     return f"sqlite:///{(data_dir / 'db' / 'epi.sqlite3').as_posix()}"
 
 
@@ -46,11 +49,13 @@ def banco(url_banco: str):
 
 @pytest.fixture
 def fabrica(banco):
+    """Fábrica de sessões do banco de testes."""
     return banco[1]
 
 
 @pytest.fixture
 def storage(data_dir: Path):
+    """Armazenamento em disco apontando para a pasta temporária, sem exigir espaço livre mínimo."""
     from app.storage import StorageDisco
 
     return StorageDisco(data_dir, espaco_minimo_mb=0)
@@ -58,6 +63,7 @@ def storage(data_dir: Path):
 
 @pytest.fixture
 def camera_id(fabrica) -> int:
+    """Cria uma câmera de teste com a máscara ativa e devolve o id dela."""
     from app.models import Camera, ConfigEpiCamera
 
     with fabrica() as sessao:

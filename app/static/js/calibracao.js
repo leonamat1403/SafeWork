@@ -34,6 +34,7 @@
       limite ? el("span", { classe: "limite", texto: ` ${limite}` }) : null];
   }
 
+  // Monta o par rótulo/valor (<dt>/<dd>) usado na lista de medidas da calibração.
   function linha(rotulo, ...conteudo) {
     return [el("dt", { texto: rotulo }), el("dd", {}, ...conteudo)];
   }

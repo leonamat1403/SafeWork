@@ -33,6 +33,7 @@ def simular(config, linha_do_tempo, duracao_s: float, saturado=lambda t: False):
 
 # --- Persistência (4 s com pelo menos 75% dos frames em falta) -------------------------------------------------------
 def test_sem_mascara_por_4_segundos_gera_uma_ocorrencia(config):
+    """Quatro segundos sem máscara geram uma única ocorrência com o EPI e a situação certos."""
     ocorrencias, _ = simular(config, lambda t: [avaliacao({"mascara": NC})], 10)
     assert len(ocorrencias) == 1
     assert 3.7 <= ocorrencias[0].tempo_s <= 4.1
@@ -53,17 +54,21 @@ def test_frames_errados_isolados_nao_zeram_a_contagem(config):
 
 
 def test_metade_dos_frames_sem_mascara_nao_basta(config):
+    """Só metade dos frames sem máscara fica abaixo dos 75% e não gera ocorrência."""
     ocorrencias, _ = simular(config, lambda t: [avaliacao({"mascara": NC if round(t * FPS) % 2 else C})], 20)
     assert ocorrencias == []
 
 
 def test_indeterminado_nunca_gera_ocorrencia(config):
+    """Estado indeterminado, por mais tempo que dure, nunca gera ocorrência."""
     ocorrencias, _ = simular(config, lambda t: [avaliacao({"mascara": IND})], 30)
     assert ocorrencias == []
 
 
 def test_mascara_levantada_gera_ocorrencia_com_a_situacao_certa(config):
+    """Máscara levantada por tempo suficiente gera ocorrência com a situação 'máscara levantada'."""
     def linha(t):
+        """Linha do tempo simulada: sempre uma pessoa com máscara levantada, contada como falta."""
         aval = avaliacao({"mascara": NC}, levantada=True)
         aval.epis["mascara"] = AvaliacaoEPI(NC, 0.7, "máscara levantada")
         return [aval]
@@ -75,13 +80,16 @@ def test_mascara_levantada_gera_ocorrencia_com_a_situacao_certa(config):
 
 # --- Cooldown (60 s por pessoa e EPI) ---------------------------------------------------------------------------------
 def test_mesma_pessoa_sem_mascara_gera_de_novo_so_depois_de_60_segundos(config):
+    """Mesma pessoa sem máscara só gera nova ocorrência 60 s depois da anterior."""
     ocorrencias, _ = simular(config, lambda t: [avaliacao({"mascara": NC})], 70)
     assert len(ocorrencias) == 2
     assert ocorrencias[1].tempo_s - ocorrencias[0].tempo_s == pytest.approx(60, abs=0.1)
 
 
 def test_cooldown_vale_mesmo_se_a_pessoa_colocou_a_mascara_no_meio(config):
+    """O cooldown de 60 s continua valendo mesmo que a pessoa tenha colocado a máscara no meio."""
     def estado(t):   # sem máscara 0–6 s, com máscara 6–20 s, sem máscara 20–30 s e de novo a partir de 70 s
+        """Estado simulado no instante t: em falta nos trechos iniciais, de 20 a 30 s e depois de 70 s."""
         return NC if t < 6 or 20 <= t < 30 or t >= 70 else C
     ocorrencias, _ = simular(config, lambda t: [avaliacao({"mascara": estado(t)})], 80)
     tempos = [round(o.tempo_s) for o in ocorrencias]
@@ -90,6 +98,7 @@ def test_cooldown_vale_mesmo_se_a_pessoa_colocou_a_mascara_no_meio(config):
 
 
 def test_cada_pessoa_tem_seu_proprio_cooldown(config):
+    """Duas pessoas em falta ao mesmo tempo geram uma ocorrência cada, com cooldowns separados."""
     ocorrencias, _ = simular(config, lambda t: [avaliacao({"mascara": NC}, track_id=1),
                                                 avaliacao({"mascara": NC}, track_id=2)], 10)
     assert sorted(o.track_id for o in ocorrencias) == [1, 2]
@@ -111,12 +120,14 @@ def test_frames_saturados_pelo_arco_nao_contam(config):
 
 
 def test_pessoa_sem_track_id_e_ignorada(config):
+    """Pessoa sem identificador de rastreio é ignorada e não gera ocorrência."""
     ocorrencias, _ = simular(config, lambda t: [avaliacao({"mascara": NC}, track_id=None)], 10)
     assert ocorrencias == []
 
 
 # --- Saídas: resumo por pessoa e CSV ----------------------------------------------------------------------------------
 def test_resumo_por_pessoa(config):
+    """O resumo por pessoa traz o número de ocorrências e o tempo em cada estado."""
     _, gerenciador = simular(config, lambda t: [avaliacao({"mascara": NC if t < 5 else C})], 10)
     linha = gerenciador.resumo_por_pessoa()[0]
     assert linha.startswith("pessoa #1: 1 ocorrência(s)")
@@ -124,6 +135,7 @@ def test_resumo_por_pessoa(config):
 
 
 def test_csv_abre_no_excel_em_portugues(config, tmp_path):
+    """O CSV é gravado em UTF-8 com BOM, separado por ponto e vírgula e com vírgula decimal, para abrir no Excel."""
     ocorrencias, _ = simular(config, lambda t: [avaliacao({"mascara": NC}, track_id=7)], 6)
     caminho = tmp_path / "ocorrencias.csv"
     registro = RegistroCSV(caminho, "video_teste.mp4", "mig_01")

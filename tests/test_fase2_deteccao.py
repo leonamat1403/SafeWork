@@ -32,6 +32,7 @@ REGIOES = RegioesCorpo(cabeca=None, linha_olhos_y=None, rosto_visivel=False, ori
 
 # --------------------------------------------------------------------------------------------------- RD01
 def avaliacao(estado: Estado, track_id: int | None = 1, levantada: bool = False, motivo: str = "") -> AvaliacaoPessoa:
+    """Monta a avaliação de uma pessoa com o estado da máscara informado."""
     pessoa = criar_pessoa({}, track_id=track_id)
     return AvaliacaoPessoa(pessoa, REGIOES, {"mascara": AvaliacaoEPI(estado, motivo=motivo or estado.value)},
                            mascara_levantada=levantada)
@@ -48,23 +49,27 @@ N, C, I = Estado.NAO_CONFORME, Estado.CONFORME, Estado.INDETERMINADO
 
 
 def test_um_quadro_errado_nao_muda_o_que_a_tela_mostra():
+    """Um quadro isolado errado não muda o estado mostrado, só a maioria muda."""
     votacao = VotacaoTemporal(5)
     assert mostrado(votacao, C, C, C, N) == C        # 1 quadro "sem máscara" no meio de conformes
     assert mostrado(votacao, N, N) == N               # [C, C, N, N, N]: agora a maioria é não conforme
 
 
 def test_empate_fica_com_o_estado_mais_recente():
+    """Em caso de empate na votação vale o estado mais recente."""
     assert mostrado(VotacaoTemporal(4), N, C) == C
     assert mostrado(VotacaoTemporal(4), C, I, I, C) == C
 
 
 def test_votacao_desligada_devolve_o_quadro_atual():
+    """Com janela de 1 quadro a votação devolve o próprio quadro atual."""
     votacao = VotacaoTemporal(1)
     quadro = [avaliacao(N)]
     assert votacao.atualizar(quadro) is quadro
 
 
 def test_pessoa_sem_id_nao_e_votada():
+    """Pessoa sem track_id não entra na votação e mostra o estado do quadro atual."""
     votacao = VotacaoTemporal(5)
     for _ in range(3):
         votacao.atualizar([avaliacao(C, track_id=None)])
@@ -72,6 +77,7 @@ def test_pessoa_sem_id_nao_e_votada():
 
 
 def test_pessoa_que_sumiu_comeca_do_zero():
+    """Pessoa que some por vários quadros começa a votação do zero ao voltar."""
     votacao = VotacaoTemporal(3)
     mostrado(votacao, N, N, N)
     for _ in range(4):                                  # 4 quadros só com outra pessoa
@@ -90,6 +96,7 @@ def test_rotulo_coerente_com_o_estado_votado():
 
 
 def test_votacao_nao_altera_as_avaliacoes_originais():
+    """A votação não modifica as avaliações originais recebidas."""
     votacao = VotacaoTemporal(5)
     votacao.atualizar([avaliacao(C)])
     original = avaliacao(N)
@@ -107,6 +114,7 @@ def quadro(com_arco: bool = False, altura: int = 700, largura: int = 500) -> np.
 
 
 def test_brilho_perto_das_maos(config):
+    """Brilho estourado perto dos punhos é medido; sem brilho ou sem punhos o resultado é zero ou nulo."""
     pessoa = criar_pessoa(PESSOA_SOLDANDO)
     assert len(regioes_das_maos(pessoa, 0.5, 0.12)) == 2          # 12% de 500 px de altura = 60 px para cada lado
     assert fracao_perto_das_maos(quadro(), pessoa, config.arco, 0.5) == 0.0
@@ -115,6 +123,7 @@ def test_brilho_perto_das_maos(config):
 
 
 def test_brilho_longe_das_maos_nao_conta(config):
+    """Luz estourada longe dos punhos não conta como arco."""
     img = quadro()
     img[100:160, 400:460] = 255                                    # luz estourada no canto, longe dos punhos
     assert fracao_perto_das_maos(img, criar_pessoa(PESSOA_SOLDANDO), config.arco, 0.5) == 0.0
@@ -124,6 +133,7 @@ class DetectorSoldador:
     """Uma pessoa de frente, sem máscara, com os punhos visíveis."""
 
     def detectar(self, frame):
+        """Devolve uma pessoa soldando, sem máscara, e um rosto detectado."""
         return [criar_pessoa(PESSOA_SOLDANDO)], [], [ROSTO_DETECTADO]
 
 
@@ -138,6 +148,7 @@ def test_arco_continua_aceso_por_alguns_segundos(config):
 
 
 def test_deteccao_de_solda_ativa_desligada(config):
+    """Com a detecção de solda ativa desligada, o arco nunca é marcado."""
     cfg = replace(config, arco=replace(config.arco, detectar_solda_ativa=False))
     aval = Pipeline(cfg, DetectorSoldador()).processar(quadro(com_arco=True), t=0.0).avaliacoes[0]
     assert aval.arco_ativo is False and aval.arco_maos is None
@@ -162,6 +173,7 @@ def test_mascara_levantada_com_arco_aceso_e_nao_conforme(config):
 
 
 def test_exigir_mascara_somente_com_arco(config):
+    """Com a opção ligada, rosto sem máscara só é não conforme quando há arco aceso."""
     cfg = replace(config, arco=replace(config.arco, exigir_mascara_somente_com_arco=True))
     pessoa = criar_pessoa(ROSTO_DESCOBERTO)
     parado = avaliar_frame([pessoa], [], cfg, [ROSTO_DETECTADO], arco_ativo=[False])[0]
@@ -181,6 +193,7 @@ def test_padrao_do_projeto_nao_muda_sem_arco(config):
 
 
 def test_exigir_arco_sem_detectar_arco_e_recusado(tmp_path):
+    """Configuração que exige arco mas desliga a detecção de solda ativa é recusada."""
     dados = yaml.safe_load((RAIZ / "config.yaml").read_text(encoding="utf-8-sig"))
     dados["arco"].update(exigir_mascara_somente_com_arco=True, detectar_solda_ativa=False)
     for nome in ("epi", "pose", "rosto"):

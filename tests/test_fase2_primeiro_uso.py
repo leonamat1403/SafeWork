@@ -16,6 +16,7 @@ EXEMPLO = RAIZ / ".env.example"
 
 @pytest.mark.parametrize("senha", ["senha-forte-1", "com espaço # e 'aspas'", 'dupla"aspa\\barra'])
 def test_cria_o_env_com_chave_e_senha(tmp_path, senha):
+    """Cria o .env com chave aleatória e senha do administrador, sem mostrar valores."""
     env = tmp_path / ".env"
     feitos = configurar_env(env, EXEMPLO, lambda login: senha)
     assert feitos == ["arquivo .env criado a partir do .env.example", "SECRET_KEY gerada (64 caracteres aleatórios)",
@@ -27,6 +28,7 @@ def test_cria_o_env_com_chave_e_senha(tmp_path, senha):
 
 
 def test_env_completo_nao_muda(tmp_path):
+    """Um .env já completo não é alterado nem pede a senha de novo."""
     env = tmp_path / ".env"
     configurar_env(env, EXEMPLO, lambda login: "senha-forte-1")
     antes = env.read_text(encoding="utf-8")
@@ -35,6 +37,7 @@ def test_env_completo_nao_muda(tmp_path):
 
 
 def test_completa_so_o_que_falta(tmp_path):
+    """Completa só o que falta no .env e preserva o que já estava."""
     env = tmp_path / ".env"
     env.write_text("DATA_DIR=./outra\nSECRET_KEY=troque-esta-chave\nADMIN_LOGIN_INICIAL=chefe\n", encoding="utf-8")
     feitos = configurar_env(env, EXEMPLO, lambda login: f"senha-do-{login}")
@@ -45,6 +48,7 @@ def test_completa_so_o_que_falta(tmp_path):
 
 
 def test_mensagens_claras_antes_de_ligar(tmp_path):
+    """Antes de ligar, o sistema aponta com clareza o que falta no .env."""
     ajustes = lambda **extra: carregar_ajustes(ambiente={"DATA_DIR": str(tmp_path / "data"), **extra})   # noqa: E731
     env = tmp_path / ".env"
     assert "--configurar" in problema_para_iniciar(ajustes(), env) and "não existe" in problema_para_iniciar(ajustes(), env)

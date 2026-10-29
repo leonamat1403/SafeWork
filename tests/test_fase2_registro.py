@@ -23,6 +23,7 @@ TURNOS = {"1": "06:00-14:00", "2": "14:00-22:00", "3": "22:00-06:00"}
 
 @pytest.fixture
 def registrador(fabrica, storage):
+    """Registrador de ocorrências ligado ao banco e ao armazenamento de teste."""
     return RegistradorOcorrencias(fabrica, storage, Borrador(None), TURNOS)
 
 
@@ -34,6 +35,7 @@ def resultado(config):
 
 
 def detectada(quando: datetime) -> OcorrenciaDetectada:
+    """Ocorrência detectada pela Fase 1 (sem máscara, rosto visível) na data e hora informadas."""
     return OcorrenciaDetectada(data_hora=quando, tempo_s=10.0, frame=100, track_id=1, epis_faltantes=["mascara"],
                                situacao={"mascara": "rosto visível sem máscara"}, fracao_nao_conforme={"mascara": 0.9},
                                epis_indeterminados=[], confianca_media={}, mascara_levantada=False)
@@ -41,6 +43,7 @@ def detectada(quando: datetime) -> OcorrenciaDetectada:
 
 def test_registra_no_banco_com_a_imagem_borrada(registrador, resultado, frame_texturizado, camera_id, data_dir,
                                                fabrica):
+    """Registrar grava a ocorrência no banco com turno e pasta do dia de Brasília, e a imagem salva sai com a cabeça borrada."""
     quando = datetime(2026, 10, 15, 1, 30, tzinfo=UTC)          # 22:30 em Brasília -> turno 3
     registro = registrador.registrar(detectada(quando), frame_texturizado, resultado, camera_id)
 
@@ -58,6 +61,7 @@ def test_registra_no_banco_com_a_imagem_borrada(registrador, resultado, frame_te
 
 
 def test_disco_cheio_registra_sem_imagem(fabrica, data_dir, resultado, frame_texturizado, camera_id):
+    """Com o disco cheio, a ocorrência é registrada sem imagem e o registrador marca falta de espaço."""
     cheio = RegistradorOcorrencias(fabrica, StorageDisco(data_dir, espaco_minimo_mb=10**12), Borrador(None), TURNOS)
     registro = cheio.registrar(detectada(datetime.now(UTC)), frame_texturizado, resultado, camera_id)
     assert registro.caminho_imagem is None and registro.caminho_thumb is None
@@ -65,12 +69,14 @@ def test_disco_cheio_registra_sem_imagem(fabrica, data_dir, resultado, frame_tex
 
 
 def test_falha_no_banco_nao_deixa_imagem_orfa(registrador, resultado, frame_texturizado, data_dir):
+    """Se o banco recusa o registro, nenhuma imagem fica salva no disco."""
     with pytest.raises(IntegrityError):
         registrador.registrar(detectada(datetime.now(UTC)), frame_texturizado, resultado, camera_id=999)
     assert not [p for p in (data_dir / "ocorrencias").rglob("*") if p.is_file()]
 
 
 def test_origem_invalida(registrador, resultado, frame_texturizado, camera_id):
+    """Origem de registro desconhecida levanta ValueError."""
     with pytest.raises(ValueError):
         registrador.registrar(detectada(datetime.now(UTC)), frame_texturizado, resultado, camera_id, origem="email")
 

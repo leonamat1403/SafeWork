@@ -17,6 +17,7 @@ def cena(semente: int) -> np.ndarray:
 
 
 def test_phash_reconhece_a_mesma_imagem_redimensionada_e_recomprimida():
+    """O hash perceptual de uma imagem reduzida e recomprimida fica próximo do original."""
     original = cena(1)
     reduzida = cv2.resize(original, (320, 180))
     _, jpeg = cv2.imencode(".jpg", reduzida, [cv2.IMWRITE_JPEG_QUALITY, 60])
@@ -25,10 +26,12 @@ def test_phash_reconhece_a_mesma_imagem_redimensionada_e_recomprimida():
 
 
 def test_phash_separa_cenas_diferentes():
+    """Cenas diferentes têm hashes perceptuais bem distantes."""
     assert distancia_hamming(phash(cena(1)), phash(cena(2))) > 15
 
 
 def test_centralizar_tira_a_parte_comum_dos_vetores():
+    """Centralizar tira a parte comum dos vetores, e vetores sem relação passam a ter similaridade perto de zero."""
     comum = np.full(64, 10.0)
     rnd = np.random.default_rng(0)
     a, b = comum + rnd.normal(size=(5, 64)), comum + rnd.normal(size=(7, 64))
@@ -40,6 +43,7 @@ def test_centralizar_tira_a_parte_comum_dos_vetores():
 
 
 def test_quadros_de_teste_um_por_segundo_e_ignora_saidas_do_sistema(tmp_path):
+    """Extrai um quadro por segundo dos vídeos de teste e ignora os vídeos de saída do sistema."""
     for nome in ("teste.mp4", "saida_video_teste.mp4"):
         gravador = cv2.VideoWriter(str(tmp_path / nome), cv2.VideoWriter_fourcc(*"mp4v"), 10, (64, 48))
         for _ in range(30):  # 3 s a 10 FPS

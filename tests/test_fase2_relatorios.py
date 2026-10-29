@@ -39,6 +39,7 @@ def preparar(c, token) -> list[str]:
 
 
 def ler_csv(resposta) -> list[list[str]]:
+    """Lê o CSV da resposta como lista de linhas, conferindo o BOM que o Excel exige."""
     texto = resposta.content.decode("utf-8")
     assert texto.startswith("﻿")                        # o Excel reconhece os acentos
     return list(csv.reader(io.StringIO(texto[1:]), delimiter=";"))
@@ -46,6 +47,7 @@ def ler_csv(resposta) -> list[list[str]]:
 
 # --------------------------------------------------------------------------------------------------- CSV (RD10)
 def test_exportar_csv_com_os_filtros_da_tela(cliente):
+    """CSV exportado respeita os filtros da tela, traz as colunas certas e registra a exportação na auditoria."""
     token = admin_pronto(cliente)
     uuids = preparar(cliente, token)
     r = cliente.get("/api/ocorrencias/exportar.csv?inicio=2026-09-01&fim=2026-09-30")
@@ -78,6 +80,7 @@ def test_csv_nao_executa_formulas(cliente):
 
 
 def test_csv_para_supervisor_e_com_login(cliente):
+    """Exportar CSV exige login, vale para supervisor e recusa validação desconhecida."""
     assert cliente.get("/api/ocorrencias/exportar.csv").status_code == 401
     token = admin_pronto(cliente)
     criar_supervisor(cliente)
@@ -89,6 +92,7 @@ def test_csv_para_supervisor_e_com_login(cliente):
 
 # --------------------------------------------------------------------------------------------------- PDF (RD10)
 def test_relatorio_mensal_em_pdf(cliente):
+    """Relatório mensal em PDF é gerado, valida mês e posto e registra a exportação na auditoria."""
     token = admin_pronto(cliente)
     preparar(cliente, token)
     r = cliente.get("/api/relatorios/mensal.pdf?mes=2026-09")
@@ -105,6 +109,7 @@ def test_relatorio_mensal_em_pdf(cliente):
 
 
 def test_pdf_de_mes_vazio_e_rotina_do_dia_primeiro(fabrica, tmp_path):
+    """Mês sem ocorrências gera PDF, e a rotina do dia 1 guarda o relatório do mês passado."""
     assert ultimo_dia(date(2026, 2, 10)) == date(2026, 2, 28) and ultimo_dia(date(2026, 12, 1)) == date(2026, 12, 31)
     assert gerar_relatorio_mensal(fabrica, {"1": "06:00-14:00"}, date(2026, 2, 1)).startswith(b"%PDF")
     caminho = guardar_relatorio_do_mes_passado(fabrica, tmp_path / "relatorios", {"1": "06:00-14:00"})
@@ -113,6 +118,7 @@ def test_pdf_de_mes_vazio_e_rotina_do_dia_primeiro(fabrica, tmp_path):
 
 # --------------------------------------------------------------------------------------------------- Telegram (RD09)
 def test_texto_do_alerta():
+    """Legenda do alerta e corpo multipart da foto saem no formato esperado."""
     oc = Ocorrencia(uuid="x", camera_id=1, data_hora=datetime(2026, 10, 15, 13, 5, tzinfo=UTC), track_id=3,
                     mascara_levantada=True, arco_ativo=True, origem="ao_vivo")
     texto = legenda(oc, "MIG 01")
@@ -124,10 +130,12 @@ def test_texto_do_alerta():
 
 
 def alertas(trecho: str) -> list:
+    """Lista os envios simulados do Telegram cujo texto contém o trecho dado."""
     return [(m, campos, foto) for m, campos, foto in TELEGRAM_ENVIADOS if trecho in campos.get("caption", campos.get("text", ""))]
 
 
 def test_alerta_com_a_foto_borrada(tmp_path):
+    """Ocorrência nova dispara alerta no Telegram com a mesma foto borrada gravada no disco."""
     TELEGRAM_ENVIADOS.clear()
     with montar(tmp_path, **TELEGRAM) as c:
         admin_pronto(c)
@@ -143,6 +151,7 @@ def test_alerta_com_a_foto_borrada(tmp_path):
 
 
 def test_alerta_desligado_ou_sem_token(tmp_path):
+    """Sem token ou com o alerta desligado na tela, nada é enviado ao Telegram."""
     TELEGRAM_ENVIADOS.clear()
     with montar(tmp_path) as c:                                     # sem token no .env
         admin_pronto(c)
@@ -157,13 +166,16 @@ def test_alerta_desligado_ou_sem_token(tmp_path):
 
 
 def test_upload_registrado_nao_gera_alerta(fabrica, storage, camera_id, tmp_path):
+    """Ocorrência vinda de upload não gera alerta."""
     notificador = Notificador(ajustes_de_teste(tmp_path, **TELEGRAM), storage, fabrica, lambda *a: None)
     assert notificador.ativo is True
     assert notificador.avisar(Ocorrencia(uuid="u", camera_id=camera_id, origem="upload")) is False
 
 
 def test_falha_no_envio_nao_derruba_e_nao_mostra_o_token(config, fabrica, storage, camera_id, caplog, tmp_path):
+    """Falha no envio é registrada sem mostrar o token e a thread do notificador continua viva."""
     def falha(token, metodo, campos, foto=None):
+        """Simula um envio que falha com erro cuja mensagem contém o token."""
         raise RuntimeError(f"erro na URL https://api.telegram.org/bot{token}/sendMessage")
     notificador = Notificador(ajustes_de_teste(tmp_path, **TELEGRAM), storage, fabrica, falha)
     registrador = RegistradorOcorrencias(fabrica, storage, Borrador(None), {})
@@ -184,6 +196,7 @@ def test_falha_no_envio_nao_derruba_e_nao_mostra_o_token(config, fabrica, storag
 
 
 def test_mensagem_de_teste_pela_tela(tmp_path):
+    """Mensagem de teste do Telegram é enviada com token e dá erro 502 sem ele."""
     TELEGRAM_ENVIADOS.clear()
     with montar(tmp_path, **TELEGRAM) as c:
         token = admin_pronto(c)

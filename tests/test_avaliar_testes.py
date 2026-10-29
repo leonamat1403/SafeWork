@@ -21,10 +21,12 @@ from src.tipos import Estado
     (None, "frente", ""),
 ])
 def test_resultado_esperado_de_cada_situacao(situacao, angulo, esperado_txt):
+    """Cada situação e ângulo de filmagem leva ao resultado esperado correto (ocorrência, sem ocorrência ou revisão manual)."""
     assert esperado(situacao, angulo) == esperado_txt
 
 
 def test_resultado_ok_ou_falha():
+    """Compara o esperado com o número de ocorrências e dá OK, FALHA ou vazio."""
     assert resultado("ocorrência", 2) == "OK"
     assert resultado("ocorrência", 0) == "FALHA"
     assert resultado("sem ocorrência", 0) == "OK"
@@ -34,16 +36,19 @@ def test_resultado_ok_ou_falha():
 
 
 def ocorrencia(t: float) -> Ocorrencia:
+    """Cria uma ocorrência de teste de máscara no instante t, para a pessoa 1."""
     return Ocorrencia(datetime.now(), t, 1, 3, ["mascara"], {"mascara": "rosto visível sem máscara"},
                       {"mascara": 1.0}, [], {}, False)
 
 
 def resultado_simulado(n_ocorrencias: int) -> ResultadoTeste:
+    """Monta um resultado de teste simulado com o número pedido de ocorrências, uma por minuto."""
     return ResultadoTeste(300, 12.34, {Estado.CONFORME: 0.1, Estado.NAO_CONFORME: 0.8, Estado.INDETERMINADO: 0.1},
                           5, [ocorrencia(4.0 + 60 * i) for i in range(n_ocorrencias)])
 
 
 def test_planilha_modelo(tmp_path):
+    """A planilha modelo tem as abas esperadas, a fórmula de esperado e a linha de exemplo T01."""
     wb = load_workbook(criar(tmp_path / "modelo.xlsx"))
     assert wb.sheetnames == ["Instruções", "Cenários", "Testes", "Ocorrências", "Fontes", "Métricas"]
     assert wb["Testes"][f"{COL['esperado']}2"].value.startswith("=IF(")
@@ -52,6 +57,7 @@ def test_planilha_modelo(tmp_path):
 
 
 def test_importa_videos_das_pastas_conformes_e_nao_conformes(tmp_path):
+    """Importa só vídeos das pastas conformes e não conformes, sem repetir os já cadastrados."""
     from ferramentas.avaliar_testes import importar_pastas
     for subpasta, nomes in {"conformes": ["a.mp4", "notas.txt"], "nao_conformes": ["b.MP4", "c.avi"]}.items():
         (tmp_path / "videos" / subpasta).mkdir(parents=True)
@@ -71,6 +77,7 @@ def test_importa_videos_das_pastas_conformes_e_nao_conformes(tmp_path):
 
 
 def test_gravar_resultado_e_reavaliar_mantendo_a_revisao_dos_outros_testes(tmp_path):
+    """Gravar e reavaliar um teste atualiza só as linhas dele e preserva a revisão manual dos outros testes."""
     caminho = criar(tmp_path / "planilha.xlsx")
     wb = load_workbook(caminho)
     wb["Ocorrências"]["H2"] = "FP"                                  # revisão manual da ocorrência do exemplo T01
@@ -90,6 +97,7 @@ def test_gravar_resultado_e_reavaliar_mantendo_a_revisao_dos_outros_testes(tmp_p
 
 
 def test_reavaliar_mantem_a_revisao_da_mesma_ocorrencia_do_proprio_teste(tmp_path):
+    """Ao reavaliar, a revisão de uma ocorrência que continua igual é mantida e a nova fica sem revisão."""
     wb = load_workbook(criar(tmp_path / "planilha.xlsx"))
     gravar_resultado(wb, 3, "T02", "testes_campo/t02.mp4", resultado_simulado(2))
     oc = wb["Ocorrências"]

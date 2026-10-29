@@ -61,6 +61,7 @@
     } catch (falha) { aviso(falha.message, "erro"); }
   }
 
+  // Reativa um usuário que estava desativado e atualiza a lista.
   async function reativar(u) {
     try {
       await api(`/api/usuarios/${u.id}/reativar`, { method: "POST" });

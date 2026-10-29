@@ -33,6 +33,7 @@ def preparar_setembro(c, token):
 
 
 def test_painel_do_periodo(cliente):
+    """O painel soma por dia, turno e posto, e calcula os cartões de conformidade, falsos positivos e pendentes do período."""
     token = admin_pronto(cliente)
     preparar_setembro(cliente, token)
     d = cliente.get(SETEMBRO).json()
@@ -49,6 +50,7 @@ def test_painel_do_periodo(cliente):
 
 
 def test_filtro_de_posto_vale_para_tudo(cliente):
+    """Filtrar por um posto sem dados zera todos os números do painel."""
     token = admin_pronto(cliente)
     preparar_setembro(cliente, token)
     d = cliente.get(SETEMBRO + "&camera_id=99").json()
@@ -58,6 +60,7 @@ def test_filtro_de_posto_vale_para_tudo(cliente):
 
 
 def test_periodo_padrao_e_cartoes_de_hoje(cliente):
+    """Sem filtro, o período vai do dia 1 do mês até hoje e os cartões de hoje e do mês contam a ocorrência nova."""
     admin_pronto(cliente)
     registrar_ocorrencias(cliente, 1, datetime.now(UTC))
     d = cliente.get("/api/dashboard").json()
@@ -67,12 +70,14 @@ def test_periodo_padrao_e_cartoes_de_hoje(cliente):
 
 
 def test_periodo_invalido(cliente):
+    """Período invertido ou longo demais é recusado com erro 422."""
     admin_pronto(cliente)
     assert cliente.get("/api/dashboard?inicio=2026-10-10&fim=2026-10-01").status_code == 422
     assert cliente.get("/api/dashboard?inicio=2025-01-01&fim=2026-10-01").status_code == 422
 
 
 def test_painel_para_supervisor_e_com_login(cliente):
+    """O painel exige login, e o supervisor consegue ver a API e a tela."""
     assert cliente.get("/api/dashboard").status_code == 401
     token = admin_pronto(cliente)
     criar_supervisor(cliente)
