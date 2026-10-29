@@ -34,7 +34,7 @@ ignorados pelo arco, e os mesmos números **por distância, ângulo e arco** (re
 - **Nunca peça para alguém soldar ou ficar perto de um arco aceso sem máscara** para gerar um teste. Cenários com arco
   aceso e pessoa sem máscara (C18) **só com vídeos já existentes** (internet).
 - Testes com arco aceso: só com soldadores habilitados, com todos os EPIs, no laboratório ou na empresa, com autorização.
-- Grave **apenas pessoas que autorizaram** (de preferência por escrito). Na Marcopolo, com autorização prévia da empresa
+- Grave **apenas pessoas que autorizaram** (de preferência por escrito). No posto real, com autorização prévia da empresa
   e dos trabalhadores (exigência do projeto).
 - Os vídeos ficam em `testes_campo/`, que está **fora do git**. No relatório, use números e, nas imagens, **rostos
   borrados**. O sistema não identifica ninguém: `pessoa #3` é só um número temporário do rastreamento.
@@ -83,7 +83,7 @@ Os mesmos cenários estão na aba **Cenários** da planilha (com o resultado esp
 | C14 | Máscara levantada (sobre a cabeça) por mais de 4 s | mascara_levantada | ocorrência |
 | C15 | Levanta a máscara por ~2 s para olhar o cordão e abaixa | pausa_curta | sem ocorrência |
 
-### Fase C – com arco, fumos e várias pessoas (laboratório, Marcopolo ou vídeos da internet)
+### Fase C – com arco, fumos e várias pessoas (laboratório, empresa ou vídeos da internet)
 
 | ID | Cenário | Situação real | Esperado |
 |---|---|---|---|

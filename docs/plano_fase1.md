@@ -1,6 +1,6 @@
 ﻿# Plano da Fase 1 – Validação da Detecção
 
-**Projeto:** Verificador de EPIs de Solda com Visão Computacional (FSG + Marcopolo)
+**Projeto:** Verificador de EPIs de Solda com Visão Computacional (FSG)
 **Etapa:** 1.1 – Plano enxuto da Fase 1
 **Escopo:** detecção, pose, associação EPI → pessoa, filtro do arco, persistência de ocorrências (terminal/CSV) e testes.
 **Fora do escopo desta fase:** banco de dados, API web, telas, login, blur e alertas (todos ficam para a Fase 2).
@@ -77,7 +77,7 @@ Se a região **não** está visível, não temos evidência de nada, e o estado 
 | **Detecção de objetos (YOLO)** | Rede que devolve caixas `(x1,y1,x2,y2)` + classe + confiança | Achar máscara, luvas, avental/macacão, calçado |
 | **Estimativa de pose (YOLOv8n-pose)** | Devolve a caixa da pessoa + 17 pontos do corpo (keypoints COCO), cada um com confiança | Saber **onde** estão cabeça, punhos, tronco e pés |
 | **Rastreamento (ByteTrack)** | Liga a mesma pessoa entre frames com um `track_id` | Contar persistência e cooldown por pessoa |
-| **Fine-tuning** | Continuar o treino de um modelo pré-treinado com dados novos | Adaptar o detector ao posto real da Marcopolo |
+| **Fine-tuning** | Continuar o treino de um modelo pré-treinado com dados novos | Adaptar o detector ao posto real |
 | **imgsz** | Lado da imagem que entra na rede | Maior = vê objetos pequenos (luva, bota), porém mais lento |
 
 Keypoints COCO usados (índice → ponto):

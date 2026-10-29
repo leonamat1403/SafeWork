@@ -78,7 +78,7 @@ enxergava olhos e nariz nitidamente, o que é impossível com uma máscara abaix
 
 **A validar com uma máscara real:** se o modelo de pose "enxergar" olhos através de uma máscara verdadeira com
 confiança ≥ 0,7, a regra de contradição marca INDETERMINADO (amarelo) em vez de OK. Isso não gera alarme falso, mas
-precisa ser medido com vídeos de soldadores (bancos de vídeo gratuitos, laboratório, Marcopolo).
+precisa ser medido com vídeos de soldadores (bancos de vídeo gratuitos, laboratório, empresa).
 
 ## v3 – 1ª execução (13/10/2026, sessão interativa do Kaggle: arquivos perdidos)
 

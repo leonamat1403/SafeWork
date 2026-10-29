@@ -138,7 +138,7 @@ avaliado: "ARCO DETECTADO – quadro ignorado" ou "CÂMERA OFFLINE". Em nenhum o
 │ ──────────────── │                                                                              │
 │ Leonardo · ADMIN │                                                                              │
 │ Trocar senha     ├──────────────────────────────────────────────────────────────────────────────┤
-│ Sair             │ Verificador de EPIs de Solda v2.4 · FSG / Marcopolo · nenhuma pessoa é identificada│
+│ Sair             │ Verificador de EPIs de Solda v2.4 · FSG · nenhuma pessoa é identificada            │
 └──────────────────┴──────────────────────────────────────────────────────────────────────────────┘
 ```
 - **Status da câmera** no topo: `● ONLINE 8,2 FPS` (verde) · `⬣ OFFLINE` (vermelho) · `‖ PAUSADA` (cinza). Sempre ícone
@@ -160,7 +160,7 @@ avaliado: "ARCO DETECTADO – quadro ignorado" ou "CÂMERA OFFLINE". Em nenhum o
 │                                                                                          │
 │                         [capacete de solda, ícone grande]                                │
 │                         VERIFICADOR DE EPIs DE SOLDA                                     │
-│                         Postos de solda · FSG / Marcopolo                                │
+│                         Postos de solda · FSG                                            │
 │                                                                                          │
 │                   ┌──────────────────────────────────────────────┐                       │
 │                   │  Usuário                                     │                       │

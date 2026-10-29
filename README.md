@@ -1,7 +1,12 @@
 # Verificador de EPIs de Solda com Visão Computacional
 
-Projeto extensionista de Ciência da Computação da **FSG** (Caxias do Sul – RS). Público-alvo: empresas com **postos fixos de solda** ou setores de solda pequenos,
+Projeto extensionista dos cursos de Análise e Desenvolvimento de Sistemas, Ciência da Computação e Engenharia de
+Software da **FSG** (Caxias do Sul – RS). Público-alvo: empresas com **postos fixos de solda** ou setores de solda pequenos,
 com a câmera a curta distância (2 a 6 m; testado até 4 m).
+
+**Equipe:** Gabriel Gutierrez, Gabriel de Moura Jank, Gustavo Chimello e Leonardo Mattê.  
+**Disciplina:** Processamento de Imagens (2026/2), professor Vinícius Colombo Sonda.
+
 Uma câmera instalada no posto de solda verifica se o soldador está usando a **máscara de solda** e registra as
 faltas (NR-6), com as imagens **sempre borradas** e sem identificar ninguém.
 
@@ -389,6 +394,7 @@ COCO. Vídeos dos testes de campo: Pexels (links na aba Fontes da planilha de te
 - **Ultralytics YOLO** (detecção e pose): **AGPL-3.0**. Adequado a este projeto acadêmico; um uso interno contínuo
   pela empresa deve considerar essa licença. O modelo de máscara (`models/epi_solda_best.pt`) foi treinado a partir
   dele.
+- **Este repositório** é distribuído sob a **AGPL-3.0** (arquivo `LICENSE`), a mesma licença do Ultralytics.
 - **YuNet** (OpenCV Zoo): MIT. **OpenCV**: Apache 2.0. **FastAPI**, **SQLAlchemy**, **APScheduler**: MIT.
   **ReportLab** (PDF): BSD.
 - Telas: **Bootstrap**, **Bootstrap Icons** e **Chart.js** (MIT) e as fontes **Barlow Semi Condensed**, **Atkinson

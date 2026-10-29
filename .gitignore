@@ -31,3 +31,10 @@ data/
 # Editor / sistema
 .vscode/
 Thumbs.db
+
+# Material da disciplina e documentos de entrega: ficam só no computador da equipe
+doc-fsg/
+docs/academico/analise_requisitos_fsg.md
+docs/academico/relatorio_fsg.docx
+docs/academico/relatorio_fsg_revisado.docx
+docs/academico/colinha_apresentacao.md

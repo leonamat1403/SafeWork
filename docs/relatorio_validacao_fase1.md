@@ -1,6 +1,6 @@
 # Relatório de validação da Fase 1 (Etapa 1.6)
 
-**Projeto:** Verificador de EPIs de Solda com Visão Computacional (FSG + Marcopolo)
+**Projeto:** Verificador de EPIs de Solda com Visão Computacional (FSG)
 **Data:** 13/10/2026
 **Escopo avaliado:** **máscara de solda** (= capacete de solda), por decisão do orientador em 11/10/2026
 (`docs/plano_fase1.md`, seção 0)
@@ -23,7 +23,7 @@ quem está de máscara, e a amostra de testes de campo é pequena (11 situaçõe
 validação, porque os erros que restam são do tipo **"não confirmar"** (amarelo), e não do tipo "acusar errado".
 
 **Recomendação:** considerar a detecção validada para a máscara de solda e seguir para a Fase 2. Em paralelo, fazer o
-piloto no posto real da Marcopolo (seção 7). A decisão é sua: para iniciar a Fase 2, escreva
+piloto no posto real (seção 7). A decisão é sua: para iniciar a Fase 2, escreva
 **"DETECÇÃO VALIDADA - INICIAR FASE 2"**.
 
 ## 2. O que foi avaliado
@@ -147,8 +147,8 @@ Média nos testes de campo (vídeos de até 4K, decodificação incluída): 12,9
    A ocorrência é gerada mesmo assim.
 6. **Amostra pequena** nos testes de campo (11 situações de falta; intervalo de confiança do recall de 52% a 95%) e
    **sem testes de falta a mais de 4 m**.
-7. **Os vídeos de teste são de banco de imagens**, não do posto real. Câmera, iluminação, fumos e distância na
-   Marcopolo ainda não foram testados. O **filtro do arco** não foi exercitado em campo.
+7. **Os vídeos de teste são de banco de imagens**, não do posto real. Câmera, iluminação, fumos e distância no
+   posto real ainda não foram testados. O **filtro do arco** não foi exercitado em campo.
 8. **Troca de ID** do rastreamento com os clarões do arco pode duplicar uma ocorrência (T09).
 9. **Dados de treino:** muitas fotos de produto (Welding Helmet) e fotos da web (algumas com marca d'água); conferência
    por amostragem, não imagem a imagem. Os datasets usados têm licença CC BY 4.0 (seção 9).
@@ -159,7 +159,7 @@ Média nos testes de campo (vídeos de até 4K, decodificação incluída): 12,9
 
 1. **Validar a Fase 1 para a máscara de solda** e iniciar a Fase 2, mantendo os testes [FASE 1] como proteção contra
    regressões.
-2. **Piloto no posto real da Marcopolo** (com autorização da empresa e dos trabalhadores): câmera fixa na posição
+2. **Piloto no posto real** (com autorização da empresa e dos trabalhadores): câmera fixa na posição
    definitiva, arco aceso, fumos, distâncias de 2, 4 e 6 m. Isso mede o recall real, exercita o filtro do arco e
    gera material para o RF33.
 3. **Fine-tuning com imagens do posto (RF33):** máscaras abaixadas e levantadas (inclusive de perfil e de costas) e

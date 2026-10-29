@@ -317,7 +317,7 @@ Se a cota de GPU do Colab acabar, o mesmo treino pode continuar no Kaggle a part
 }
 ```
 
-## 8. Fine-tuning com fotos do posto da Marcopolo (RF33) – planejamento
+## 8. Fine-tuning com fotos do posto real (RF33) – planejamento
 
 Fazer **depois** da rodada v2, se as métricas ou os testes de campo indicarem necessidade, e só com autorização da empresa e dos trabalhadores fotografados.
 
@@ -328,6 +328,6 @@ Fazer **depois** da rodada v2, se as métricas ou os testes de campo indicarem n
    - **negativos:** boné, óculos de sol, protetor auricular, capacete de segurança. Esses objetos ficam **sem caixa**, para o modelo aprender que não são máscara de solda;
    - dica: extraia 1 quadro a cada 2–3 s de vídeos curtos. Quadros seguidos são quase iguais.
 2. **Anotação no Roboflow:** crie um projeto (ou use um dos forks) e anote com o nome **`mascara`**. Revise caixa por caixa.
-3. **Merge:** acrescente o projeto novo como mais uma fonte em `FONTES` (célula 1 do notebook). A divisão estratificada garante fotos da Marcopolo também no **teste**. Use `so_treino` para os quadros de um mesmo vídeo que forem muito parecidos.
+3. **Merge:** acrescente o projeto novo como mais uma fonte em `FONTES` (célula 1 do notebook). A divisão estratificada garante fotos do posto real também no **teste**. Use `so_treino` para os quadros de um mesmo vídeo que forem muito parecidos.
 4. **Retreino:** nova rodada (ex.: `RODADA = "v5"`), usando como modelo base o `epi_solda_best.pt` anterior (continua o aprendizado) ou de novo o `yolov8n.pt`. Compare os dois.
-5. **Comparação:** avalie o modelo antigo e o novo **no mesmo conjunto de teste com fotos da Marcopolo** e registre o antes x depois para o relatório.
+5. **Comparação:** avalie o modelo antigo e o novo **no mesmo conjunto de teste com fotos do posto real** e registre o antes x depois para o relatório.

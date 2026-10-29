@@ -4,7 +4,7 @@
 e o material dos testes de campo e do treinamento.
 
 > **Importante:** esta é uma revisão **técnica**, feita pela equipe do projeto, sobre o que o software faz com os
-> dados. **Não é parecer jurídico.** Antes de usar o sistema com trabalhadores da Marcopolo, ela deve ser validada
+> dados. **Não é parecer jurídico.** Antes de usar o sistema com trabalhadores de uma empresa, ela deve ser validada
 > pelo encarregado de dados (DPO) e pelo jurídico da empresa, que decidem a base legal e a política de uso.
 
 Lei Geral de Proteção de Dados: Lei nº 13.709/2018 ("LGPD"). Os artigos citados são os da lei.

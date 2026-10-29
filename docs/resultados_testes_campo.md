@@ -120,7 +120,7 @@ Nos três casos o sistema ficou **amarelo (INDETERMINADO)**: deixou de acusar, m
    testado.
 5. **Troca de ID** do rastreamento com os clarões do arco pode duplicar uma ocorrência (T09).
 6. **O filtro do arco não foi acionado** em nenhum vídeo: nenhum frame passou de 15% de pixels estourados. O teste
-   com câmera real no posto (Marcopolo) ainda é necessário.
+   com câmera real no posto ainda é necessário.
 7. **Sem testes de "sem máscara" a mais de 4 m.**
 
 ## 5. Recomendações
@@ -129,7 +129,7 @@ Nos três casos o sistema ficou **amarelo (INDETERMINADO)**: deixou de acusar, m
    em teste. Isso ataca as limitações 2 e 3, que são as que impedem o verde e o rótulo "MASCARA LEVANTADA" de aparecer.
 2. Gravar ou obter vídeos **sem máscara a 4–6 m** e **de perfil**.
 3. Testar `conf_rosto` 0,7 (limitação 4).
-4. Teste no posto real da Marcopolo, com autorização: câmera fixa, arco aceso, fumos.
+4. Teste no posto real, com autorização: câmera fixa, arco aceso, fumos.
 
 ## 6. Modelo v4 (soldadores reais) x v3, nos mesmos 28 trechos
 

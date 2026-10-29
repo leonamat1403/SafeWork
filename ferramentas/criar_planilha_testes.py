@@ -38,7 +38,7 @@ SITUACOES = ["sem_mascara", "mascara_levantada", "mascara_abaixada", "pausa_curt
 ANGULOS = ["frente", "perfil", "costas", "varia"]
 ARCO = ["apagado", "aceso"]
 SIM_NAO = ["nao", "sim"]
-ORIGENS = ["webcam", "celular", "internet", "laboratorio", "marcopolo"]
+ORIGENS = ["webcam", "celular", "internet", "laboratorio", "empresa"]
 
 # Colunas da aba Testes: (cabeçalho, largura, preenchido por: "voce" | "script" | "formula", comentário)
 COLUNAS_TESTES = [
@@ -54,7 +54,7 @@ COLUNAS_TESTES = [
     ("arco", 9, "voce", "apagado ou aceso."),
     ("fumos", 7, "voce", "nao ou sim."),
     ("pessoas", 8, "voce", "Quantas pessoas aparecem."),
-    ("origem", 11, "voce", "webcam, celular, internet, laboratorio ou marcopolo."),
+    ("origem", 11, "voce", "webcam, celular, internet, laboratorio ou empresa."),
     ("observacoes", 28, "voce", "Livre."),
     ("esperado", 15, "formula", "Calculado a partir de situacao_real e angulo: 'ocorrência' ou 'sem ocorrência'."),
     ("frames", 8, "script", "Frames processados no trecho."),
@@ -96,9 +96,9 @@ CENARIOS = [
     ("C15", "Levanta a máscara por ~2 s para olhar o cordão e abaixa", "pausa_curta", "frente", 2, "apagado", "nao",
      "máscara de solda", "alta"),
     ("C16", "Soldando com máscara abaixada e ARCO ACESO", "mascara_abaixada", "frente", 2, "aceso", "nao",
-     "laboratório, Marcopolo ou internet", "alta"),
+     "laboratório, empresa ou internet", "alta"),
     ("C17", "Soldando com máscara abaixada, com fumos e faíscas", "mascara_abaixada", "frente", 2, "aceso", "sim",
-     "laboratório, Marcopolo ou internet", "média"),
+     "laboratório, empresa ou internet", "média"),
     ("C18", "Arco aceso e soldador sem máscara: SOMENTE vídeos já existentes (internet). Nunca encenar!",
      "sem_mascara", "frente", 2, "aceso", "nao", "internet", "baixa"),
     ("C19", "Duas pessoas: uma com máscara e outra sem", "misto", "frente", 2, "apagado", "nao",
