@@ -312,6 +312,9 @@ Da detecção (`docs/relatorio_validacao_fase1.md`, seção 6):
 - Cabeça baixa no escuro, costas e respirador cobrindo o rosto ficam **indeterminados**.
 - Amostra de teste pequena (11 situações de falta; intervalo de confiança do recall de 52% a 95%), com vídeos de
   banco de imagens, **sem teste no posto real** e **sem teste acima de 4 m**.
+- Um teste simulado no ambiente de uma empresa (sem solda real, com webcam) acertou os casos simples (máscara no rosto,
+  rosto descoberto e máscara na mão), mas mostrou a marca "Arco aceso" sem haver arco, provavelmente pelo reflexo
+  violeta da lente. Esse teste não mediu recall nem falsos positivos.
 - O filtro do arco e a **solda ativa** (arco perto das mãos, limite inicial de 3%) não foram testados com arco real
   ao vivo: ajuste os limites na Calibração durante o piloto.
 - A troca do número de rastreamento com os clarões do arco pode duplicar uma ocorrência.
@@ -336,7 +339,7 @@ Do sistema:
 .venv\Scripts\python -m pytest
 ```
 
-São mais de 300 testes, com pessoas, máscaras e câmeras **simuladas**. Os testes da Fase 2 usam um banco e uma
+São 313 testes, com pessoas, máscaras e câmeras **simuladas**. Os testes da Fase 2 usam um banco e uma
 pasta de dados temporários (nada toca a pasta `data/` real) e nunca usam a rede. O teste de integração com os
 modelos reais é pulado se faltar algum modelo em `models/`.
 
@@ -456,7 +459,7 @@ guardadas no próprio projeto, em `app/static/vendor/`, e funcionam sem internet
 | Dados | SQLAlchemy, Alembic | 2.1.4, 1.20.0 | banco (SQLite) e atualizações do banco |
 | | APScheduler | 3.11.3 | backup, retenção e relatório mensal |
 | | python-dotenv, PyYAML, tzdata | 1.2.4, 6.0.3, 2026.5 | configuração (`.env`, `config.yaml`) e fuso de Brasília |
-| Relatórios | ReportLab, openpyxl | 4.2.5, 3.1.5 | PDF mensal e planilhas de teste |
+| Relatórios | ReportLab, openpyxl, chardet | 4.2.5, 3.1.5, 7.6.0 | PDF mensal, planilhas de teste e detecção de codificação (usada pelo ReportLab) |
 | Telas | Bootstrap, Bootstrap Icons | 5.3.8, 1.13.2 | layout responsivo e ícones |
 | | Chart.js | 4.4.7 | gráficos do Painel |
 | | JavaScript puro (fetch) | – | comportamento das telas, sem framework |
