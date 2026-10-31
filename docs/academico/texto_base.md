@@ -142,7 +142,7 @@ completo, um vídeo 4K com o blur ao vivo foi processado a cerca de 7,7 FPS.
 O sistema entregue tem monitoramento ao vivo com as cabeças borradas, registro de ocorrências com foto borrada,
 validação pelos supervisores, painel com gráficos, configuração por posto (inclusive a zona de interesse),
 calibração no local, análise de arquivos, exportação CSV, relatório mensal em PDF e alerta opcional pelo Telegram.
-Foram escritos 312 testes automáticos, todos aprovados na versão final (`README.md`, seção 12).
+Foram escritos 313 testes automáticos, todos aprovados na versão final (`README.md`, seção 12).
 
 ### Piloto: antes x depois
 

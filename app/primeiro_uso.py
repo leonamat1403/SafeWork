@@ -13,8 +13,12 @@ from collections.abc import Callable
 from getpass import getpass
 from pathlib import Path
 
-from app.auth import SENHA_PADRAO_ENV, problema_na_senha
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.auth import SENHA_PADRAO_ENV, gerar_hash, problema_na_senha
 from app.config import RAIZ, Ajustes
+from app.models import Usuario
 
 # Valores que vêm no .env.example e que precisam ser trocados antes do uso real.
 VALORES_DE_EXEMPLO = {"SECRET_KEY": "troque-esta-chave", "ADMIN_SENHA_INICIAL": SENHA_PADRAO_ENV}
@@ -66,6 +70,20 @@ def configurar_env(env: Path, exemplo: Path, pedir_senha: Callable[[str], str]) 
     if feitos:
         env.write_text(texto, encoding="utf-8")
     return feitos
+
+
+def redefinir_senha_admin(fabrica: sessionmaker[Session], login: str, senha: str) -> bool:
+    """Define uma nova senha para o administrador `login` (esquecimento da senha). Reativa o usuário, exige a troca da
+    senha no próximo acesso e não mexe em mais nada do banco. Devolve False se o usuário não existe."""
+    with fabrica() as sessao:
+        usuario = sessao.scalars(select(Usuario).where(Usuario.login == login)).first()
+        if usuario is None:
+            return False
+        usuario.senha_hash = gerar_hash(senha)
+        usuario.ativo = True
+        usuario.deve_trocar_senha = True
+        sessao.commit()
+    return True
 
 
 def pedir_senha_no_terminal(login: str) -> str:

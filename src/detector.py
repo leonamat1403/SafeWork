@@ -104,7 +104,11 @@ class DetectorRostos:
             # O recorte é ampliado até `self.tamanho` px; depois as coordenadas voltam à escala original (÷ escala)
             escala = self.tamanho / max(x2 - x1, y2 - y1)
             recorte = cv2.resize(frame[y1:y2, x1:x2], (max(1, round((x2 - x1) * escala)), max(1, round((y2 - y1) * escala))))
-            self.modelo.setInputSize((recorte.shape[1], recorte.shape[0]))
+            # O OpenCV 5 não aceita trocar o tamanho de entrada do YuNet entre chamadas (erro de "shape" quando a pessoa
+            # sai do quadro e o recorte fica menor): completa com borda preta até `self.tamanho` x `self.tamanho`.
+            # A borda fica embaixo e à direita, então as coordenadas do rosto continuam valendo (÷ escala).
+            recorte = cv2.copyMakeBorder(recorte, 0, self.tamanho - recorte.shape[0], 0, self.tamanho - recorte.shape[1],
+                                         cv2.BORDER_CONSTANT, value=(0, 0, 0))
             _, faces = self.modelo.detect(recorte)
             for f in faces if faces is not None else []:
                 fx, fy, fw, fh = (float(v) / escala for v in f[:4])

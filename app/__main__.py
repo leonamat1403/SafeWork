@@ -6,7 +6,29 @@ import argparse
 import sys
 
 from app.config import RAIZ, ErroAjustes, carregar_ajustes
-from app.primeiro_uso import aviso_do_python, configurar_env, pedir_senha_no_terminal, problema_para_iniciar
+from app.primeiro_uso import (aviso_do_python, configurar_env, pedir_senha_no_terminal, problema_para_iniciar,
+                              redefinir_senha_admin)
+
+
+def _redefinir_admin() -> int:
+    """Pede uma senha nova no terminal e grava no banco para o administrador do .env (padrão: admin). Devolve o código de saída."""
+    from app.database import aplicar_migracoes, criar_engine, criar_fabrica_sessoes   # só aqui: o modo normal não precisa
+    try:
+        ajustes = carregar_ajustes()
+    except ErroAjustes as erro:
+        print(f"Erro na configuração: {erro}", file=sys.stderr)
+        return 1
+    if ajustes.caminho_sqlite is not None and not ajustes.caminho_sqlite.exists():
+        print("O banco ainda não existe: ligue o sistema uma vez (ele cria o admin com a senha do .env).", file=sys.stderr)
+        return 1
+    aplicar_migracoes(ajustes.database_url)
+    login = ajustes.admin_login_inicial or "admin"
+    senha = pedir_senha_no_terminal(login)
+    if not redefinir_senha_admin(criar_fabrica_sessoes(criar_engine(ajustes.database_url)), login, senha):
+        print(f"O usuário '{login}' não existe no banco. Crie-o em Usuários (com outro administrador).", file=sys.stderr)
+        return 1
+    print(f"Pronto: a senha de '{login}' foi redefinida. Ligue o sistema e entre; ele vai pedir uma senha nova.")
+    return 0
 
 
 def main() -> int:
@@ -14,6 +36,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="python -m app", description="Verificador de EPIs de Solda – sistema web")
     parser.add_argument("--configurar", action="store_true",
                         help="cria ou completa o .env (gera a SECRET_KEY e pede a senha do 1º administrador)")
+    parser.add_argument("--redefinir-admin", action="store_true",
+                        help="define uma nova senha para o usuário admin (se você a esqueceu); a troca é exigida no próximo acesso")
     args = parser.parse_args()
     if aviso := aviso_do_python():   # avisa (sem impedir) se não for o Python do .venv do projeto
         print(aviso, file=sys.stderr)
@@ -24,6 +48,8 @@ def main() -> int:
             print(f"- {item}")
         print(r"Pronto. Para ligar o sistema:  .venv\Scripts\python -m app")
         return 0
+    if args.redefinir_admin:
+        return _redefinir_admin()
     try:
         ajustes = carregar_ajustes()
     except ErroAjustes as erro:

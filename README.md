@@ -122,6 +122,43 @@ No PowerShell:
    câmera do posto. Depois desenhe a **zona de interesse** e confira tudo na tela **Calibração**.
 5. Em **Usuários**, crie os supervisores. Cada um troca a senha inicial no primeiro acesso.
 
+
+### Usuário e senha
+
+- **Usuário do administrador:** `admin` (vem de `ADMIN_LOGIN_INICIAL` no `.env`).
+- **Senha:** a que você digitou no `--configurar`, guardada em `ADMIN_SENHA_INICIAL` no `.env`. Ela só vale até a primeira
+  troca: depois do primeiro acesso, vale a senha nova que você escolheu (o `.env` não é atualizado).
+- Não existe senha padrão fixa. Depois de 5 tentativas erradas o login é bloqueado por alguns minutos; reiniciar o
+  sistema também libera.
+
+### Esqueci a senha do admin
+
+1. Feche o sistema (Ctrl+C no terminal em que ele está rodando).
+2. Rode o comando abaixo, digite a senha nova duas vezes (ela não aparece na tela):
+   ```powershell
+   .venv\Scripts\python -m app --redefinir-admin
+   ```
+3. Ligue o sistema de novo (`.venv\Scripts\python -m app`) e entre com `admin` e a senha nova. O sistema pede outra
+   senha no primeiro acesso. Nada mais é alterado: ocorrências, postos e usuários continuam como estavam.
+
+Esqueceu a senha de um supervisor? Entre como administrador, abra **Usuários** e use **gerar senha temporária**.
+Se o `admin` estiver desativado, o comando acima também o reativa.
+
+### Como usar no dia a dia
+
+1. **Ligue o sistema** e abra **http://127.0.0.1:8000** (ou o endereço da rede, seção 5). Entre com seu usuário.
+2. **Ao vivo:** acompanhe o posto. Verde = máscara no rosto, vermelho = sem máscara ou levantada, amarelo = não dá para
+   saber (de costas, fora do quadro). A foto de uma falta só é guardada quando ela dura cerca de 4 segundos.
+3. **Ocorrências:** no fim do turno abra cada ocorrência, veja a foto (a cabeça sempre aparece borrada) e clique em
+   **Confirmar falta** ou **Falso positivo**. Use os filtros por dia, posto e turno e **Exportar CSV** se precisar.
+4. **Analisar arquivo:** para testar sem câmera, envie uma foto (.jpg/.png) ou um vídeo (.mp4, até 200 MB), escolha o
+   posto e aguarde a barra de progresso (um vídeo de 30 s em 1080p leva alguns minutos). O resultado sai borrado e só
+   vira ocorrência se você clicar em **Registrar como ocorrência**.
+5. **Painel:** veja as faltas por dia, turno e posto e baixe o **relatório do mês em PDF** para a reunião de segurança.
+6. **Administrador:** em **Configurações** ajuste postos, câmeras e a zona de interesse; em **Calibração** confira o que o
+   sistema mede no posto; em **Usuários** crie supervisores.
+7. **Para encerrar:** Ctrl+C no terminal. Os dados ficam na pasta `data/` (banco, imagens, backups e logs).
+
 ---
 
 ## 5. Execução e acesso pela rede

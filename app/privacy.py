@@ -12,6 +12,7 @@ O que é borrado:
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable, Iterable
 from pathlib import Path
 
@@ -102,22 +103,34 @@ class DetectorRostosQuadro:
 
     def __init__(self, caminho_modelo: Path | None, conf: float = 0.6) -> None:
         """Carrega o YuNet de `caminho_modelo`; `conf` é a confiança mínima para aceitar um rosto."""
-        self._detector = None
-        if caminho_modelo is None or not Path(caminho_modelo).exists():
+        self._caminho, self._conf = caminho_modelo, conf
+        self._detectores: dict[tuple[int, int], cv2.FaceDetectorYN] = {}   # um YuNet para cada tamanho de imagem
+        self._trava = threading.Lock()   # o mesmo detector é usado pela câmera e pelo upload ao mesmo tempo
+        self._disponivel = caminho_modelo is not None and Path(caminho_modelo).exists()
+        if not self._disponivel:
             log.warning("Modelo de rostos não encontrado (%s): o blur usa só a cabeça das pessoas (pose).",
                         caminho_modelo)
-            return
-        self._detector = cv2.FaceDetectorYN.create(str(caminho_modelo), "", (320, 320), conf, 0.3, 5000)   # tamanho inicial (refeito a cada quadro), limiar, NMS, máx. rostos
+
+    def _para_tamanho(self, largura: int, altura: int) -> cv2.FaceDetectorYN:
+        """O YuNet do OpenCV 5 falha se o tamanho da entrada muda entre chamadas (câmera 640x480 e upload 1920x1080,
+        por exemplo): por isso há um detector para cada tamanho, criado na primeira vez que ele aparece."""
+        chave = (largura, altura)
+        if chave not in self._detectores:
+            if len(self._detectores) >= 8:   # poucos tamanhos na prática; evita crescer sem limite
+                self._detectores.clear()
+            # Parâmetros: confiança mínima, limiar do NMS (supressão de caixas repetidas) e máximo de rostos
+            self._detectores[chave] = cv2.FaceDetectorYN.create(str(self._caminho), "", chave, self._conf, 0.3, 5000)
+        return self._detectores[chave]
 
     def detectar(self, frame: np.ndarray) -> list[Caixa]:
         """Caixas (x1, y1, x2, y2) dos rostos, nas coordenadas do frame original (a detecção usa cópia reduzida)."""
-        if self._detector is None:
+        if not self._disponivel:
             return []
         altura, largura = frame.shape[:2]
         escala = min(1.0, LADO_MAX_ROSTOS / max(altura, largura))
         imagem = cv2.resize(frame, None, fx=escala, fy=escala) if escala < 1 else frame
-        self._detector.setInputSize((imagem.shape[1], imagem.shape[0]))
-        _, faces = self._detector.detect(imagem)
+        with self._trava:
+            _, faces = self._para_tamanho(imagem.shape[1], imagem.shape[0]).detect(imagem)
         if faces is None:
             return []
         return [(f[0] / escala, f[1] / escala, (f[0] + f[2]) / escala, (f[1] + f[3]) / escala) for f in faces]

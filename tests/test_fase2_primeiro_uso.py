@@ -56,3 +56,25 @@ def test_mensagens_claras_antes_de_ligar(tmp_path):
     assert "SECRET_KEY" in problema_para_iniciar(ajustes(SECRET_KEY="troque-esta-chave"), env)
     assert "ADMIN_SENHA_INICIAL" in problema_para_iniciar(ajustes(SECRET_KEY="x" * 64), env)
     assert problema_para_iniciar(ajustes(SECRET_KEY="x" * 64, ADMIN_SENHA_INICIAL="senha-forte-1"), env) is None
+
+
+def test_redefinir_senha_do_admin(tmp_path):
+    """--redefinir-admin troca a senha, reativa o usuário e exige nova troca; usuário inexistente devolve False."""
+    from app.auth import conferir_senha, gerar_hash
+    from app.database import criar_engine, criar_fabrica_sessoes
+    from app.models import Base, Usuario
+    from app.primeiro_uso import redefinir_senha_admin
+
+    engine = criar_engine(f"sqlite:///{tmp_path / 'teste.sqlite3'}")
+    Base.metadata.create_all(engine)
+    fabrica = criar_fabrica_sessoes(engine)
+    with fabrica() as s:
+        s.add(Usuario(nome="Administrador", login="admin", senha_hash=gerar_hash("senha-antiga-1"), perfil="ADMIN",
+                      ativo=False, deve_trocar_senha=False))
+        s.commit()
+    assert redefinir_senha_admin(fabrica, "admin", "senha-nova-123") is True
+    with fabrica() as s:
+        u = s.query(Usuario).filter_by(login="admin").one()
+        assert conferir_senha("senha-nova-123", u.senha_hash) and not conferir_senha("senha-antiga-1", u.senha_hash)
+        assert u.ativo and u.deve_trocar_senha
+    assert redefinir_senha_admin(fabrica, "outro", "senha-nova-123") is False
